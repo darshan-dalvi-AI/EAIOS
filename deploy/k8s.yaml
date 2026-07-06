@@ -1,0 +1,124 @@
+# EAIOS — Kubernetes deployment with autoscaling (Phase 6 roadmap)
+# Usage: build/push images, set image names + secrets below, then:
+#   kubectl apply -f deploy/k8s.yaml
+apiVersion: v1
+kind: Namespace
+metadata: { name: eaios }
+---
+apiVersion: v1
+kind: Secret
+metadata: { name: eaios-secrets, namespace: eaios }
+type: Opaque
+stringData:
+  SECRET_KEY: "change-me-long-random"
+  DATABASE_URL: "postgresql+psycopg2://eaios:CHANGE@postgres-host:5432/eaios"  # use managed Postgres (RDS/CloudSQL)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: backend, namespace: eaios }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: backend } }
+  template:
+    metadata: { labels: { app: backend } }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/YOUR_USER/eaios-backend:latest
+          ports: [{ containerPort: 8000 }]
+          envFrom: [{ secretRef: { name: eaios-secrets } }]
+          env:
+            - { name: QDRANT_URL, value: "http://qdrant:6333" }
+            - { name: LLM_PROVIDER, value: "auto" }
+            - { name: OLLAMA_BASE_URL, value: "http://ollama:11434" }
+          readinessProbe: { httpGet: { path: /api/health, port: 8000 }, initialDelaySeconds: 5 }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: backend, namespace: eaios }
+spec:
+  selector: { app: backend }
+  ports: [{ port: 8000 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: backend-hpa, namespace: eaios }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: backend }
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: frontend, namespace: eaios }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata: { labels: { app: frontend } }
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/YOUR_USER/eaios-frontend:latest
+          ports: [{ containerPort: 80 }]
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: frontend, namespace: eaios }
+spec:
+  selector: { app: frontend }
+  ports: [{ port: 80 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: qdrant, namespace: eaios }
+spec:
+  serviceName: qdrant
+  replicas: 1
+  selector: { matchLabels: { app: qdrant } }
+  template:
+    metadata: { labels: { app: qdrant } }
+    spec:
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:latest
+          ports: [{ containerPort: 6333 }]
+          volumeMounts: [{ name: data, mountPath: /qdrant/storage }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: qdrant, namespace: eaios }
+spec:
+  selector: { app: qdrant }
+  ports: [{ port: 6333 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eaios
+  namespace: eaios
+  annotations: { nginx.ingress.kubernetes.io/proxy-body-size: 50m }
+spec:
+  rules:
+    - host: eaios.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend: { service: { name: backend, port: { number: 8000 } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: frontend, port: { number: 80 } } }

@@ -1,0 +1,244 @@
+/* API client with graceful demo fallback.
+   Live mode: requests hit the FastAPI backend (vite proxy → :8000).
+   Demo mode: identical shapes served from mock.ts with realistic latency. */
+import { useOS } from "../store";
+import type { Citation, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
+import { MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockChat, mockRunWorkflow } from "./mock";
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const { token } = useOS.getState();
+  const res = await fetch(`/api${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+  if (!res.ok) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+export async function ping(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch("/api/health", { signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function apiLogin(email: string, password: string): Promise<{ user: SessionUser; token: string | null; live: boolean }> {
+  if (useOS.getState().live) {
+    try {
+      const data = await request<{ token: { access_token: string }; user: SessionUser }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      return { user: data.user, token: data.token.access_token, live: true };
+    } catch (err) {
+      // fall through to demo credentials so the UI is never a dead end
+      const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
+      if (!demo) throw err;
+    }
+  }
+  await delay(600);
+  const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
+  if (!demo) throw new Error("Invalid credentials");
+  const { password: _pw, ...user } = demo;
+  return { user, token: null, live: false };
+}
+
+export interface ChatResult {
+  agent: string;
+  plan: string[];
+  answer: string;
+  citations: Citation[];
+  confidence: number;
+}
+
+export async function apiChat(message: string, agent?: string): Promise<ChatResult> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    const data = await request<{
+      message: { content: string; agent: string; confidence: number };
+      plan: string[];
+      retrieved: Citation[];
+    }>("/chat", { method: "POST", body: JSON.stringify({ message, agent: agent || null }) });
+    return {
+      agent: data.message.agent,
+      plan: data.plan,
+      answer: data.message.content,
+      citations: data.retrieved,
+      confidence: data.message.confidence,
+    };
+  }
+  await delay(700 + Math.random() * 800);
+  const reply = mockChat(message);
+  return agent && agent !== "auto" ? { ...reply, agent, plan: [agent] } : reply;
+}
+
+/* ── streaming chat (SSE) ── */
+export interface StreamMeta {
+  conversation_id: string;
+  agent: string;
+  plan: string[];
+  citations: Citation[];
+  confidence: number;
+}
+
+export async function apiChatStream(
+  message: string,
+  agent: string | undefined,
+  handlers: { onMeta: (m: StreamMeta) => void; onDelta: (text: string) => void },
+  signal?: AbortSignal,
+): Promise<void> {
+  const { live, token } = useOS.getState();
+
+  if (!(live && token)) {
+    // demo mode: identical streaming behavior over mock data
+    await delay(450 + Math.random() * 500);
+    const r = mockChat(message);
+    const routed = agent && agent !== "auto" ? { ...r, agent, plan: [agent] } : r;
+    handlers.onMeta({ conversation_id: "demo", agent: routed.agent, plan: routed.plan, citations: routed.citations, confidence: routed.confidence });
+    const text = routed.answer;
+    const step = Math.max(4, Math.floor(text.length / 110));
+    for (let i = 0; i < text.length; i += step) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      handlers.onDelta(text.slice(i, i + step));
+      await delay(13);
+    }
+    return;
+  }
+
+  const res = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ message, agent: agent || null }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep;
+    while ((sep = buffer.indexOf("\n\n")) >= 0) {
+      const raw = buffer.slice(0, sep).trim();
+      buffer = buffer.slice(sep + 2);
+      if (!raw.startsWith("data:")) continue;
+      try {
+        const ev = JSON.parse(raw.slice(5));
+        if (ev.type === "meta") handlers.onMeta(ev);
+        else if (ev.type === "delta") handlers.onDelta(ev.text);
+      } catch {
+        /* ignore malformed frame */
+      }
+    }
+  }
+}
+
+/* ── knowledge graph ── */
+export async function apiGraph(q = ""): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
+  const { live, token } = useOS.getState();
+  if (live && token) return request(`/graph?q=${encodeURIComponent(q)}&limit=80`);
+  await delay(350);
+  if (!q) return MOCK_GRAPH;
+  const ql = q.toLowerCase();
+  const nodes = MOCK_GRAPH.nodes.filter((n) => n.name.toLowerCase().includes(ql));
+  const ids = new Set(nodes.map((n) => n.id));
+  return { nodes, edges: MOCK_GRAPH.edges.filter((e) => ids.has(e.source) && ids.has(e.target)) };
+}
+
+/* ── workflows ── */
+type WorkflowWire = Omit<WorkflowDef, "nodes" | "edges"> & { nodes: string; edges: string };
+
+const parseWf = (w: WorkflowWire): WorkflowDef => ({
+  ...w,
+  nodes: JSON.parse(w.nodes || "[]"),
+  edges: JSON.parse(w.edges || "[]"),
+});
+
+let demoWorkflows: WorkflowDef[] | null = null;
+const demoWfs = () => (demoWorkflows ??= structuredClone(MOCK_WORKFLOWS));
+
+export async function apiWorkflows(): Promise<WorkflowDef[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) return (await request<WorkflowWire[]>("/workflows")).map(parseWf);
+  await delay(300);
+  return demoWfs();
+}
+
+export async function apiSaveWorkflow(wf: WorkflowDef): Promise<WorkflowDef> {
+  const { live, token } = useOS.getState();
+  const body = JSON.stringify({
+    name: wf.name, description: wf.description, trigger: wf.trigger,
+    nodes: wf.nodes, edges: wf.edges, enabled: wf.enabled,
+  });
+  if (live && token) {
+    const isNew = wf.id.startsWith("new-");
+    const data = await request<WorkflowWire>(isNew ? "/workflows" : `/workflows/${wf.id}`, {
+      method: isNew ? "POST" : "PUT",
+      body,
+    });
+    return parseWf(data);
+  }
+  await delay(250);
+  const list = demoWfs();
+  const saved = { ...wf, id: wf.id.startsWith("new-") ? `wf-${Date.now()}` : wf.id };
+  const i = list.findIndex((w) => w.id === wf.id);
+  if (i >= 0) list[i] = saved;
+  else list.unshift(saved);
+  return saved;
+}
+
+export async function apiDeleteWorkflow(id: string): Promise<void> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    await request(`/workflows/${id}`, { method: "DELETE" });
+    return;
+  }
+  await delay(200);
+  demoWorkflows = demoWfs().filter((w) => w.id !== id);
+}
+
+export async function apiRunWorkflow(id: string, input: string): Promise<WorkflowRunInfo> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    const data = await request<Omit<WorkflowRunInfo, "log"> & { log: string }>(`/workflows/${id}/run`, {
+      method: "POST",
+      body: JSON.stringify({ input }),
+    });
+    return { ...data, log: JSON.parse(data.log || "[]") };
+  }
+  await delay(500);
+  const wf = demoWfs().find((w) => w.id === id);
+  if (!wf) throw new Error("Workflow not found");
+  return mockRunWorkflow(wf, input);
+}
+
+/* ── traces ── */
+export async function apiTraces(): Promise<TraceInfo[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) return request("/traces");
+  await delay(300);
+  return MOCK_TRACES.map(({ spans, ...t }) => ({ ...t, span_count: spans?.length ?? 0 }));
+}
+
+export async function apiTrace(id: string): Promise<TraceInfo> {
+  const { live, token } = useOS.getState();
+  if (live && token) return request(`/traces/${id}`);
+  await delay(200);
+  const t = MOCK_TRACES.find((x) => x.id === id);
+  if (!t) throw new Error("Trace not found");
+  return t;
+}

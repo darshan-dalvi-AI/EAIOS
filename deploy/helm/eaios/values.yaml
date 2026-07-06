@@ -1,0 +1,60 @@
+# EAIOS Helm values — override per environment (-f values.prod.yaml)
+
+image:
+  backend: ghcr.io/YOUR_USER/eaios-backend
+  frontend: ghcr.io/YOUR_USER/eaios-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+backend:
+  replicas: 2
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPU: 65          # percent
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+  env:
+    LLM_PROVIDER: "auto"
+    EMBEDDING_PROVIDER: "auto"
+    QDRANT_URL: "http://eaios-qdrant:6333"
+    RATE_LIMIT_ENABLED: "1"
+
+frontend:
+  replicas: 2
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+qdrant:
+  enabled: true
+  image: qdrant/qdrant:v1.9.2
+  storage: 10Gi
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 2Gi }
+
+ingress:
+  enabled: true
+  className: nginx
+  host: eaios.example.com
+  tls:
+    enabled: true
+    # cert-manager: kubectl apply a ClusterIssuer, then set the issuer name here
+    issuer: letsencrypt-prod
+    secretName: eaios-tls
+
+# Secrets — supply real values via --set-file / external-secrets / sealed-secrets.
+secrets:
+  SECRET_KEY: "change-me-long-random"
+  DATABASE_URL: "postgresql+psycopg2://eaios:CHANGE@postgres-host:5432/eaios"
+  REDIS_URL: ""               # enables cross-replica rate limiting when set
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"        # nightly 02:00
+  image: postgres:16-alpine    # pg_dump against DATABASE_URL
+  keepDays: 14
+  pvcSize: 5Gi

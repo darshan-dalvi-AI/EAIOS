@@ -1,0 +1,13 @@
+{
+  "name": "EAIOS — Enterprise AI Operating System",
+  "short_name": "EAIOS",
+  "description": "Hybrid multimodal RAG + multi-agent AI platform, presented as an operating system.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05070f",
+  "theme_color": "#05070f",
+  "icons": [
+    { "src": "/eaios-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/eaios-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

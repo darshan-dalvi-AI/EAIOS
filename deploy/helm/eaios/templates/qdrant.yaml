@@ -1,0 +1,37 @@
+{{- if .Values.qdrant.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-qdrant
+spec:
+  serviceName: {{ .Release.Name }}-qdrant
+  replicas: 1
+  selector:
+    matchLabels: { app: {{ .Release.Name }}-qdrant }
+  template:
+    metadata:
+      labels: { app: {{ .Release.Name }}-qdrant }
+    spec:
+      containers:
+        - name: qdrant
+          image: {{ .Values.qdrant.image }}
+          ports: [{ containerPort: 6333 }]
+          volumeMounts:
+            - { name: storage, mountPath: /qdrant/storage }
+          resources: {{- toYaml .Values.qdrant.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata: { name: storage }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.qdrant.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-qdrant
+spec:
+  selector: { app: {{ .Release.Name }}-qdrant }
+  ports: [{ port: 6333, targetPort: 6333 }]
+{{- end }}

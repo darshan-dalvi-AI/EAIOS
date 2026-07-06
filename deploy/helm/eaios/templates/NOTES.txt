@@ -1,0 +1,15 @@
+EAIOS deployed.
+
+  Frontend:  https://{{ .Values.ingress.host }}
+  API:       https://{{ .Values.ingress.host }}/api/health
+  Realtime:  wss://{{ .Values.ingress.host }}/api/ws?token=<jwt>
+
+Next steps:
+  1. Point DNS at your ingress controller's external IP.
+  2. TLS: install cert-manager + a ClusterIssuer named "{{ .Values.ingress.tls.issuer }}"
+     (kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml)
+  3. Watch autoscaling during a load test:
+       kubectl get hpa -w
+       python backend/tests/load/loadtest.py --base https://{{ .Values.ingress.host }} --users 100 --seconds 60
+  4. Backups run nightly ({{ .Values.backup.schedule }}) into the {{ .Release.Name }}-backups PVC.
+     Restore: gunzip -c /backups/eaios-<ts>.sql.gz | psql "$DATABASE_URL"

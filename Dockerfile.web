@@ -1,0 +1,32 @@
+# EAIOS — single-container web build: React frontend + FastAPI backend + WS,
+# one process, one port. Used by render.yaml (Render.com), also works on
+# Hugging Face Spaces, Railway, Fly.io, or any Docker host:
+#
+#   docker build -f Dockerfile.web -t eaios-web .
+#   docker run -p 8000:8000 -e SEED_ON_START=1 eaios-web
+
+# ── Stage 1: build the frontend ──────────────────────────────────────────
+FROM node:20-alpine AS web
+WORKDIR /fe
+COPY frontend/package*.json ./
+RUN npm install --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+# ── Stage 2: backend + static bundle ─────────────────────────────────────
+FROM python:3.12-slim
+WORKDIR /app
+
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/app ./app
+COPY --from=web /fe/dist ./static
+
+ENV FRONTEND_DIST=/app/static \
+    SEED_ON_START=1 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+# $PORT is injected by Render/Railway/HF; default 8000 locally.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

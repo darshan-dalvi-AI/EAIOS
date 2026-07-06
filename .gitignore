@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+eaios.db
+uploads/
+
+# Node
+node_modules/
+dist/
+*.local
+
+# Env & IDE
+.env
+.vscode/
+.idea/
+.DS_Store
+
+# SQLite journals
+*.db-journal

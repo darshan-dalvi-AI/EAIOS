@@ -1,0 +1,33 @@
+# Render.com blueprint — deploys EAIOS as one free web service.
+# Dashboard → New → Blueprint → pick this repo → Apply.
+# After the first deploy, set OPENAI_API_KEY (free key from console.groq.com)
+# in the service's Environment tab for real Llama 3.1 answers; without it the
+# platform runs on the deterministic mock LLM (still fully demoable).
+#
+# Free-plan notes: the service sleeps after ~15 min idle (first request then
+# takes ~1 min) and the SQLite database is ephemeral — SEED_ON_START=1
+# repopulates the demo corpus automatically on every fresh boot.
+
+services:
+  - type: web
+    name: eaios
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.web
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_ON_START
+        value: "1"
+      - key: RATE_LIMIT_ENABLED
+        value: "1"
+      - key: LLM_PROVIDER
+        value: auto            # auto → uses OPENAI_API_KEY when set, mock otherwise
+      - key: OPENAI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: OPENAI_MODEL
+        value: llama-3.1-8b-instant
+      - key: OPENAI_API_KEY
+        sync: false            # paste your Groq key in the dashboard (never committed)
