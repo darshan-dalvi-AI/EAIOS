@@ -7,8 +7,7 @@ import {
 } from "lucide-react";
 import { useOS } from "../store";
 
-// Update after publishing the repo (Settings → also update README badge)
-const GITHUB_URL = "https://github.com";
+const GITHUB_URL = "https://github.com/darshan-dalvi-AI/EAIOS";
 const DOCS_ANCHOR = "#architecture";
 
 const FEATURES = [

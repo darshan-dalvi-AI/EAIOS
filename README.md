@@ -1,7 +1,6 @@
 # EAIOS — Enterprise AI Operating System
 
-<!-- After publishing on GitHub, replace OWNER/REPO to activate the badge: -->
-<!-- ![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg) -->
+![CI](https://github.com/darshan-dalvi-AI/EAIOS/actions/workflows/ci.yml/badge.svg)
 
 **A hybrid multimodal RAG, multi-agent AI platform for enterprise knowledge — presented as a literal operating system in the browser.**
 
