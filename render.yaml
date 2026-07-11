@@ -25,9 +25,13 @@ services:
         value: "1"
       - key: LLM_PROVIDER
         value: auto            # auto → uses OPENAI_API_KEY when set, mock otherwise
+      # OpenRouter: ONE key for GPT, Claude, Gemini, DeepSeek, Qwen, Llama, Phi.
+      # Switch models live in Settings → AI Model. Free key: https://openrouter.ai/keys
       - key: OPENAI_BASE_URL
-        value: https://api.groq.com/openai/v1
+        value: https://openrouter.ai/api/v1
       - key: OPENAI_MODEL
-        value: llama-3.1-8b-instant
+        value: google/gemini-2.0-flash-001
+      - key: TEMPERATURE
+        value: "0.3"
       - key: OPENAI_API_KEY
-        sync: false            # paste your Groq key in the dashboard (never committed)
+        sync: false            # paste your OpenRouter key in the dashboard (never committed)

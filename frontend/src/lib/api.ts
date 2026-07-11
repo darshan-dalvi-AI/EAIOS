@@ -242,3 +242,55 @@ export async function apiTrace(id: string): Promise<TraceInfo> {
   if (!t) throw new Error("Trace not found");
   return t;
 }
+
+/* ── admin: AI model config + hot-swap ── */
+export interface ModelConfig {
+  active_provider: string;
+  active_model: string | null;
+  temperature: number;
+  router_mode: string;
+  openai_base_url: string;
+  openai_key_set: boolean;
+  vector_backend: string;
+}
+
+const DEMO_CONFIG: ModelConfig = {
+  active_provider: "mock", active_model: null, temperature: 0.3, router_mode: "auto",
+  openai_base_url: "https://openrouter.ai/api/v1", openai_key_set: false, vector_backend: "in-memory",
+};
+let demoConfig: ModelConfig | null = null;
+
+export async function apiModelConfig(): Promise<ModelConfig> {
+  const { live, token } = useOS.getState();
+  if (live && token) return request("/admin/config");
+  await delay(200);
+  return demoConfig ?? DEMO_CONFIG;
+}
+
+export async function apiSetModel(patch: {
+  model?: string; base_url?: string; provider?: string; temperature?: number;
+}): Promise<{ active_provider: string; active_model: string | null; temperature: number }> {
+  const { live, token } = useOS.getState();
+  if (live && token) return request("/admin/model", { method: "POST", body: JSON.stringify(patch) });
+  await delay(300);
+  const base = demoConfig ?? DEMO_CONFIG;
+  demoConfig = {
+    ...base,
+    active_provider: patch.base_url?.includes("openrouter") ? "openrouter" : (patch.provider ?? base.active_provider),
+    active_model: patch.model ?? base.active_model,
+    temperature: patch.temperature ?? base.temperature,
+    openai_base_url: patch.base_url ?? base.openai_base_url,
+  };
+  return { active_provider: demoConfig.active_provider, active_model: demoConfig.active_model, temperature: demoConfig.temperature };
+}
+
+export async function apiApproveRun(runId: string, approved: boolean): Promise<WorkflowRunInfo> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    const data = await request<Omit<WorkflowRunInfo, "log"> & { log: string }>(
+      `/workflows/runs/${runId}/approve`, { method: "POST", body: JSON.stringify({ approved }) });
+    return { ...data, log: JSON.parse(data.log || "[]") };
+  }
+  await delay(300);
+  throw new Error("Approvals require the live backend");
+}

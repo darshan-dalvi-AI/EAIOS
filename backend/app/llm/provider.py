@@ -81,7 +81,8 @@ class OllamaLLM:
 
         r = httpx.post(
             f"{settings.OLLAMA_BASE_URL}/api/generate",
-            json={"model": self.model, "system": system, "prompt": prompt, "stream": False},
+            json={"model": self.model, "system": system, "prompt": prompt, "stream": False,
+                  "options": {"temperature": settings.TEMPERATURE}},
             timeout=120,
             trust_env=False,
         )
@@ -91,23 +92,36 @@ class OllamaLLM:
 
 class OpenAILLM:
     """OpenAI-compatible chat API. Works with any compatible endpoint via
-    OPENAI_BASE_URL — e.g. Groq (https://api.groq.com/openai/v1, free tier,
-    llama-3.1-8b-instant) or a local vLLM/llama.cpp server."""
+    OPENAI_BASE_URL — e.g. **OpenRouter** (https://openrouter.ai/api/v1 — one
+    key for GPT, Claude, Gemini, DeepSeek, Qwen, Llama, Phi…), Groq
+    (https://api.groq.com/openai/v1), or a local vLLM/llama.cpp server."""
 
     def __init__(self) -> None:
         base = settings.OPENAI_BASE_URL.rstrip("/")
         self.base_url = base
         self.model = settings.OPENAI_MODEL
-        self.name = "groq" if "groq.com" in base else "openai-compatible" if "openai.com" not in base else "openai"
+        if "openrouter.ai" in base:
+            self.name = "openrouter"
+        elif "groq.com" in base:
+            self.name = "groq"
+        elif "openai.com" in base:
+            self.name = "openai"
+        else:
+            self.name = "openai-compatible"
 
     def complete(self, system: str, prompt: str) -> str:
         import httpx
 
+        headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+        if self.name == "openrouter":  # attribution headers OpenRouter recommends
+            headers["HTTP-Referer"] = "https://eaios.onrender.com"
+            headers["X-Title"] = "EAIOS"
         r = httpx.post(
             f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            headers=headers,
             json={
                 "model": self.model,
+                "temperature": settings.TEMPERATURE,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             },
             timeout=60,
@@ -128,6 +142,7 @@ class AnthropicLLM:
             json={
                 "model": settings.ANTHROPIC_MODEL,
                 "max_tokens": 1500,
+                "temperature": settings.TEMPERATURE,
                 "system": system,
                 "messages": [{"role": "user", "content": prompt}],
             },
@@ -139,6 +154,12 @@ class AnthropicLLM:
 
 _llm = None
 _tags_cache: list[str] | None = None
+
+
+def reset_llm() -> None:
+    """Drop the cached provider so the next call re-detects (hot model swap)."""
+    global _llm
+    _llm = None
 _tags_checked_at = 0.0
 TAGS_RETRY_SECONDS = 30  # unreachable Ollama is re-probed, so starting it later self-heals
 

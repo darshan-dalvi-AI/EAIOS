@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models import User, Workflow, WorkflowRun
-from app.schemas import WorkflowIn, WorkflowOut, WorkflowRunIn, WorkflowRunOut
+from app.schemas import WorkflowApprovalIn, WorkflowIn, WorkflowOut, WorkflowRunIn, WorkflowRunOut
 from app.services import audit, workflows as engine
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -77,3 +77,19 @@ def workflow_runs(wf_id: str, db: Session = Depends(get_db), user: User = Depend
         select(WorkflowRun).where(WorkflowRun.workflow_id == wf_id)
         .order_by(WorkflowRun.created_at.desc()).limit(20)
     ).all()
+
+
+@router.post("/runs/{run_id}/approve", response_model=WorkflowRunOut)
+def approve_run(run_id: str, decision: WorkflowApprovalIn,
+                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Human-in-the-Loop: approve or reject a paused workflow run.
+    Only admins and managers can sign off on high-stakes automations."""
+    if user.role not in ("admin", "manager"):
+        raise HTTPException(403, "Only an admin or manager can approve automations")
+    run = db.get(WorkflowRun, run_id)
+    if run is None:
+        raise HTTPException(404, "Run not found")
+    if run.status != "awaiting_approval":
+        raise HTTPException(409, f"Run is not awaiting approval (status: {run.status})")
+    audit.log(db, "workflow.approve" if decision.approved else "workflow.reject", user.id, run_id)
+    return engine.resume(db, run, approved=decision.approved, actor=user)

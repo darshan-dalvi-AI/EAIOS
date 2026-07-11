@@ -112,6 +112,10 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | Vision VLM captioning (via Ollama vision models) | ✅ implemented |
 | Graph orchestrator (StateGraph, LangGraph semantics) | ✅ implemented |
 | Dynamic semantic routing (LLM router → parallel fan-out) | ✅ implemented |
+| Self-correcting SQL agent (reflection retry loop) | ✅ implemented |
+| Human-in-the-Loop approval node (checkpointer-backed) | ✅ implemented |
+| Automated RAG eval gate in CI (hit-rate + MRR) | ✅ implemented |
+| Choose AI model live: GPT/Claude/Gemini/DeepSeek/Qwen/Llama/Phi via OpenRouter | ✅ implemented |
 | Realtime collab (WS presence + live agent feed) | ✅ implemented |
 | Knowledge graph + graph-augmented retrieval | ✅ implemented |
 | Visual workflow builder (Automations) | ✅ implemented |

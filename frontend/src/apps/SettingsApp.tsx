@@ -1,7 +1,20 @@
-import { Brain, Palette, ServerCog, Info } from "lucide-react";
-import { useState } from "react";
+import { Brain, Cpu, Palette, ServerCog, Info } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiModelConfig, apiSetModel, type ModelConfig } from "../lib/api";
 import { MEMORIES } from "../lib/mock";
 import { useOS } from "../store";
+
+// Curated OpenRouter model catalog — one key, every major family.
+const OPENROUTER = "https://openrouter.ai/api/v1";
+const MODEL_CATALOG: { label: string; family: string; model: string }[] = [
+  { label: "GPT-4o mini", family: "GPT", model: "openai/gpt-4o-mini" },
+  { label: "Claude 3.5 Sonnet", family: "Claude", model: "anthropic/claude-3.5-sonnet" },
+  { label: "Gemini 2.0 Flash", family: "Gemini", model: "google/gemini-2.0-flash-001" },
+  { label: "DeepSeek V3", family: "DeepSeek", model: "deepseek/deepseek-chat" },
+  { label: "Qwen 2.5 72B", family: "Qwen", model: "qwen/qwen-2.5-72b-instruct" },
+  { label: "Llama 3.3 70B", family: "Llama", model: "meta-llama/llama-3.3-70b-instruct" },
+  { label: "Phi-3 Medium", family: "Phi", model: "microsoft/phi-3-medium-128k-instruct" },
+];
 
 const ACCENTS = [
   { name: "Aurora Cyan", accent: "#22d3ee", accent2: "#8b5cf6" },
@@ -16,6 +29,36 @@ const STACK = ["React 18", "TypeScript", "Vite", "Zustand", "Recharts", "FastAPI
 export default function SettingsApp() {
   const { user, live } = useOS();
   const [accent, setAccent] = useState(0);
+
+  const isAdmin = user?.role === "admin";
+  const [cfg, setCfg] = useState<ModelConfig | null>(null);
+  const [temp, setTemp] = useState(0.3);
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    apiModelConfig().then((c) => { setCfg(c); setTemp(c.temperature); }).catch(() => {});
+  }, [isAdmin]);
+
+  async function pickModel(model: string) {
+    setSwitching(model);
+    try {
+      const r = await apiSetModel({ provider: "openai", base_url: OPENROUTER, model, temperature: temp });
+      setCfg((c) => (c ? { ...c, ...r, openai_base_url: OPENROUTER } : c));
+    } catch (e) {
+      alert(`Model switch failed: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setSwitching(null);
+    }
+  }
+
+  async function commitTemp(v: number) {
+    setTemp(v);
+    try {
+      await apiSetModel({ temperature: v });
+      setCfg((c) => (c ? { ...c, temperature: v } : c));
+    } catch { /* ignore */ }
+  }
 
   function applyAccent(i: number) {
     setAccent(i);
@@ -61,6 +104,56 @@ export default function SettingsApp() {
             Start the backend (<span className="mono">uvicorn app.main:app</span>) and reload — the OS auto-detects it and switches every app to live data.
           </p>
         </section>
+
+        {isAdmin && (
+          <section className="card">
+            <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
+              <Cpu size={14} style={{ color: "#22d3ee" }} /> AI Model
+              <span className="pill dim" style={{ marginLeft: 4 }}>admin</span>
+              {cfg && (
+                <span className={`pill ${cfg.active_provider === "mock" ? "warn" : "good"}`} style={{ marginLeft: "auto" }}>
+                  {cfg.active_provider}{cfg.active_model ? ` · ${cfg.active_model.split("/").pop()}` : ""}
+                </span>
+              )}
+            </h3>
+            <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>
+              One OpenRouter key serves every family. {live
+                ? (cfg?.openai_key_set ? "Key detected — switching is instant." : "Set OPENAI_API_KEY (OpenRouter) on the server, then pick a model.")
+                : "Demo mode previews the switch; connect the backend to route real calls."}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              {MODEL_CATALOG.map((m) => {
+                const activeModel = cfg?.active_model === m.model;
+                return (
+                  <button
+                    key={m.model}
+                    onClick={() => pickModel(m.model)}
+                    disabled={switching !== null}
+                    className="card hover"
+                    style={{ padding: "9px 12px", display: "flex", flexDirection: "column", gap: 2, cursor: "pointer",
+                             borderColor: activeModel ? "var(--accent)" : undefined,
+                             boxShadow: activeModel ? "var(--glow)" : undefined, minWidth: 120 }}
+                  >
+                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>{m.family}</span>
+                    <span className="faint" style={{ fontSize: 10.5 }}>{switching === m.model ? "switching…" : m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>Temperature</span>
+              <input type="range" min={0} max={1} step={0.1} value={temp}
+                     onChange={(e) => setTemp(parseFloat(e.target.value))}
+                     onMouseUp={(e) => commitTemp(parseFloat((e.target as HTMLInputElement).value))}
+                     onTouchEnd={(e) => commitTemp(parseFloat((e.target as HTMLInputElement).value))}
+                     style={{ flex: 1, accentColor: "var(--accent)" }} />
+              <span className="pill dim mono" style={{ minWidth: 42, justifyContent: "center" }}>{temp.toFixed(1)}</span>
+            </div>
+            <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0" }}>
+              Lower = precise & deterministic · higher = creative. Applies to every agent + the semantic router.
+            </p>
+          </section>
+        )}
 
         <section className="card">
           <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>

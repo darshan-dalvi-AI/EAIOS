@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # regex otherwise · llm = always try the LLM router · regex = never use it
     ROUTER_MODE: str = "auto"
 
+    TEMPERATURE: float = 0.3  # generation temperature for all providers (0.0–1.0)
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

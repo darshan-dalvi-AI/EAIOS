@@ -207,7 +207,7 @@ class WorkflowOut(ORMModel):
 class WorkflowRunOut(ORMModel):
     id: str
     workflow_id: str
-    status: str
+    status: str   # running | ok | error | awaiting_approval
     trigger: str
     input: str
     output: str
@@ -218,3 +218,7 @@ class WorkflowRunOut(ORMModel):
 
 class WorkflowRunIn(BaseModel):
     input: str = ""
+
+
+class WorkflowApprovalIn(BaseModel):
+    approved: bool

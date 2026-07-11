@@ -17,6 +17,7 @@ type WsEvent =
   | { type: "doc.status"; doc_id: string; title: string; status: string; chunks: number; entities: number }
   | { type: "workflow.run"; workflow: string; status: string; ms?: number }
   | { type: "workflow.notify"; workflow: string; message: string }
+  | { type: "workflow.approval"; workflow: string; run_id: string; message: string }
   | { type: "typing"; user: string }
   | { type: "pong" };
 
@@ -38,6 +39,8 @@ function feedFrom(ev: WsEvent): Omit<FeedEvent, "id" | "time"> | null {
       return { agent: "workflow", text: `${ev.workflow} — ${ev.status}${ev.ms ? ` in ${ev.ms}ms` : ""}`, kind: "system" };
     case "workflow.notify":
       return { agent: "notify", text: ev.message, kind: "system" };
+    case "workflow.approval":
+      return { agent: "approval", text: `⏸ ${ev.workflow} needs approval — ${ev.message}`, kind: "auth" };
     case "chat.message":
       return { agent: ev.agent || "chat", text: `${ev.user}: ${ev.preview}`, kind: "run" };
     default:

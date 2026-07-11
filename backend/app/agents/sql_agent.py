@@ -15,6 +15,7 @@ FORBIDDEN = re.compile(
     r"\b(insert|update|delete|drop|alter|create|truncate|attach|pragma|grant|revoke|replace|vacuum)\b", re.I
 )
 MAX_ROWS = 50
+MAX_SQL_RETRIES = 2  # reflection loop: error → LLM rewrite → retry
 
 SYSTEM = (
     "You are the SQL Agent. Generate a single read-only SQL SELECT statement for the schema below. "
@@ -30,24 +31,56 @@ class SQLAgent(BaseAgent):
 
     # ── public API (used by /agents/sql route) ───────────────────
     def answer(self, question: str) -> SQLOut:
+        """Generate → validate → execute, with a self-correcting reflection
+        loop: execution errors are fed back to the LLM (traceback included)
+        so it can rewrite the query — up to MAX_SQL_RETRIES times — before
+        the user ever sees a failure."""
         sql = self._generate(question)
-        problem = self._validate(sql)
-        if problem:
-            return SQLOut(sql=sql, explanation="Query rejected by safety guardrails.", warning=problem)
+        last_error = ""
+        for attempt in range(1 + MAX_SQL_RETRIES):
+            problem = self._validate(sql)
+            if problem:
+                return SQLOut(sql=sql, explanation="Query rejected by safety guardrails.", warning=problem)
 
+            try:
+                result = self.db.execute(text(sql))
+                columns = list(result.keys())
+                rows = [[_cell(v) for v in row] for row in result.fetchmany(MAX_ROWS)]
+                corrected = f" Self-corrected after {attempt} failed attempt(s)." if attempt else ""
+                return SQLOut(
+                    sql=sql,
+                    explanation=f"Returned {len(rows)} row(s) across {len(columns)} column(s). "
+                                f"Read-only guardrails enforced (SELECT-only, LIMIT {MAX_ROWS}).{corrected}",
+                    columns=columns,
+                    rows=rows,
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.db.rollback()  # a failed execute leaves the session in a dead transaction
+                last_error = str(exc)[:300]
+                fixed = self._reflect(question, sql, last_error)
+                if not fixed or fixed == sql:
+                    break
+                sql = fixed
+
+        return SQLOut(sql=sql, explanation="Execution failed (after self-correction attempts).", warning=last_error)
+
+    def _reflect(self, question: str, failed_sql: str, error: str) -> str | None:
+        """Reflection loop: ask the LLM to repair its own query. No-op on mock."""
+        from app.llm.provider import get_llm
+
+        if get_llm().name == "mock":
+            return None
         try:
-            result = self.db.execute(text(sql))
-            columns = list(result.keys())
-            rows = [[_cell(v) for v in row] for row in result.fetchmany(MAX_ROWS)]
-        except Exception as exc:  # noqa: BLE001
-            return SQLOut(sql=sql, explanation="Execution failed.", warning=str(exc)[:300])
-
-        return SQLOut(
-            sql=sql,
-            explanation=f"Returned {len(rows)} row(s) across {len(columns)} column(s). Read-only guardrails enforced (SELECT-only, LIMIT {MAX_ROWS}).",
-            columns=columns,
-            rows=rows,
-        )
+            raw = safe_complete(
+                "You are the SQL Agent's self-correction step. The SQL you wrote failed. "
+                "Fix it. Return ONLY the corrected single read-only SELECT statement — no prose, no fences.",
+                f"SCHEMA:\n{schema_description()}\n\nQUESTION: {question}\n\n"
+                f"FAILED SQL:\n{failed_sql}\n\nDATABASE ERROR:\n{error}\n\nCorrected SQL:",
+            )
+            fixed = raw.strip().strip("`").removeprefix("sql").strip()
+            return fixed if fixed.lower().startswith("select") else None
+        except Exception:  # noqa: BLE001
+            return None
 
     def _run(self, task: str) -> AgentResult:
         out = self.answer(task)

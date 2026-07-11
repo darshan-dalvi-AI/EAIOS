@@ -1,13 +1,20 @@
 """Workflow engine — executes visual automations built in the Automations app.
 
 A workflow is a small DAG stored as JSON:
-    nodes: [{id, type, x, y, data}]   type ∈ trigger | agent | condition | notify
+    nodes: [{id, type, x, y, data}]   type ∈ trigger | agent | condition | approve | notify
     edges: [{from, to}]
 
 Execution walks the DAG from the trigger node; each node transforms `payload`
 (the running text) and appends a log entry. Agent nodes call the same
 specialist agents the chat orchestrator uses — one runtime, two front doors.
 Runs are traced (Traces app) and streamed to the realtime hub.
+
+**Human-in-the-Loop (approve node):** when the walk reaches an ``approve``
+node, execution PAUSES. The remaining queue, payload, logs and context are
+checkpointed onto the WorkflowRun (status ``awaiting_approval``) and a live
+event asks an admin to approve. ``resume()`` reloads the checkpoint and
+continues (or aborts on reject) — a lightweight LangGraph-style checkpointer
+that survives process restarts because state lives in the database.
 """
 import json
 import logging
@@ -40,35 +47,23 @@ def _render(template: str, payload: str, context: dict) -> str:
     return out
 
 
-def execute(db: Session, wf: Workflow, input_text: str, trigger: str, actor: User | None = None) -> WorkflowRun:
-    """Run a workflow synchronously; returns the persisted WorkflowRun."""
-    user = actor or db.get(User, wf.owner_id)
+def _walk(db: Session, wf: Workflow, run: WorkflowRun, user: User | None,
+          queue: list, payload: str, logs: list, context: dict, steps: int) -> WorkflowRun:
+    """Core DAG walk. Runs until the queue empties or an approve node pauses
+    it; persists the result either way."""
     nodes = {n["id"]: n for n in json.loads(wf.nodes or "[]")}
-    edges = json.loads(wf.edges or "[]")
     downstream: dict[str, list[str]] = {}
-    for e in edges:
+    for e in json.loads(wf.edges or "[]"):
         downstream.setdefault(e["from"], []).append(e["to"])
 
-    run = WorkflowRun(workflow_id=wf.id, status="running", trigger=trigger, input=input_text[:2000])
-    db.add(run)
-    db.commit()
-    db.refresh(run)
-
-    hub.publish("workflow.run", workflow=wf.name, status="start", trigger=trigger)
-    start_trace(f"workflow: {wf.name}", user=user.email if user else "", kind="workflow")
-
     t0 = time.perf_counter()
-    logs: list[dict] = []
+    prior_ms = run.duration_ms or 0
     status = "ok"
-    payload = input_text
-    context = {"trigger": trigger, "workflow": wf.name, "date": _now().date().isoformat()}
+    paused = False
 
     try:
         if len(nodes) > MAX_NODES:
             raise ValueError(f"Workflow exceeds {MAX_NODES} nodes")
-        starts = [n["id"] for n in nodes.values() if n["type"] == "trigger"] or list(nodes)[:1]
-        queue: list[tuple[str, str]] = [(nid, payload) for nid in starts]
-        steps = 0
 
         while queue:
             if steps >= MAX_STEPS:
@@ -81,6 +76,27 @@ def execute(db: Session, wf: Workflow, input_text: str, trigger: str, actor: Use
             ntype = node.get("type", "agent")
             data = node.get("data", {}) or {}
             label = data.get("label") or ntype
+
+            # ── Human-in-the-Loop pause ─────────────────────────────────
+            if ntype == "approve":
+                logs.append({"node": node_id, "type": "approve", "label": label,
+                             "status": "awaiting", "ms": 0,
+                             "output": f"⏸ Waiting for admin approval — {data.get('message', 'approve to continue')}"})
+                # checkpoint the remaining work (this node's children fire on approval)
+                run.pending = json.dumps({
+                    "resume_queue": [(c, incoming) for c in downstream.get(node_id, [])],
+                    "payload": incoming, "logs": logs, "context": context, "steps": steps,
+                })
+                run.status = "awaiting_approval"
+                run.log = json.dumps(logs)
+                run.duration_ms = prior_ms + int((time.perf_counter() - t0) * 1000)
+                db.commit()
+                db.refresh(run)
+                hub.publish("workflow.approval", workflow=wf.name, run_id=run.id,
+                            message=_render(data.get("message", "Approval required for '{{workflow}}'"), incoming, context)[:300])
+                paused = True
+                break
+
             entry = {"node": node_id, "type": ntype, "label": label, "status": "ok", "ms": 0, "output": ""}
             nt0 = time.perf_counter()
             proceed = True
@@ -131,18 +147,73 @@ def execute(db: Session, wf: Workflow, input_text: str, trigger: str, actor: Use
         logs.append({"node": "-", "type": "engine", "label": "engine", "status": "error",
                      "ms": 0, "output": str(exc)[:300]})
 
+    if paused:
+        end_trace("ok")
+        return run
+
     run.status = status
     run.output = payload[:4000]
     run.log = json.dumps(logs)
-    run.duration_ms = int((time.perf_counter() - t0) * 1000)
-    wf.run_count = (wf.run_count or 0) + 1
-    wf.last_run_at = _now()
+    run.pending = ""
+    run.duration_ms = prior_ms + int((time.perf_counter() - t0) * 1000)
     db.commit()
     db.refresh(run)
-
     end_trace(status)
     hub.publish("workflow.run", workflow=wf.name, status=status, ms=run.duration_ms)
     return run
+
+
+def execute(db: Session, wf: Workflow, input_text: str, trigger: str, actor: User | None = None) -> WorkflowRun:
+    """Run a workflow synchronously; returns the persisted WorkflowRun.
+    May return with status ``awaiting_approval`` if it hits an approve node."""
+    user = actor or db.get(User, wf.owner_id)
+    nodes = {n["id"]: n for n in json.loads(wf.nodes or "[]")}
+
+    run = WorkflowRun(workflow_id=wf.id, status="running", trigger=trigger, input=input_text[:2000])
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    hub.publish("workflow.run", workflow=wf.name, status="start", trigger=trigger)
+    start_trace(f"workflow: {wf.name}", user=user.email if user else "", kind="workflow")
+
+    context = {"trigger": trigger, "workflow": wf.name, "date": _now().date().isoformat()}
+    starts = [n["id"] for n in nodes.values() if n["type"] == "trigger"] or list(nodes)[:1]
+    queue = [(nid, input_text) for nid in starts]
+
+    wf.run_count = (wf.run_count or 0) + 1
+    wf.last_run_at = _now()
+    db.commit()
+    return _walk(db, wf, run, user, queue, input_text, [], context, 0)
+
+
+def resume(db: Session, run: WorkflowRun, approved: bool, actor: User | None = None) -> WorkflowRun:
+    """Continue a paused (HITL) run after an admin approves or rejects it."""
+    if run.status != "awaiting_approval" or not run.pending:
+        return run
+    wf = db.get(Workflow, run.workflow_id)
+    user = actor or (db.get(User, wf.owner_id) if wf else None)
+    state = json.loads(run.pending)
+    logs = state["logs"]
+
+    if not approved:
+        logs.append({"node": "-", "type": "approve", "label": "rejected", "status": "error",
+                     "ms": 0, "output": f"✗ Rejected by {actor.full_name if actor else 'admin'} — run halted."})
+        run.status = "error"
+        run.log = json.dumps(logs)
+        run.pending = ""
+        db.commit()
+        db.refresh(run)
+        hub.publish("workflow.run", workflow=wf.name if wf else "?", status="rejected", ms=run.duration_ms)
+        return run
+
+    logs.append({"node": "-", "type": "approve", "label": "approved", "status": "ok",
+                 "ms": 0, "output": f"✓ Approved by {actor.full_name if actor else 'admin'} — resuming."})
+    run.status = "running"
+    db.commit()
+    start_trace(f"workflow (resumed): {wf.name}", user=user.email if user else "", kind="workflow")
+    queue = [tuple(item) for item in state["resume_queue"]]
+    return _walk(db, wf, run, user, queue, state["payload"], logs, state["context"], state["steps"])
 
 
 def fire_trigger(db: Session, trigger: str, input_text: str) -> int:

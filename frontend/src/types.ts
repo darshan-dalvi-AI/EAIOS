@@ -108,7 +108,7 @@ export interface GraphEdge {
 }
 
 /* ── workflows ── */
-export type WfNodeType = "trigger" | "agent" | "condition" | "notify";
+export type WfNodeType = "trigger" | "agent" | "condition" | "approve" | "notify";
 
 export interface WfNode {
   id: string;
@@ -146,7 +146,7 @@ export interface WfRunLogEntry {
 
 export interface WorkflowRunInfo {
   id: string;
-  status: "running" | "ok" | "error";
+  status: "running" | "ok" | "error" | "awaiting_approval";
   trigger: string;
   input: string;
   output: string;

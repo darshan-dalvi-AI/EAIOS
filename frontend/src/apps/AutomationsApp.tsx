@@ -4,11 +4,12 @@
    single-file demo build. Workflows execute on the backend agent runtime;
    demo mode simulates the same walk client-side. */
 import {
-  Bell, Bot, CirclePlay, GitFork, Play, Plus, Save, Trash2, Workflow as WorkflowIcon, Zap,
+  Bell, Bot, Check, CirclePlay, GitFork, Play, Plus, Save, ShieldQuestion, Trash2, Workflow as WorkflowIcon, X, Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { apiDeleteWorkflow, apiRunWorkflow, apiSaveWorkflow, apiWorkflows } from "../lib/api";
+import { apiApproveRun, apiDeleteWorkflow, apiRunWorkflow, apiSaveWorkflow, apiWorkflows } from "../lib/api";
 import { AGENTS } from "../lib/mock";
+import { useOS } from "../store";
 import type { WfNode, WfNodeType, WorkflowDef, WorkflowRunInfo } from "../types";
 
 const NODE_W = 170;
@@ -18,6 +19,7 @@ const NODE_STYLE: Record<WfNodeType, { hue: number; Icon: typeof Zap; title: str
   trigger: { hue: 95, Icon: Zap, title: "Trigger" },
   agent: { hue: 265, Icon: Bot, title: "Agent" },
   condition: { hue: 38, Icon: GitFork, title: "Condition" },
+  approve: { hue: 200, Icon: ShieldQuestion, title: "Approve" },
   notify: { hue: 320, Icon: Bell, title: "Notify" },
 };
 
@@ -41,6 +43,8 @@ function newWorkflow(): WorkflowDef {
 }
 
 export default function AutomationsApp() {
+  const user = useOS((s) => s.user);
+  const isAdmin = user?.role === "admin";
   const [list, setList] = useState<WorkflowDef[]>([]);
   const [wf, setWf] = useState<WorkflowDef | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -77,6 +81,7 @@ export default function AutomationsApp() {
     const defaults: WfNode["data"] =
       type === "agent" ? { label: "New agent", agent: "document", prompt: "{{input}}" }
       : type === "condition" ? { label: "Check", contains: "" }
+      : type === "approve" ? { label: "Approval gate", message: "Approve before continuing" }
       : type === "notify" ? { label: "Notify", message: "Workflow {{workflow}} finished" }
       : { label: "Trigger" };
     setWf({ ...wf, nodes: [...wf.nodes, { id, type, x: 120 + Math.random() * 320, y: 80 + Math.random() * 260, data: defaults }] });
@@ -146,6 +151,18 @@ export default function AutomationsApp() {
         output: err instanceof Error ? err.message : "Run failed", log: [], duration_ms: 0,
         created_at: new Date().toISOString(),
       });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const decide = async (approved: boolean) => {
+    if (!run) return;
+    setRunning(true);
+    try {
+      setRun(await apiApproveRun(run.id, approved));
+    } catch (err) {
+      alert(`Could not ${approved ? "approve" : "reject"}: ${err instanceof Error ? err.message : err}`);
     } finally {
       setRunning(false);
     }
@@ -281,6 +298,7 @@ export default function AutomationsApp() {
                     <div className="faint" style={{ fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {n.type === "agent" ? `→ ${AGENT_OPTIONS.find((a) => a.id === n.data.agent)?.name ?? n.data.agent}`
                         : n.type === "condition" ? `contains “${n.data.contains || "…"}”`
+                        : n.type === "approve" ? "⏸ human approval"
                         : n.type === "notify" ? n.data.message
                         : wf.trigger}
                     </div>
@@ -307,11 +325,26 @@ export default function AutomationsApp() {
                   value={runInput} onChange={(e) => setRunInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && execute()} />
                 {run && (
-                  <span className={`pill ${run.status === "ok" ? "good" : "warn"}`}>
-                    {run.status} · {run.duration_ms} ms
+                  <span className={`pill ${run.status === "ok" ? "good" : run.status === "awaiting_approval" ? "info" : "warn"}`}>
+                    {run.status === "awaiting_approval" ? "awaiting approval" : `${run.status} · ${run.duration_ms} ms`}
                   </span>
                 )}
               </div>
+
+              {run?.status === "awaiting_approval" && (
+                <div className="card" style={{ margin: "10px 0 4px", padding: "10px 12px", borderColor: "var(--accent)",
+                     display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <ShieldQuestion size={15} style={{ color: "#22d3ee" }} />
+                  <span style={{ fontSize: 12, flex: 1, minWidth: 160 }}>
+                    This run is paused for approval. As {isAdmin || user?.role === "manager" ? "an approver" : "a viewer"}, review the steps above.
+                  </span>
+                  <button className="btn sm primary" disabled={running || !(isAdmin || user?.role === "manager")}
+                    onClick={() => decide(true)}><Check size={12} /> Approve</button>
+                  <button className="btn sm" disabled={running || !(isAdmin || user?.role === "manager")}
+                    onClick={() => decide(false)}><X size={12} /> Reject</button>
+                </div>
+              )}
+
               {running && <p className="faint" style={{ fontSize: 11.5, margin: "8px 0 0" }}>Walking the graph…</p>}
               {run && run.log.map((l, i) => (
                 <div key={i} className="feed-item" style={{ alignItems: "flex-start" }}>
@@ -364,6 +397,17 @@ export default function AutomationsApp() {
               <label className="faint" style={{ fontSize: 11, display: "block", margin: "12px 0 4px" }}>Continue only if output contains</label>
               <input className="input sm" style={{ width: "100%" }} placeholder="e.g. finance" value={selected.data.contains ?? ""}
                 onChange={(e) => patchNode(selected.id, { contains: e.target.value })} />
+            </>
+          )}
+          {selected.type === "approve" && (
+            <>
+              <label className="faint" style={{ fontSize: 11, display: "block", margin: "12px 0 4px" }}>Approval prompt</label>
+              <textarea className="input sm" rows={3} style={{ width: "100%", resize: "vertical" }}
+                value={selected.data.message ?? ""} onChange={(e) => patchNode(selected.id, { message: e.target.value })} />
+              <p className="faint" style={{ fontSize: 10.5, lineHeight: 1.5 }}>
+                Human-in-the-Loop: the run <b>pauses here</b> and pings an admin/manager on the live feed. It only
+                continues after someone approves — perfect before a Notify node emails externally.
+              </p>
             </>
           )}
           {selected.type === "notify" && (

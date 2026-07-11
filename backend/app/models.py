@@ -188,4 +188,5 @@ class WorkflowRun(Base):
     output: Mapped[str] = mapped_column(Text, default="")
     log: Mapped[str] = mapped_column(Text, default="[]")  # JSON per-node entries
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    pending: Mapped[str] = mapped_column(Text, default="")  # JSON checkpoint when status=awaiting_approval (HITL)
     created_at: Mapped[datetime] = mapped_column(default=_now)
