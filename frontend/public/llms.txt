@@ -1,0 +1,32 @@
+# EAIOS — Enterprise AI Operating System
+
+> EAIOS is an enterprise AI operating system that runs in the browser. It combines a hybrid
+> multimodal RAG engine (BM25 + vector search fused with Reciprocal Rank Fusion, cited answers,
+> confidence scores), nine cooperating AI agents behind a graph orchestrator, a self-building
+> knowledge graph, enterprise search, a natural-language SQL assistant, visual workflow
+> automations, voice input/output, and observability with span traces — presented as a desktop
+> operating system with windows, a taskbar and a command palette.
+
+Live demo: https://eaios.onrender.com (demo logins on the login screen; runs in demo mode with
+no backend as well). Source: https://github.com/darshan-dalvi-AI/EAIOS
+
+## What it does
+
+- Ingests PDFs, Word, PowerPoint, Excel, CSV, text and images (OCR + vision captioning).
+- Answers questions strictly from indexed company knowledge, with citations and confidence.
+- A planning agent decomposes compound requests; specialist agents (document, SQL, research,
+  email, report, analytics, memory, coding) execute; results merge into one answer.
+- Extracts entities at ingest into a knowledge graph; answers "how are X and Y related?" with
+  connection paths and evidence passages.
+- Drag-and-drop automations (trigger → agent → condition → notify) run on the same agent runtime.
+- Every request records a span waterfall (agent, retrieval, LLM timings) in a Traces app.
+- LLM layer auto-detects: Groq Llama 3.1, local Ollama, OpenAI, Anthropic, deterministic fallback.
+- Exposes an MCP server so AI assistants can call EAIOS search/ask/graph as tools.
+
+## Docs
+
+- Architecture: https://github.com/darshan-dalvi-AI/EAIOS/blob/main/docs/ARCHITECTURE.md
+- API reference: https://github.com/darshan-dalvi-AI/EAIOS/blob/main/docs/API_REFERENCE.md
+- Deployment: https://github.com/darshan-dalvi-AI/EAIOS/blob/main/docs/DEPLOY.md
+
+Author: Darshan Dalvi (B.E. Computer Engineering capstone, 2026).

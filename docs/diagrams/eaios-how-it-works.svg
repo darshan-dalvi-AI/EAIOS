@@ -1,0 +1,266 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 2170" width="1560" height="2170" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <title>EAIOS — how it works, end to end</title>
+  <desc>Full walkthrough: landing, login, OS shell, document ingestion into RAG and knowledge graph, the ask flow through the agent graph and LLM layer, realtime and observability systems, automations, and the deployment pipeline.</desc>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#22d3ee"/>
+    </marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect width="1560" height="2170" fill="#0b1020"/>
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <text x="60" y="72" fill="#e8edf7" font-size="40" font-weight="700">EAIOS — how it works, end to end</text>
+  <text x="60" y="106" fill="#94a3b8" font-size="17">Enterprise AI Operating System · hybrid multimodal RAG · 9 cooperating agents · knowledge graph · automations · observability</text>
+  <text x="60" y="134" fill="#22d3ee" font-size="16" font-weight="600">live: eaios.onrender.com</text>
+  <text x="330" y="134" fill="#8b5cf6" font-size="16" font-weight="600">code: github.com/darshan-dalvi-AI/EAIOS</text>
+  <line x1="60" y1="152" x2="1500" y2="152" stroke="#2a3854" stroke-width="1"/>
+
+  <!-- ═══════════ ① ENTER ═══════════ -->
+  <text x="60" y="196" fill="#22d3ee" font-size="22" font-weight="700">① ENTER — from web page to operating system</text>
+
+  <rect x="60" y="216" width="420" height="160" rx="14" fill="#131a2e" stroke="#2a3854"/>
+  <text x="84" y="248" fill="#e8edf7" font-size="18" font-weight="700">Landing page</text>
+  <text x="84" y="276" fill="#94a3b8" font-size="14">Hero · 10 feature cards · tech stack</text>
+  <text x="84" y="298" fill="#94a3b8" font-size="14">animated architecture · footer</text>
+  <text x="84" y="326" fill="#5b6b84" font-size="13">PWA: installable, works offline</text>
+  <text x="84" y="352" fill="#22d3ee" font-size="14" font-weight="600">"Get Started" boots the OS ➜</text>
+
+  <rect x="540" y="216" width="420" height="160" rx="14" fill="#131a2e" stroke="#2a3854"/>
+  <text x="564" y="248" fill="#e8edf7" font-size="18" font-weight="700">Boot ➜ Login</text>
+  <text x="564" y="276" fill="#94a3b8" font-size="14">JWT (HS256) · PBKDF2 password hashing</text>
+  <text x="564" y="298" fill="#94a3b8" font-size="14">RBAC roles: admin / manager / employee</text>
+  <text x="564" y="320" fill="#94a3b8" font-size="14">every login audited with IP</text>
+  <text x="564" y="352" fill="#5b6b84" font-size="13">rate-limited: 20 attempts/min per IP</text>
+
+  <rect x="1020" y="216" width="480" height="160" rx="14" fill="#131a2e" stroke="#8b5cf6"/>
+  <text x="1044" y="248" fill="#e8edf7" font-size="18" font-weight="700">Desktop OS shell — 11 apps</text>
+  <text x="1044" y="276" fill="#94a3b8" font-size="14">Chat · Knowledge · Agents · Graph · Automations</text>
+  <text x="1044" y="298" fill="#94a3b8" font-size="14">Traces · SQL Studio · Analytics · Admin · Terminal · Settings</text>
+  <text x="1044" y="326" fill="#5b6b84" font-size="13">draggable windows · taskbar · Ctrl+K palette</text>
+  <text x="1044" y="352" fill="#8b5cf6" font-size="14" font-weight="600">presence: see who's online (WebSocket)</text>
+
+  <line x1="480" y1="296" x2="536" y2="296" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="960" y1="296" x2="1016" y2="296" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════ ② ADD KNOWLEDGE ═══════════ -->
+  <text x="60" y="440" fill="#34d399" font-size="22" font-weight="700">② ADD KNOWLEDGE — every upload becomes searchable intelligence</text>
+
+  <!-- pipeline row 1 -->
+  <g font-size="14">
+    <rect x="60" y="462" width="252" height="96" rx="12" fill="#0f1a2b" stroke="#2a3854"/>
+    <text x="80" y="492" fill="#e8edf7" font-weight="700" font-size="15">1. Upload</text>
+    <text x="80" y="516" fill="#94a3b8">PDF · DOCX · PPTX · XLSX</text>
+    <text x="80" y="536" fill="#94a3b8">CSV · TXT · MD · images</text>
+
+    <rect x="368" y="462" width="252" height="96" rx="12" fill="#0f1a2b" stroke="#2a3854"/>
+    <text x="388" y="492" fill="#e8edf7" font-weight="700" font-size="15">2. Parse</text>
+    <text x="388" y="516" fill="#94a3b8">text + tables extracted</text>
+    <text x="388" y="536" fill="#94a3b8">images: OCR + VLM caption</text>
+
+    <rect x="676" y="462" width="252" height="96" rx="12" fill="#0f1a2b" stroke="#2a3854"/>
+    <text x="696" y="492" fill="#e8edf7" font-weight="700" font-size="15">3. Chunk</text>
+    <text x="696" y="516" fill="#94a3b8">semantic sections</text>
+    <text x="696" y="536" fill="#94a3b8">with page + heading metadata</text>
+
+    <rect x="984" y="462" width="252" height="96" rx="12" fill="#0f1a2b" stroke="#2a3854"/>
+    <text x="1004" y="492" fill="#e8edf7" font-weight="700" font-size="15">4. Embed</text>
+    <text x="1004" y="516" fill="#94a3b8">Ollama nomic-embed when</text>
+    <text x="1004" y="536" fill="#94a3b8">available · hash fallback</text>
+
+    <rect x="1292" y="462" width="208" height="96" rx="12" fill="#0f1a2b" stroke="#34d399"/>
+    <text x="1312" y="492" fill="#e8edf7" font-weight="700" font-size="15">5. Index</text>
+    <text x="1312" y="516" fill="#94a3b8">vector store +</text>
+    <text x="1312" y="536" fill="#94a3b8">BM25 keyword index</text>
+  </g>
+  <line x1="312" y1="510" x2="364" y2="510" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrg)"/>
+  <line x1="620" y1="510" x2="672" y2="510" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrg)"/>
+  <line x1="928" y1="510" x2="980" y2="510" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrg)"/>
+  <line x1="1236" y1="510" x2="1288" y2="510" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrg)"/>
+
+  <!-- pipeline row 2 -->
+  <path d="M 1396 558 L 1396 588 L 810 588 L 810 612" stroke="#34d399" stroke-width="2.5" fill="none" marker-end="url(#arrg)"/>
+  <g font-size="14">
+    <rect x="420" y="616" width="360" height="104" rx="12" fill="#0f1a2b" stroke="#34d399"/>
+    <text x="440" y="646" fill="#e8edf7" font-weight="700" font-size="15">6. Entity extraction ➜ Knowledge Graph</text>
+    <text x="440" y="670" fill="#94a3b8">people · orgs · money · dates · concepts</text>
+    <text x="440" y="690" fill="#94a3b8">co-occurrence edges · explore in Graph app</text>
+
+    <rect x="840" y="616" width="360" height="104" rx="12" fill="#0f1a2b" stroke="#f59e0b"/>
+    <text x="860" y="646" fill="#e8edf7" font-weight="700" font-size="15">7. Upload trigger fires Automations</text>
+    <text x="860" y="670" fill="#94a3b8">any workflow with trigger = "on upload"</text>
+    <text x="860" y="690" fill="#94a3b8">runs automatically (e.g. summarize + notify)</text>
+  </g>
+  <line x1="780" y1="668" x2="836" y2="668" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrg)"/>
+
+  <!-- ═══════════ ③ ASK ═══════════ -->
+  <text x="60" y="784" fill="#22d3ee" font-size="22" font-weight="700">③ ASK ANYTHING — the multi-agent answer flow</text>
+
+  <!-- input row -->
+  <g font-size="14">
+    <rect x="60" y="806" width="300" height="88" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="80" y="836" fill="#e8edf7" font-weight="700" font-size="15">Question</text>
+    <text x="80" y="860" fill="#94a3b8">typed, or spoken (voice input)</text>
+    <text x="80" y="880" fill="#94a3b8">from Chat app or Ctrl+K</text>
+
+    <rect x="416" y="806" width="250" height="88" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="436" y="836" fill="#e8edf7" font-weight="700" font-size="15">Rate limiter</text>
+    <text x="436" y="860" fill="#94a3b8">token bucket 60/min/user</text>
+    <text x="436" y="880" fill="#94a3b8">429 + Retry-After if exceeded</text>
+
+    <rect x="722" y="806" width="250" height="88" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="742" y="836" fill="#e8edf7" font-weight="700" font-size="15">SSE stream opens</text>
+    <text x="742" y="860" fill="#94a3b8">POST /api/chat/stream</text>
+    <text x="742" y="880" fill="#94a3b8">answer will arrive live</text>
+  </g>
+  <line x1="360" y1="850" x2="412" y2="850" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="666" y1="850" x2="718" y2="850" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <path d="M 972 850 L 1060 850 L 1060 920" stroke="#22d3ee" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+
+  <!-- orchestrator graph -->
+  <rect x="60" y="924" width="1440" height="240" rx="16" fill="#101731" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="84" y="956" fill="#8b5cf6" font-size="17" font-weight="700">StateGraph orchestrator  (LangGraph semantics · falls back to a simple sequential path if anything fails)</text>
+
+  <rect x="84" y="978" width="200" height="72" rx="10" fill="#1a2340" stroke="#8b5cf6"/>
+  <text x="104" y="1006" fill="#e8edf7" font-size="15" font-weight="700">Planner</text>
+  <text x="104" y="1030" fill="#94a3b8" font-size="13">splits compound requests</text>
+
+  <rect x="336" y="978" width="200" height="72" rx="10" fill="#1a2340" stroke="#8b5cf6"/>
+  <text x="356" y="1006" fill="#e8edf7" font-size="15" font-weight="700">Dispatch</text>
+  <text x="356" y="1030" fill="#94a3b8" font-size="13">routes each subtask</text>
+
+  <line x1="284" y1="1014" x2="332" y2="1014" stroke="#8b5cf6" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="536" y1="1014" x2="588" y2="1014" stroke="#8b5cf6" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <!-- agent chips -->
+  <g font-size="13.5" font-weight="600">
+    <rect x="592" y="978" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="651" y="1000" fill="#e8edf7" text-anchor="middle">Document</text>
+    <rect x="718" y="978" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="777" y="1000" fill="#e8edf7" text-anchor="middle">SQL</text>
+    <rect x="844" y="978" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="903" y="1000" fill="#e8edf7" text-anchor="middle">Research</text>
+    <rect x="970" y="978" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="1029" y="1000" fill="#e8edf7" text-anchor="middle">Email</text>
+    <rect x="1096" y="978" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="1155" y="1000" fill="#e8edf7" text-anchor="middle">Report</text>
+    <rect x="592" y="1020" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="651" y="1042" fill="#e8edf7" text-anchor="middle">Analytics</text>
+    <rect x="718" y="1020" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="777" y="1042" fill="#e8edf7" text-anchor="middle">Memory</text>
+    <rect x="844" y="1020" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="903" y="1042" fill="#e8edf7" text-anchor="middle">Coding</text>
+    <rect x="970" y="1020" width="118" height="34" rx="17" fill="#221a3e" stroke="#8b5cf6"/><text x="1029" y="1042" fill="#e8edf7" text-anchor="middle">(+ Planner)</text>
+  </g>
+
+  <rect x="1250" y="978" width="200" height="72" rx="10" fill="#1a2340" stroke="#8b5cf6"/>
+  <text x="1270" y="1006" fill="#e8edf7" font-size="15" font-weight="700">Merge</text>
+  <text x="1270" y="1030" fill="#94a3b8" font-size="13">combines multi-step results</text>
+  <line x1="1218" y1="1014" x2="1246" y2="1014" stroke="#8b5cf6" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <text x="84" y="1096" fill="#94a3b8" font-size="14">Document Agent detail:  hybrid search = BM25 + vector similarity, fused with Reciprocal Rank Fusion ➜ top-6 chunks with scores.</text>
+  <text x="84" y="1120" fill="#94a3b8" font-size="14">Relational questions ("how are X and Y related?") also pull a connection path + evidence from the knowledge graph.</text>
+  <text x="84" y="1144" fill="#5b6b84" font-size="13">Every step publishes agent.step events (live feed) and records a span (Traces).</text>
+
+  <!-- LLM layer -->
+  <path d="M 780 1164 L 780 1196" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <rect x="60" y="1200" width="1440" height="112" rx="16" fill="#101731" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="84" y="1232" fill="#22d3ee" font-size="17" font-weight="700">LLM layer — auto-detects the best available provider, never fails</text>
+  <g font-size="14" font-weight="600">
+    <rect x="84" y="1248" width="250" height="44" rx="22" fill="#0e2a33" stroke="#22d3ee"/><text x="209" y="1276" fill="#e8edf7" text-anchor="middle">Groq · Llama-3.1  (your live site)</text>
+    <rect x="350" y="1248" width="190" height="44" rx="22" fill="#131a2e" stroke="#2a3854"/><text x="445" y="1276" fill="#94a3b8" text-anchor="middle">Ollama (local laptop)</text>
+    <rect x="556" y="1248" width="150" height="44" rx="22" fill="#131a2e" stroke="#2a3854"/><text x="631" y="1276" fill="#94a3b8" text-anchor="middle">OpenAI</text>
+    <rect x="722" y="1248" width="150" height="44" rx="22" fill="#131a2e" stroke="#2a3854"/><text x="797" y="1276" fill="#94a3b8" text-anchor="middle">Anthropic</text>
+    <rect x="888" y="1248" width="330" height="44" rx="22" fill="#131a2e" stroke="#2a3854"/><text x="1053" y="1276" fill="#94a3b8" text-anchor="middle">Mock (deterministic, demo-safe fallback)</text>
+  </g>
+  <text x="1250" y="1276" fill="#5b6b84" font-size="13">if a provider errors mid-demo ➜ mock answers, never a crash</text>
+
+  <!-- answer -->
+  <path d="M 780 1312 L 780 1344" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <rect x="60" y="1348" width="1440" height="86" rx="16" fill="#0e2a22" stroke="#34d399" stroke-width="1.5"/>
+  <text x="84" y="1380" fill="#34d399" font-size="17" font-weight="700">Answer streams back live (SSE)</text>
+  <text x="84" y="1408" fill="#94a3b8" font-size="14">citation chips with relevance meters · confidence % · plan chips showing which agents ran · code blocks with copy · read-aloud · stop / regenerate / export</text>
+
+  <!-- ═══════════ ④ LIVE SYSTEMS ═══════════ -->
+  <text x="60" y="1492" fill="#f0abfc" font-size="22" font-weight="700">④ ALWAYS RUNNING — realtime + observability</text>
+  <g font-size="14">
+    <rect x="60" y="1512" width="340" height="120" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="80" y="1542" fill="#e8edf7" font-weight="700" font-size="15">WebSocket hub</text>
+    <text x="80" y="1566" fill="#94a3b8">presence avatars in the menu bar</text>
+    <text x="80" y="1586" fill="#94a3b8">live agent feed in Agents app</text>
+    <text x="80" y="1606" fill="#94a3b8">doc / workflow / chat events</text>
+
+    <rect x="428" y="1512" width="340" height="120" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="448" y="1542" fill="#e8edf7" font-weight="700" font-size="15">Traces app</text>
+    <text x="448" y="1566" fill="#94a3b8">every request = span waterfall</text>
+    <text x="448" y="1586" fill="#94a3b8">agent · retrieval · LLM timings</text>
+    <text x="448" y="1606" fill="#94a3b8">optional OTel / Langfuse export</text>
+
+    <rect x="796" y="1512" width="340" height="120" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="816" y="1542" fill="#e8edf7" font-weight="700" font-size="15">Analytics + Admin</text>
+    <text x="816" y="1566" fill="#94a3b8">usage KPIs · agent workloads</text>
+    <text x="816" y="1586" fill="#94a3b8">users · roles · audit trail</text>
+    <text x="816" y="1606" fill="#94a3b8">model config visibility</text>
+
+    <rect x="1164" y="1512" width="336" height="120" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="1184" y="1542" fill="#e8edf7" font-weight="700" font-size="15">Memory + MCP</text>
+    <text x="1184" y="1566" fill="#94a3b8">long-term user memory</text>
+    <text x="1184" y="1586" fill="#94a3b8">MCP server: Claude Desktop can</text>
+    <text x="1184" y="1606" fill="#94a3b8">call EAIOS search / ask / graph</text>
+  </g>
+
+  <!-- ═══════════ ⑤ AUTOMATE ═══════════ -->
+  <text x="60" y="1690" fill="#f59e0b" font-size="22" font-weight="700">⑤ AUTOMATE — drag-and-drop workflows on the same agent runtime</text>
+  <g font-size="14" font-weight="600">
+    <rect x="60" y="1712" width="230" height="66" rx="12" fill="#2a2113" stroke="#f59e0b"/>
+    <text x="175" y="1740" fill="#e8edf7" text-anchor="middle">Trigger</text>
+    <text x="175" y="1762" fill="#94a3b8" text-anchor="middle" font-weight="400">manual · on upload</text>
+    <rect x="352" y="1712" width="230" height="66" rx="12" fill="#2a2113" stroke="#f59e0b"/>
+    <text x="467" y="1740" fill="#e8edf7" text-anchor="middle">AI Agent node</text>
+    <text x="467" y="1762" fill="#94a3b8" text-anchor="middle" font-weight="400">prompt with {{input}}</text>
+    <rect x="644" y="1712" width="230" height="66" rx="12" fill="#2a2113" stroke="#f59e0b"/>
+    <text x="759" y="1740" fill="#e8edf7" text-anchor="middle">Condition</text>
+    <text x="759" y="1762" fill="#94a3b8" text-anchor="middle" font-weight="400">continue if contains…</text>
+    <rect x="936" y="1712" width="230" height="66" rx="12" fill="#2a2113" stroke="#f59e0b"/>
+    <text x="1051" y="1740" fill="#e8edf7" text-anchor="middle">Notify</text>
+    <text x="1051" y="1762" fill="#94a3b8" text-anchor="middle" font-weight="400">broadcast to live feed</text>
+  </g>
+  <line x1="290" y1="1745" x2="348" y2="1745" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="582" y1="1745" x2="640" y2="1745" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="874" y1="1745" x2="932" y2="1745" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arr)"/>
+  <text x="1200" y="1740" fill="#94a3b8" font-size="14">saved as a JSON DAG ·</text>
+  <text x="1200" y="1762" fill="#94a3b8" font-size="14">every run logged + traced</text>
+
+  <!-- ═══════════ ⑥ SHIP ═══════════ -->
+  <text x="60" y="1846" fill="#22d3ee" font-size="22" font-weight="700">⑥ SHIP IT — from laptop to the internet</text>
+  <g font-size="14">
+    <rect x="60" y="1868" width="256" height="100" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="80" y="1898" fill="#e8edf7" font-weight="700" font-size="15">Your laptop</text>
+    <text x="80" y="1922" fill="#94a3b8">START_EAIOS.bat (Ollama)</text>
+    <text x="80" y="1942" fill="#94a3b8">push-to-github.bat to sync</text>
+
+    <rect x="372" y="1868" width="256" height="100" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="392" y="1898" fill="#e8edf7" font-weight="700" font-size="15">GitHub + CI</text>
+    <text x="392" y="1922" fill="#94a3b8">Actions: 16/16 tests · builds</text>
+    <text x="392" y="1942" fill="#94a3b8">Docker images ➜ GHCR</text>
+
+    <rect x="684" y="1868" width="300" height="100" rx="12" fill="#0e2a33" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="704" y="1898" fill="#e8edf7" font-weight="700" font-size="15">Render (free) — LIVE NOW</text>
+    <text x="704" y="1922" fill="#94a3b8">one container: React + FastAPI + WS</text>
+    <text x="704" y="1942" fill="#94a3b8">seeds itself on boot · Groq Llama-3.1</text>
+
+    <rect x="1040" y="1868" width="460" height="100" rx="12" fill="#131a2e" stroke="#2a3854"/>
+    <text x="1060" y="1898" fill="#e8edf7" font-weight="700" font-size="15">Scale path (ready in repo)</text>
+    <text x="1060" y="1922" fill="#94a3b8">Helm chart: K8s autoscaling 2➜10 pods · TLS · nightly backups</text>
+    <text x="1060" y="1942" fill="#94a3b8">load-tested: 100 concurrent users · 98 req/s · 0 errors</text>
+  </g>
+  <line x1="316" y1="1918" x2="368" y2="1918" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="628" y1="1918" x2="680" y2="1918" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="984" y1="1918" x2="1036" y2="1918" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <!-- storage strip -->
+  <rect x="60" y="1992" width="1440" height="64" rx="12" fill="#0d1424" stroke="#2a3854"/>
+  <text x="84" y="2018" fill="#94a3b8" font-size="14"><tspan fill="#e8edf7" font-weight="700">Storage:</tspan>  SQLite (dev, WAL) / PostgreSQL (prod) — users · documents · chunks · conversations · entities · workflows · traces · audit   ·   <tspan fill="#e8edf7" font-weight="700">Vectors:</tspan> Qdrant / in-memory</text>
+  <text x="84" y="2042" fill="#5b6b84" font-size="13">Every external dependency has a built-in fallback — the platform always boots, always answers, even fully offline in demo mode.</text>
+
+  <!-- footer -->
+  <line x1="60" y1="2084" x2="1500" y2="2084" stroke="#2a3854"/>
+  <text x="60" y="2116" fill="#94a3b8" font-size="14">Try it:  <tspan fill="#22d3ee" font-weight="600">eaios.onrender.com</tspan>  ·  login <tspan fill="#e8edf7">admin@eaios.dev / admin12345</tspan>  ·  ask "How many annual leave days do we get?"</text>
+  <text x="60" y="2142" fill="#5b6b84" font-size="13">B.E. Computer Engineering capstone · Darshan Dalvi · React 18 + TypeScript · FastAPI + SQLAlchemy · StateGraph agents · 2026</text>
+</svg>

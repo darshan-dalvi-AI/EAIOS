@@ -40,8 +40,10 @@ export default function LandingPage() {
         <span className="land-logo"><span className="orb" style={{ width: 16, height: 16 }} /> EAIOS</span>
         <div className="land-links">
           <a href="#features">Features</a>
+          <a href="#how-it-works">How it works</a>
           <a href="#tech">Technology</a>
           <a href="#architecture">Architecture</a>
+          <a href="#faq">FAQ</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <button className="btn primary sm" onClick={launch}>Launch <ArrowRight size={13} /></button>
@@ -106,6 +108,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── how it works ── */}
+      <section className="land-section" id="how-it-works">
+        <h2>How the enterprise AI operating system works</h2>
+        <p className="land-sub">Three loops — add knowledge, ask anything, automate the rest — all grounded, cited and auditable.</p>
+        <div className="land-prose">
+          <p>
+            <b>Add knowledge.</b> Upload PDFs, Word documents, spreadsheets, presentations or images into the
+            Knowledge app. The hybrid multimodal RAG pipeline parses every file (with OCR and vision captioning
+            for images), splits it into semantic chunks, embeds them, and indexes everything twice — a BM25
+            keyword index and a vector index. At the same time, an entity extractor builds a knowledge graph of
+            the people, organisations, amounts and concepts inside your documents, so enterprise search
+            understands not just words but relationships.
+          </p>
+          <p>
+            <b>Ask anything.</b> Every question flows through a graph orchestrator: a planning agent decomposes
+            compound requests, and specialist AI agents — document, SQL, research, email, report, analytics,
+            memory and coding — each handle their part. Retrieval fuses keyword and vector results with
+            Reciprocal Rank Fusion, augments relational questions with knowledge-graph paths, and the answer
+            streams back in real time with citations, a confidence score and the exact plan of agents that ran.
+            The LLM layer auto-detects the best available model — Groq-hosted Llama 3.1, local Ollama, OpenAI or
+            Anthropic — and degrades gracefully so a demo can never crash.
+          </p>
+          <p>
+            <b>Automate and observe.</b> The Automations app turns the same agents into drag-and-drop workflows —
+            trigger, agent, condition, notify — that fire on upload or on demand. A WebSocket hub streams presence
+            and live agent activity to every window, and the Traces app records a span waterfall for each request,
+            so latency and behaviour are never a mystery. Everything is protected by JWT authentication,
+            role-based access control, rate limiting and an append-only audit log.
+          </p>
+        </div>
+      </section>
+
       {/* ── architecture ── */}
       <section className="land-section" id="architecture">
         <h2>Architecture at a glance</h2>
@@ -137,6 +171,63 @@ export default function LandingPage() {
             <path key={i} d={d} className="arch-flow" stroke="url(#lg)" strokeWidth="1.6" fill="none" />
           ))}
         </svg>
+      </section>
+
+      {/* ── faq ── */}
+      <section className="land-section" id="faq">
+        <h2>Frequently asked questions</h2>
+        <p className="land-sub">Short answers about the platform, the AI agents and running it yourself.</p>
+        <div className="faq-list">
+          <details open>
+            <summary>What is EAIOS?</summary>
+            <p>
+              EAIOS is an enterprise AI operating system that runs in the browser. It combines hybrid multimodal
+              RAG, nine cooperating AI agents, a knowledge graph, enterprise search, visual automations and
+              observability behind a desktop-style interface with windows, a taskbar and a command palette.
+            </p>
+          </details>
+          <details open>
+            <summary>How does the hybrid RAG engine answer questions?</summary>
+            <p>
+              Uploaded documents are parsed, chunked, embedded and indexed twice — a BM25 keyword index and a
+              vector index. At question time both are searched and fused with Reciprocal Rank Fusion, and the
+              best passages are given to a large language model which must answer with citations and a
+              confidence score.
+            </p>
+          </details>
+          <details>
+            <summary>What do the nine AI agents do?</summary>
+            <p>
+              A planning agent decomposes requests and a graph orchestrator routes each subtask to a specialist:
+              document, SQL, research, email, report, analytics, memory or coding. Their results are merged into
+              one cited answer.
+            </p>
+          </details>
+          <details>
+            <summary>What is the knowledge graph used for?</summary>
+            <p>
+              At ingest time EAIOS extracts entities such as people, organisations, amounts and concepts, and
+              links them by co-occurrence. The graph can be explored visually and is used to answer relational
+              questions like how two entities are connected, with evidence passages.
+            </p>
+          </details>
+          <details>
+            <summary>Which language models does EAIOS support?</summary>
+            <p>
+              EAIOS auto-detects the best available provider: Groq-hosted Llama 3.1, local models through
+              Ollama, OpenAI or Anthropic APIs, and a deterministic mock model as a fallback so the platform
+              always answers.
+            </p>
+          </details>
+          <details>
+            <summary>Is EAIOS open source and can I run it myself?</summary>
+            <p>
+              Yes. The full source is on <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a> with
+              one-command local start, Docker Compose, a Render blueprint for free cloud deployment and a Helm
+              chart for Kubernetes.
+            </p>
+          </details>
+        </div>
       </section>
 
       {/* ── cta band ── */}

@@ -451,6 +451,21 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 .arch-flow { stroke-dasharray: 6 5; animation: arch-dash 1.4s linear infinite; }
 @keyframes arch-dash { to { stroke-dashoffset: -22; } }
 
+.land-prose { max-width: 760px; margin: 0 auto; text-align: left; }
+.land-prose p { color: var(--text-dim); font-size: 14.5px; line-height: 1.75; margin: 0 0 18px; }
+.land-prose b { color: var(--text); }
+
+.faq-list { max-width: 760px; margin: 0 auto; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.faq-list details { border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: var(--surface); padding: 14px 18px; transition: border-color .2s; }
+.faq-list details[open] { border-color: var(--hairline-strong); }
+.faq-list summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text);
+  list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.faq-list summary::after { content: "+"; color: var(--accent); font-size: 18px; font-weight: 400; }
+.faq-list details[open] summary::after { content: "–"; }
+.faq-list p { color: var(--text-dim); font-size: 13.5px; line-height: 1.7; margin: 10px 0 2px; }
+.faq-list a { color: var(--accent); }
+
 .land-cta-band { text-align: center; padding: 70px 6vw; display: flex; flex-direction: column;
   align-items: center; gap: 16px; border-top: 1px solid var(--hairline);
   background: radial-gradient(60% 100% at 50% 0%, rgba(139, 92, 246, 0.10), transparent); }

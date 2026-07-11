@@ -4,10 +4,98 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#05070f" />
-    <meta name="description" content="EAIOS — hybrid multimodal RAG + multi-agent AI platform, presented as an operating system in the browser." />
+
+    <!-- ── Primary SEO ─────────────────────────────────────────── -->
+    <title>EAIOS — Enterprise AI Operating System | Hybrid RAG & Multi-Agent Platform</title>
+    <meta name="description" content="EAIOS is an enterprise AI operating system: hybrid multimodal RAG with cited answers, nine AI agents, a knowledge graph, enterprise search and visual automations." />
+    <meta name="keywords" content="enterprise AI, AI operating system, hybrid RAG, multimodal RAG, multi-agent AI, knowledge graph, enterprise search, graph orchestrator, AI agents, EAIOS" />
+    <meta name="author" content="Darshan Dalvi" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://eaios.onrender.com/" />
     <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- ── Open Graph (Facebook / LinkedIn / WhatsApp) ─────────── -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://eaios.onrender.com/" />
+    <meta property="og:site_name" content="EAIOS" />
+    <meta property="og:title" content="EAIOS — Enterprise AI Operating System" />
+    <meta property="og:description" content="Hybrid multimodal RAG, nine cooperating AI agents, knowledge graph, enterprise search and automations — a full AI operating system in your browser." />
+    <meta property="og:image" content="https://eaios.onrender.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- ── X (Twitter) Cards ───────────────────────────────────── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EAIOS — Enterprise AI Operating System" />
+    <meta name="twitter:description" content="Hybrid multimodal RAG, nine AI agents, knowledge graph, enterprise search and automations — a full AI operating system in your browser." />
+    <meta name="twitter:image" content="https://eaios.onrender.com/og-image.png" />
+
+    <!-- ── Structured data: identity + software + FAQ ──────────── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://eaios.onrender.com/#org",
+          "name": "EAIOS",
+          "url": "https://eaios.onrender.com/",
+          "logo": "https://eaios.onrender.com/eaios-icon.svg",
+          "sameAs": ["https://github.com/darshan-dalvi-AI/EAIOS"],
+          "founder": { "@type": "Person", "name": "Darshan Dalvi", "url": "https://github.com/darshan-dalvi-AI" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "EAIOS — Enterprise AI Operating System",
+          "url": "https://eaios.onrender.com/",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web browser",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "description": "Enterprise AI operating system combining hybrid multimodal RAG, nine cooperating AI agents, a self-building knowledge graph, enterprise search, visual automations and observability in an OS-metaphor web interface.",
+          "featureList": "Hybrid multimodal RAG, Multi-agent AI, Knowledge graph, Enterprise search, SQL assistant, Visual workflow automations, Voice assistant, Observability traces",
+          "author": { "@id": "https://eaios.onrender.com/#org" }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is EAIOS?",
+              "acceptedAnswer": { "@type": "Answer", "text": "EAIOS is an enterprise AI operating system that runs in the browser. It combines hybrid multimodal RAG, nine cooperating AI agents, a knowledge graph, enterprise search, visual automations and observability behind a desktop-style interface with windows, a taskbar and a command palette." }
+            },
+            {
+              "@type": "Question",
+              "name": "How does the hybrid RAG engine answer questions?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Uploaded documents are parsed, chunked, embedded and indexed twice — a BM25 keyword index and a vector index. At question time both are searched and fused with Reciprocal Rank Fusion, and the best passages are given to a large language model which must answer with citations and a confidence score." }
+            },
+            {
+              "@type": "Question",
+              "name": "What do the nine AI agents do?",
+              "acceptedAnswer": { "@type": "Answer", "text": "A planning agent decomposes requests and a graph orchestrator routes each subtask to a specialist: document, SQL, research, email, report, analytics, memory or coding. Their results are merged into one cited answer." }
+            },
+            {
+              "@type": "Question",
+              "name": "What is the knowledge graph used for?",
+              "acceptedAnswer": { "@type": "Answer", "text": "At ingest time EAIOS extracts entities such as people, organisations, amounts and concepts, and links them by co-occurrence. The graph can be explored visually and is used to answer relational questions like how two entities are connected, with evidence passages." }
+            },
+            {
+              "@type": "Question",
+              "name": "Which language models does EAIOS support?",
+              "acceptedAnswer": { "@type": "Answer", "text": "EAIOS auto-detects the best available provider: Groq-hosted Llama 3.1, local models through Ollama, OpenAI or Anthropic APIs, and a deterministic mock model as a fallback so the platform always answers." }
+            },
+            {
+              "@type": "Question",
+              "name": "Is EAIOS open source and can I run it myself?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. The full source is on GitHub with one-command local start, Docker Compose, a Render blueprint for free cloud deployment and a Helm chart for Kubernetes." }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27><defs><linearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27><stop offset=%270%27 stop-color=%27%2322d3ee%27/><stop offset=%271%27 stop-color=%27%238b5cf6%27/></linearGradient></defs><circle cx=%2716%27 cy=%2716%27 r=%2712%27 fill=%27none%27 stroke=%27url(%23g)%27 stroke-width=%275%27/></svg>" />
-    <title>EAIOS — Enterprise AI Operating System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -17,6 +105,36 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Static fallback: readable by crawlers and LLMs without JavaScript -->
+    <noscript>
+      <main style="font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #111">
+        <h1>EAIOS — Enterprise AI Operating System</h1>
+        <p>
+          EAIOS is an enterprise AI operating system that runs entirely in the browser. It combines a
+          hybrid multimodal RAG engine, nine cooperating AI agents, a self-building knowledge graph,
+          enterprise search, visual workflow automations and full observability behind a desktop-style
+          interface with windows, a taskbar and a command palette.
+        </p>
+        <h2>How it works</h2>
+        <p>
+          Upload company documents — PDFs, Word files, spreadsheets, presentations or images — and the
+          ingestion pipeline parses, chunks, embeds and indexes them with both BM25 keyword search and
+          vector similarity. Questions are routed by a graph orchestrator: a planning agent decomposes the
+          request, specialist agents (document, SQL, research, email, report, analytics, memory, coding)
+          execute it, and answers stream back with citations and confidence scores. Entities extracted at
+          ingest form a knowledge graph that answers relational questions with evidence.
+        </p>
+        <p>
+          EAIOS supports Groq-hosted Llama 3.1, local Ollama models, OpenAI and Anthropic, with a
+          deterministic fallback so it always answers. Source code, documentation, a Docker setup, a
+          Render blueprint and a Kubernetes Helm chart are available on
+          <a href="https://github.com/darshan-dalvi-AI/EAIOS">GitHub</a>.
+        </p>
+        <p>Please enable JavaScript to launch the interactive operating system.</p>
+      </main>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
