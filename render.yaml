@@ -1,8 +1,10 @@
 # Render.com blueprint — deploys EAIOS as one free web service.
 # Dashboard → New → Blueprint → pick this repo → Apply.
-# After the first deploy, set OPENAI_API_KEY (free key from console.groq.com)
-# in the service's Environment tab for real Llama 3.1 answers; without it the
-# platform runs on the deterministic mock LLM (still fully demoable).
+# After the first deploy, set OPENAI_API_KEY (OpenRouter key from
+# https://openrouter.ai/keys) in the service's Environment tab for real
+# answers; without it the platform runs on the deterministic mock LLM
+# (still fully demoable). The default model below is OpenRouter's free
+# Llama 3.3 70B tier ($0; can 429 at peak — add credits for paid models).
 #
 # Free-plan notes: the service sleeps after ~15 min idle (first request then
 # takes ~1 min) and the SQLite database is ephemeral — SEED_ON_START=1
@@ -30,7 +32,7 @@ services:
       - key: OPENAI_BASE_URL
         value: https://openrouter.ai/api/v1
       - key: OPENAI_MODEL
-        value: google/gemini-2.0-flash-001
+        value: meta-llama/llama-3.3-70b-instruct:free
       - key: TEMPERATURE
         value: "0.3"
       - key: OPENAI_API_KEY

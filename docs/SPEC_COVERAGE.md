@@ -66,7 +66,7 @@ Streaming (SSE) ✅ · Stop ✅ · Regenerate ✅ · Export ✅ · Citations ✅
 | Docker / Compose / GitHub Actions / Render / Nginx / K8s | ✅ |
 | Celery / Redis queue | 🟡 FastAPI background tasks now; Redis wired for rate-limit/pubsub; Celery seam documented |
 | LangChain / LlamaIndex | ✖ deliberate: custom StateGraph + RAG (LangGraph-compatible API) — stronger interview story, zero lock-in |
-| Gemini / DeepSeek / Qwen / Phi | ✅ first-class via **OpenRouter** (`OPENAI_BASE_URL=https://openrouter.ai/api/v1` — ONE key for all seven model families, switchable live in Settings → AI Model); Ollama for local |
+| Gemini / DeepSeek / Qwen / Phi | ✅ first-class via **OpenRouter** (`OPENAI_BASE_URL=https://openrouter.ai/api/v1` — ONE key for all seven model families, switchable live in Settings → AI Model; catalog IDs verified against the live registry, incl. a $0 `:free` Llama tier); Ollama for local |
 
 ## Bonus features
 

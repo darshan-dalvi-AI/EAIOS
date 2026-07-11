@@ -6,14 +6,17 @@ import { useOS } from "../store";
 
 // Curated OpenRouter model catalog — one key, every major family.
 const OPENROUTER = "https://openrouter.ai/api/v1";
+// IDs verified against the live OpenRouter catalog (2026-07). The :free tier
+// costs nothing but can hit upstream 429s at peak — paid IDs need credits.
 const MODEL_CATALOG: { label: string; family: string; model: string }[] = [
+  { label: "Llama 3.3 70B · free", family: "Llama", model: "meta-llama/llama-3.3-70b-instruct:free" },
   { label: "GPT-4o mini", family: "GPT", model: "openai/gpt-4o-mini" },
-  { label: "Claude 3.5 Sonnet", family: "Claude", model: "anthropic/claude-3.5-sonnet" },
-  { label: "Gemini 2.0 Flash", family: "Gemini", model: "google/gemini-2.0-flash-001" },
-  { label: "DeepSeek V3", family: "DeepSeek", model: "deepseek/deepseek-chat" },
-  { label: "Qwen 2.5 72B", family: "Qwen", model: "qwen/qwen-2.5-72b-instruct" },
+  { label: "Claude Sonnet 5", family: "Claude", model: "anthropic/claude-sonnet-5" },
+  { label: "Gemini 3.5 Flash", family: "Gemini", model: "google/gemini-3.5-flash" },
+  { label: "DeepSeek V4 Flash", family: "DeepSeek", model: "deepseek/deepseek-v4-flash" },
+  { label: "Qwen 3.6 Flash", family: "Qwen", model: "qwen/qwen3.6-flash" },
   { label: "Llama 3.3 70B", family: "Llama", model: "meta-llama/llama-3.3-70b-instruct" },
-  { label: "Phi-3 Medium", family: "Phi", model: "microsoft/phi-3-medium-128k-instruct" },
+  { label: "Phi-4", family: "Phi", model: "microsoft/phi-4" },
 ];
 
 const ACCENTS = [
