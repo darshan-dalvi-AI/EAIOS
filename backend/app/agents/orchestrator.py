@@ -1,34 +1,47 @@
-"""Multi-agent orchestrator — graph runtime edition.
+"""Multi-agent orchestrator — graph runtime with dynamic semantic routing.
 
 The request flows through a compiled StateGraph (LangGraph semantics,
 see ``app.agents.graph``):
 
-    START → planner ──▶ dispatch ──▶ <agent node> ─┐
-                            ▲                      │
-                            └──────────────────────┘   (loop until queue empty)
-                        dispatch ──▶ merge → END
+                       ┌─▶ agent A ─┐
+    START → router ────┼─▶ agent B ─┼──▶ merge → END      (LLM routing: fan-out,
+                       └─▶ agent C ─┘                       branches run in PARALLEL)
 
-- ``planner`` decomposes compound requests into subtasks (PlanningAgent).
-- ``dispatch`` is a conditional edge: routes the next subtask to one of the
-  8 specialist agents via the transparent regex intent table (explainable in
-  a viva; swap for an LLM router without touching the API layer).
-- Every node emits ``agent.step`` events to the realtime hub and records a
-  span in the active trace.
-- If the graph fails for any reason, a sequential legacy path produces the
-  same result shape — the REST contract never breaks.
+    START → router → dispatch ─▶ agent ─▶ dispatch ─▶ … ─▶ merge → END
+                                                            (regex fallback: sequential,
+                                                             output chains step to step)
+
+Routing tiers (ROUTER_MODE = auto | llm | regex):
+1. **LLM semantic router** — a single fast LLM call classifies the query
+   against the agent catalog and returns strict JSON:
+   ``{"tasks": [{"agent": "document", "task": "…"}]}``. Each task must be
+   independent and self-contained; the graph fans them out concurrently
+   (each branch gets its own DB session — SQLAlchemy sessions are not
+   thread-safe) and converges at ``merge``.
+2. **Regex intent table** — transparent, deterministic, zero-cost. Used in
+   ``auto`` mode when the LLM provider is the mock (tests/demo), whenever
+   the router's JSON can't be validated, or when forced via config.
+3. **Legacy sequential path** — if the graph itself ever fails, the REST
+   contract is still honored.
 """
+import json
+import logging
 import re
 from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.agents.graph import END, START, CompiledGraph, StateGraph
+from app.agents.graph import END, START, CompiledGraph, StateGraph, list_concat
 from app.agents.planning_agent import PlanningAgent
 from app.agents.registry import AGENT_MAP
+from app.core.config import settings
+from app.core.database import SessionLocal
 from app.core.events import hub
 from app.core.tracing import span
 from app.models import User
 from app.schemas import Citation
+
+log = logging.getLogger("eaios.orchestrator")
 
 INTENTS: list[tuple[str, re.Pattern]] = [
     ("memory",    re.compile(r"^(remember|note that|save this)|what do you (know|remember) about me", re.I)),
@@ -48,6 +61,83 @@ def route(text: str) -> str:
     return "document"  # default: RAG over the knowledge base
 
 
+# ── LLM semantic router ──────────────────────────────────────────────────
+ROUTER_SYSTEM = (
+    "You are the routing brain of EAIOS, an enterprise AI platform. "
+    "Decide which specialist agents must run to fully answer the user's request.\n\n"
+    "Available agents:\n"
+    "- document: answers questions from the indexed company knowledge base (policies, financials, manuals) with citations\n"
+    "- sql: converts natural language into safe read-only SQL over the platform database and returns results\n"
+    "- research: live web search for news, facts, prices, anything outside company documents\n"
+    "- email: drafts professional emails and replies\n"
+    "- report: writes structured reports and executive summaries\n"
+    "- analytics: usage KPIs, adoption metrics, platform insights\n"
+    "- memory: stores or recalls long-term facts and preferences about the user\n"
+    "- coding: explains, generates, reviews or debugs code\n\n"
+    "Rules:\n"
+    "1. Return ONLY JSON, no prose: {\"tasks\": [{\"agent\": \"<id>\", \"task\": \"<self-contained instruction>\"}]}\n"
+    "2. Use the fewest agents that fully cover the request (usually 1, max 4).\n"
+    "3. Tasks run IN PARALLEL, so each task text must stand alone — copy any needed context into it.\n\n"
+    "Example — request: \"How many annual leave days do we get, and draft an email to HR asking to carry days over?\"\n"
+    "{\"tasks\": [{\"agent\": \"document\", \"task\": \"How many annual leave days do employees get per year?\"}, "
+    "{\"agent\": \"email\", \"task\": \"Draft a professional email to HR asking whether unused annual leave days can be carried over to next year.\"}]}"
+)
+
+MAX_ROUTED_TASKS = 4
+
+
+def parse_router_json(raw: str) -> list[tuple[str, str]] | None:
+    """Validate the router's JSON → [(agent_id, task)] or None if unusable."""
+    try:
+        start, end = raw.find("{"), raw.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        data = json.loads(raw[start:end + 1])
+        tasks = data.get("tasks")
+        if not isinstance(tasks, list) or not tasks:
+            return None
+        out: list[tuple[str, str]] = []
+        seen: dict[str, int] = {}
+        for item in tasks[:MAX_ROUTED_TASKS]:
+            agent = str(item.get("agent", "")).strip().lower()
+            task = str(item.get("task", "")).strip()
+            if agent not in AGENT_MAP or agent == "planning" or not task:
+                continue
+            if agent in seen:  # one node per agent: merge duplicate tasks
+                idx = seen[agent]
+                out[idx] = (agent, f"{out[idx][1]} Also: {task}")
+            else:
+                seen[agent] = len(out)
+                out.append((agent, task))
+        return out or None
+    except Exception:  # noqa: BLE001 — any malformed output → regex fallback
+        return None
+
+
+def semantic_route(text: str) -> list[tuple[str, str]] | None:
+    """One fast LLM call → validated routing plan, or None → regex fallback."""
+    mode = settings.ROUTER_MODE.lower()
+    if mode == "regex":
+        return None
+    from app.llm.provider import get_llm
+
+    llm = get_llm()
+    if mode == "auto" and llm.name == "mock":
+        return None  # deterministic demo/tests: keep the transparent regex path
+    try:
+        with span("semantic_router", kind="llm", model=getattr(llm, "model", llm.name)):
+            raw = llm.complete(ROUTER_SYSTEM, f"Request: {text}\n\nJSON:")
+        routed = parse_router_json(raw)
+        if routed:
+            log.info("semantic router → %s", [a for a, _ in routed])
+        else:
+            log.warning("semantic router output unusable — falling back to regex")
+        return routed
+    except Exception as exc:  # noqa: BLE001
+        log.warning("semantic router failed (%s) — falling back to regex", exc)
+        return None
+
+
 @dataclass
 class OrchestratorResult:
     answer: str
@@ -59,8 +149,6 @@ class OrchestratorResult:
 
     @property
     def citations_json(self) -> str:
-        import json
-
         return json.dumps([c.model_dump() for c in self.citations])
 
 
@@ -71,57 +159,107 @@ class Orchestrator:
 
     # ── graph construction ───────────────────────────────────────────────
     def build_graph(self) -> CompiledGraph:
-        g = StateGraph()
-        g.add_node("planner", self._node_planner)
+        g = StateGraph(reducers={
+            "answers": list_concat,
+            "citations": list_concat,
+            "confidences": list_concat,
+            "agents_used": list_concat,
+        })
+        g.add_node("router", self._node_router)
         g.add_node("merge", self._node_merge)
         for agent_id in AGENT_MAP:
             if agent_id == "planning":
                 continue
             g.add_node(agent_id, self._make_agent_node(agent_id))
-            g.add_conditional_edges(agent_id, self._dispatch)
-        g.add_edge(START, "planner")
-        g.add_conditional_edges("planner", self._dispatch)
+            g.add_conditional_edges(agent_id, self._after_agent)
+        g.add_edge(START, "router")
+        g.add_conditional_edges("router", self._after_router)
         g.add_edge("merge", END)
         return g.compile()
 
-    def _node_planner(self, state: dict) -> dict:
+    # ── nodes ────────────────────────────────────────────────────────────
+    def _node_router(self, state: dict) -> dict:
         text = state["text"]
         if state.get("force_agent"):
-            return {"queue": [(state["force_agent"], text)], "planned": False}
+            return {"route_mode": "forced", "queue": [(state["force_agent"], text)],
+                    "planned": False, "total_steps": 1}
+
+        routed = semantic_route(text)
+        if routed:
+            return {
+                "route_mode": "llm",
+                "task_map": dict(routed),
+                "planned": len(routed) > 1,
+                "total_steps": len(routed),
+            }
+
         with span("planner", kind="agent", input=text[:120]):
             subtasks = PlanningAgent(self.db, self.user).decompose(text)
         queue = [(route(sub), sub) for sub in subtasks]
-        return {"queue": queue, "planned": len(queue) > 1, "total_steps": len(queue)}
+        return {"route_mode": "regex", "queue": queue,
+                "planned": len(queue) > 1, "total_steps": len(queue)}
 
-    def _dispatch(self, state: dict) -> str:
+    def _after_router(self, state: dict) -> "str | list[str]":
+        task_map = state.get("task_map")
+        if task_map:
+            return list(task_map.keys())  # fan-out: parallel branches
+        queue = state.get("queue") or []
+        return queue[0][0] if queue else "merge"
+
+    def _after_agent(self, state: dict) -> str:
+        if state.get("task_map"):
+            return "merge"  # parallel branches converge
         queue = state.get("queue") or []
         return queue[0][0] if queue else "merge"
 
     def _make_agent_node(self, agent_id: str):
         def node(state: dict) -> dict:
-            queue = list(state["queue"])
-            _aid, subtask = queue.pop(0)
-            agent = AGENT_MAP[agent_id](self.db, self.user)
-            previous = state.get("previous_output", "")
-            task = subtask if not previous else f"{subtask}\n\n(Previous step output for reference: {previous[:500]})"
+            parallel = bool(state.get("task_map"))
+            if parallel:
+                subtask = state["task_map"][agent_id]
+                task = subtask
+            else:
+                queue = list(state["queue"])
+                _aid, subtask = queue.pop(0)
+                previous = state.get("previous_output", "")
+                task = subtask if not previous else \
+                    f"{subtask}\n\n(Previous step output for reference: {previous[:500]})"
+
             hub.publish("agent.step", agent=agent_id, status="start",
                         task=subtask[:140], user=self.user.full_name)
-            with span(agent.name, kind="agent", task=subtask[:120]) as s:
-                result = agent.run(task)
-                if s is not None:
-                    s["attrs"]["confidence"] = result.confidence
+
+            if parallel:
+                # own session per thread — SQLAlchemy sessions are not thread-safe
+                with SessionLocal() as db:
+                    user = db.get(User, self.user.id) or self.user
+                    agent = AGENT_MAP[agent_id](db, user)
+                    with span(agent.name, kind="agent", task=subtask[:120], parallel=True) as s:
+                        result = agent.run(task)
+                        if s is not None:
+                            s["attrs"]["confidence"] = result.confidence
+            else:
+                agent = AGENT_MAP[agent_id](self.db, self.user)
+                with span(agent.name, kind="agent", task=subtask[:120]) as s:
+                    result = agent.run(task)
+                    if s is not None:
+                        s["attrs"]["confidence"] = result.confidence
+
             hub.publish("agent.step", agent=agent_id, status="done",
                         task=subtask[:140], user=self.user.full_name,
                         confidence=result.confidence)
-            label = f"**{agent.name}** — {result.answer}" if state.get("total_steps", 1) > 1 else result.answer
-            return {
-                "queue": queue,
-                "answers": [*state.get("answers", []), label],
-                "citations": [*state.get("citations", []), *result.citations],
-                "confidences": [*state.get("confidences", []), result.confidence],
-                "agents_used": [*state.get("agents_used", []), agent_id],
-                "previous_output": result.answer,
+
+            name = AGENT_MAP[agent_id].name
+            label = f"**{name}** — {result.answer}" if state.get("total_steps", 1) > 1 else result.answer
+            update: dict = {
+                "answers": [label],
+                "citations": list(result.citations),
+                "confidences": [result.confidence],
+                "agents_used": [agent_id],
             }
+            if not parallel:
+                update["queue"] = queue
+                update["previous_output"] = result.answer
+            return update
 
         return node
 
@@ -142,12 +280,18 @@ class Orchestrator:
         try:
             return self._handle_graph(text, force_agent)
         except Exception:  # noqa: BLE001 — graph must never take down chat
+            log.exception("graph execution failed — using legacy sequential path")
             return self._handle_legacy(text, force_agent)
 
     def _handle_graph(self, text: str, force_agent: str | None) -> OrchestratorResult:
         graph = self.build_graph()
         state = graph.invoke({"text": text, "force_agent": force_agent})
-        plan = (["planning"] if state.get("planned") else []) + state.get("agents_used", [])
+        mode = state.get("route_mode", "regex")
+        agents_used = state.get("agents_used", [])
+        if mode == "llm":
+            plan = ["router", *agents_used]
+        else:
+            plan = (["planning"] if state.get("planned") else []) + agents_used
         return OrchestratorResult(
             answer=state["final_answer"],
             agent=state["final_agent"],
@@ -193,10 +337,10 @@ class Orchestrator:
 
 def orchestrator_graph_spec() -> dict:
     """Static graph structure for the UI (agents fleet map)."""
-    nodes = ["planner", *[a for a in AGENT_MAP if a != "planning"], "merge"]
+    nodes = ["router", *[a for a in AGENT_MAP if a != "planning"], "merge"]
     return {
-        "entry": "planner",
+        "entry": "router",
         "nodes": nodes,
-        "edges": [{"from": "planner", "to": "dispatch"}],
-        "conditional": ["planner", *[a for a in AGENT_MAP if a != "planning"]],
+        "edges": [{"from": "router", "to": "fan-out"}],
+        "conditional": ["router", *[a for a in AGENT_MAP if a != "planning"]],
     }

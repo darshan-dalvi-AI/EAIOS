@@ -67,8 +67,8 @@ START → planner ─▶ dispatch(conditional) ─▶ <agent node> ─┐
                     dispatch ─▶ merge → END
 ```
 
-- **Routing**: ordered regex intent table → memory / sql / research / email / report / analytics, default document (RAG). Transparent on purpose — explainable in a viva; swap for an LLM router without touching the API.
-- **Planning**: `PlanningAgent.decompose` splits compound requests into subtasks queued through the graph; step N receives step N-1's output as reference context (typed agent-to-agent hand-off via shared state).
+- **Dynamic semantic routing** (`ROUTER_MODE=auto|llm|regex`): a single fast LLM call classifies the query against the agent catalog and returns strict JSON `{"tasks":[{"agent","task"}]}`; validated tasks **fan out in parallel** (thread pool, one DB session per branch, channel reducers merge the deltas) and converge at `merge`. Malformed JSON, a mock provider, or `regex` mode fall back to the transparent ordered regex intent table — deterministic and explainable in a viva.
+- **Planning (fallback path)**: `PlanningAgent.decompose` splits compound requests into subtasks queued sequentially through the graph; step N receives step N-1's output as reference context (typed agent-to-agent hand-off via shared state).
 - **Resilience**: any graph failure falls back to a legacy sequential path with an identical result shape — chat never breaks.
 - **Telemetry**: every node records a span in the active trace (§8) and emits `agent.step` events to the realtime hub (§9); `BaseAgent.run` still writes `AgentRun` rows.
 - **Safety**: SQL Agent enforces single-statement, SELECT-only, keyword blocklist, comment ban, forced LIMIT; runs read-only against the session.

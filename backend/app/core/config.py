@@ -34,6 +34,10 @@ class Settings(BaseSettings):
 
     RATE_LIMIT_ENABLED: bool = True  # token buckets on auth/chat/upload (see core/ratelimit.py)
 
+    # Agent routing: auto = LLM semantic router when a real model is available,
+    # regex otherwise · llm = always try the LLM router · regex = never use it
+    ROUTER_MODE: str = "auto"
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

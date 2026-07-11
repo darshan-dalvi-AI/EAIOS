@@ -111,6 +111,7 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | Voice AI (mic input + read-aloud) | ✅ implemented |
 | Vision VLM captioning (via Ollama vision models) | ✅ implemented |
 | Graph orchestrator (StateGraph, LangGraph semantics) | ✅ implemented |
+| Dynamic semantic routing (LLM router → parallel fan-out) | ✅ implemented |
 | Realtime collab (WS presence + live agent feed) | ✅ implemented |
 | Knowledge graph + graph-augmented retrieval | ✅ implemented |
 | Visual workflow builder (Automations) | ✅ implemented |
