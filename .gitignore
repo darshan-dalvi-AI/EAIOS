@@ -19,5 +19,7 @@ dist/
 .idea/
 .DS_Store
 
-# SQLite journals
+# SQLite journals + WAL
 *.db-journal
+*.db-shm
+*.db-wal
