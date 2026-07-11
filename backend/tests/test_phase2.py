@@ -82,7 +82,7 @@ def test_knowledge_graph_extraction_and_api():
         "worth $48.2M in March. Contact maya@eaios.dev or the CISO."
     ))
     assert "Maya Iyer" in ents
-    assert "maya@eaios.dev" in ents and ents["maya@eaios.dev"] == "person"
+    assert "maya@eaios.dev" in ents and ents["maya@eaios.dev"] == "email"  # PII-sensitive type
     assert any(k in ents for k in ("Finance Department", "Nimbus Cloud"))
 
     with client() as c:

@@ -61,7 +61,7 @@ def send(body: ChatIn, db: Session = Depends(get_db), user: User = Depends(get_c
 
     start_trace(text, user=user.email, kind="chat")
     try:
-        result = Orchestrator(db, user).handle(text, force_agent=body.agent)
+        result = Orchestrator(db, user).handle(text, force_agent=body.agent, thread_id=conv.id)
         end_trace("ok")
     except Exception:
         end_trace("error")
@@ -117,7 +117,7 @@ def send_stream(body: ChatIn, db: Session = Depends(get_db), user: User = Depend
 
     start_trace(text, user=user.email, kind="chat")
     try:
-        result = Orchestrator(db, user).handle(text, force_agent=body.agent)
+        result = Orchestrator(db, user).handle(text, force_agent=body.agent, thread_id=conv.id)
         end_trace("ok")
     except Exception:
         end_trace("error")

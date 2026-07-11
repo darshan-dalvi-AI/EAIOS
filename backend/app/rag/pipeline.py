@@ -23,6 +23,18 @@ def ingest_document(doc_id: str, path: str) -> None:
 
         try:
             blocks = parse_file(path, doc.doc_type)
+
+            # advanced parsing: complex/nested tables → REAL SQL tables the
+            # SQL Agent can query; each returns a summary block for the index
+            table_blocks: list = []
+            try:
+                from app.rag import tables as dtables
+
+                table_blocks = dtables.ingest_tables(db, doc, path)
+            except Exception:  # noqa: BLE001 — structured extraction never blocks indexing
+                log.exception("table materialization failed for %s", doc_id)
+            blocks = blocks + table_blocks
+
             chunks = chunk_blocks(blocks)
 
             # Replace any previous index for this document
@@ -60,9 +72,10 @@ def ingest_document(doc_id: str, path: str) -> None:
             doc.page_count = max((c.page for c in records), default=0)
             doc.error = None
             db.commit()
-            log.info("Indexed %s → %d chunks, %d entities", doc.filename, len(records), entities)
+            log.info("Indexed %s → %d chunks, %d entities, %d structured table(s)",
+                     doc.filename, len(records), entities, len(table_blocks))
             hub.publish("doc.status", doc_id=doc.id, title=doc.title, status="indexed",
-                        chunks=len(records), entities=entities)
+                        chunks=len(records), entities=entities, tables=len(table_blocks))
 
             # fire upload-triggered automations (workflow engine)
             try:

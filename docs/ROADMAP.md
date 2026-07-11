@@ -19,6 +19,7 @@ JWT auth + RBAC + audit · SQLAlchemy schema · hybrid RAG (parse→chunk→embe
 - PaddleOCR/Tesseract for scanned docs; image captioning via Qwen2.5-VL or LLaVA through Ollama (Vision AI module).
 - Chart/diagram QA: route image chunks to the VLM at answer time.
 - **Demo**: upload a scanned invoice + a chart screenshot, ask questions about both.
+- ✅ **2026-07-12 — advanced structured parsing** (`rag/tables.py`): complex/nested tables (native docx/pptx table objects incl. nested, xlsx sheets, csv, pdf/txt line-grids) are extracted as *structured data* and materialized into **real SQL tables** (`dt_*`) that the SQL Agent queries directly — bypassing text chunking; each table also indexes a summary chunk so RAG can cite it. Schema explorer (`GET /api/agents/sql/schema`) and the SQL Studio app show them with provenance.
 
 ## Phase 3 · LangGraph + observability (weeks 9–10)
 
@@ -52,6 +53,13 @@ JWT auth + RBAC + audit · SQLAlchemy schema · hybrid RAG (parse→chunk→embe
 - **Load tested** (`backend/tests/load/`: locustfile + zero-dep httpx harness): 100 concurrent users → **98 req/s, 0 errors, p50 754 ms, p95 2.1 s** on a single worker + SQLite. Found & fixed a real defect: default connection pool exhausted at ~60 users → widened pool + SQLite WAL/busy-timeout.
 - Fine-tuning track (stretch): still open — export thumbs-up answers → LoRA on Llama 3 → serve via Ollama.
 - **Demo**: run the load test live while `kubectl get hpa -w` shows replicas scaling; CI green wall on GitHub.
+
+## Post-roadmap upgrades · advisory batch 2 ✅ shipped 2026-07-12
+
+- **Advanced document parsing** — structured tables → real SQL tables → SQL Agent (see Phase 2 note above).
+- **Privacy & data protection** — granular PII audit flag: knowledge-graph entities are classified (`person` / `email` / `phone` = sensitive); any agent, graph query, or MCP client touching them writes a `pii.access` audit entry and pushes a `security.pii` event to the live feed. Entity types now refine on new evidence (`concept` → `person` when a title like *Dr.* appears). wss:// was already covered: the WS endpoint rides the same TLS ingress/host as HTTPS.
+- **Checkpointer memory (state persistence)** — LangGraph's checkpointer interface implemented and DB-backed (`agents/checkpointer.py`, `graph_checkpoints` table): orchestrator state is saved after **every super-step**, keyed by conversation; an interrupted run (LLM outage, restart, closed laptop) resumes from the saved node when the same request is retried — completed agents are not re-run. Toggle: `GRAPH_CHECKPOINTS`.
+- **SQL Studio goes live** — the app now talks to the real backend (NL→SQL + live schema explorer incl. extracted `dt_*` tables with provenance) and keeps the demo fallback.
 
 ## Deliverables checklist
 

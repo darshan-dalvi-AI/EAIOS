@@ -190,3 +190,38 @@ class WorkflowRun(Base):
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     pending: Mapped[str] = mapped_column(Text, default="")  # JSON checkpoint when status=awaiting_approval (HITL)
     created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+# ── structured data tables (advanced document parsing → SQL agent) ───────
+class DataTable(Base):
+    """A table extracted from an uploaded document, materialized as a REAL
+    SQL table (``dt_<doc>_<n>``) so the SQL Agent can query it directly —
+    structured data bypasses text chunking entirely."""
+
+    __tablename__ = "data_tables"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    document_id: Mapped[str] = mapped_column(String(32), index=True)
+    doc_title: Mapped[str] = mapped_column(String(255), default="")
+    table_name: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # physical SQL table
+    title: Mapped[str] = mapped_column(String(200), default="")   # e.g. "Sheet1", "p.3 table 1"
+    columns: Mapped[str] = mapped_column(Text, default="[]")      # JSON [{name,type}]
+    row_count: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(20), default="")   # pdf | xlsx | csv | docx | pptx | txt
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+# ── graph checkpoints (LangGraph-style state persistence) ────────────────
+class GraphCheckpoint(Base):
+    """Orchestrator graph state persisted after every super-step, keyed by
+    thread (conversation). Interrupted runs resume from the saved node."""
+
+    __tablename__ = "graph_checkpoints"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    thread_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    state: Mapped[str] = mapped_column(Text, default="{}")        # JSON graph state
+    next_node: Mapped[str] = mapped_column(Text, default="")      # JSON: "node" | ["a","b"] | "__end__"
+    status: Mapped[str] = mapped_column(String(12), default="running")  # running | interrupted | done
+    steps: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)

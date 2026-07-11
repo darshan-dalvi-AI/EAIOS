@@ -14,10 +14,11 @@ type WsEvent =
   | { type: "presence"; users: PresenceUser[] }
   | { type: "agent.step"; agent: string; status: "start" | "done"; task: string; user: string; confidence?: number }
   | { type: "chat.message"; conversation_id: string; user: string; agent: string; preview: string }
-  | { type: "doc.status"; doc_id: string; title: string; status: string; chunks: number; entities: number }
+  | { type: "doc.status"; doc_id: string; title: string; status: string; chunks: number; entities: number; tables?: number }
   | { type: "workflow.run"; workflow: string; status: string; ms?: number }
   | { type: "workflow.notify"; workflow: string; message: string }
   | { type: "workflow.approval"; workflow: string; run_id: string; message: string }
+  | { type: "security.pii"; source: string; entities: string[]; user_id?: string }
   | { type: "typing"; user: string }
   | { type: "pong" };
 
@@ -34,7 +35,13 @@ function feedFrom(ev: WsEvent): Omit<FeedEvent, "id" | "time"> | null {
         ? { agent: ev.agent, text: `started · ${ev.task}`, kind: "run" }
         : { agent: ev.agent, text: `done${ev.confidence ? ` · ${ev.confidence}% conf` : ""} · ${ev.task}`, kind: "run" };
     case "doc.status":
-      return { agent: "indexer", text: `“${ev.title}” indexed — ${ev.chunks} chunks, ${ev.entities} entities`, kind: "index" };
+      return {
+        agent: "indexer",
+        text: `“${ev.title}” indexed — ${ev.chunks} chunks, ${ev.entities} entities${ev.tables ? `, ${ev.tables} SQL table${ev.tables > 1 ? "s" : ""}` : ""}`,
+        kind: "index",
+      };
+    case "security.pii":
+      return { agent: "security", text: `⚑ PII access flagged (${ev.source}) — ${(ev.entities || []).join(", ")}`, kind: "auth" };
     case "workflow.run":
       return { agent: "workflow", text: `${ev.workflow} — ${ev.status}${ev.ms ? ` in ${ev.ms}ms` : ""}`, kind: "system" };
     case "workflow.notify":

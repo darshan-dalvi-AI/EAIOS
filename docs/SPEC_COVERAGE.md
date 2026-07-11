@@ -7,17 +7,19 @@ Status of every item in the EAIOS master prompt.
 
 | Item | Status | Where / notes |
 |---|---|---|
-| Hybrid Multimodal RAG | ✅ | BM25 + vectors + RRF, citations, confidence (`backend/app/rag/`) |
+| Hybrid Multimodal RAG | ✅ | BM25 + vectors + RRF, citations, confidence (`backend/app/rag/`); **table detection → structured extraction**: complex/nested tables become real SQL tables (`rag/tables.py`) queried by the SQL Agent directly |
 | Multi-Agent AI (9 agents) | ✅ | planning, document, sql, research, email, report, analytics, memory, **coding** |
 | Enterprise Search | ✅ | hybrid search across all indexed docs (Knowledge app) |
 | Vision AI | 🟡 | OCR hook + VLM captioning via any pulled Ollama vision model; layout-analysis (unstructured/Docling) is the seam left open |
 | Voice AI | 🟡 | mic input + read-aloud in Chat; wake word / meeting recording 🔜 |
-| SQL Agent | ✅ | NL→SQL, guardrails, schema explorer (SQL Studio) |
+| SQL Agent | ✅ | NL→SQL, guardrails, self-correction loop, live schema explorer incl. extracted document tables (SQL Studio hits the real backend) |
 | Report Generator | 🟡 | structured reports + exec summaries in chat; PDF/DOCX export 🔜 |
 | Knowledge Base | ✅ | upload, index, chunks drawer, reindex, delete (Knowledge app) |
 | Long-Term Memory | ✅ | Memory agent + memory_entries + Settings view |
 | MCP Integration | ✅ | **EAIOS is an MCP server**: `python -m app.mcp_server` exposes search_knowledge / ask_eaios / query_knowledge_graph / list_agents to Claude Desktop, Cursor, etc. (`pip install mcp`) |
 | Cloud Deployment | ✅ | Render blueprint (one-click), Dockerfile.web, Helm chart, CI→GHCR |
+| Privacy / PII protection | ✅ | sensitive KG entities (person/email/phone) flagged on any agent/API/MCP access: `pii.access` audit rows + `security.pii` live event |
+| State persistence (checkpointer) | ✅ | LangGraph checkpointer semantics, DB-backed (`graph_checkpoints`); interrupted chat runs resume from the saved node |
 
 ## Landing page
 
@@ -64,7 +66,7 @@ Streaming (SSE) ✅ · Stop ✅ · Regenerate ✅ · Export ✅ · Citations ✅
 | Docker / Compose / GitHub Actions / Render / Nginx / K8s | ✅ |
 | Celery / Redis queue | 🟡 FastAPI background tasks now; Redis wired for rate-limit/pubsub; Celery seam documented |
 | LangChain / LlamaIndex | ✖ deliberate: custom StateGraph + RAG (LangGraph-compatible API) — stronger interview story, zero lock-in |
-| Gemini / DeepSeek / Qwen / Phi | 🟡 any of them work today via `OPENAI_BASE_URL`-compatible endpoints or Ollama; only OpenAI/Anthropic/Groq/Ollama are first-class named providers |
+| Gemini / DeepSeek / Qwen / Phi | ✅ first-class via **OpenRouter** (`OPENAI_BASE_URL=https://openrouter.ai/api/v1` — ONE key for all seven model families, switchable live in Settings → AI Model); Ollama for local |
 
 ## Bonus features
 
@@ -72,4 +74,4 @@ Done: real-time collab ✅ · WebSocket notifications ✅ · semantic search ✅
 
 ## Verified quality gates
 
-16/16 pytest · tsc clean · vite + single-file builds clean · 13/13 headless-browser QA (landing → boot → login → streaming chat with code blocks → theme toggle → 9-agent fleet) · load-tested 100 users / 0 errors · OpenAPI docs at `/docs`.
+42/42 pytest (incl. structured tables, PII flagging, checkpointer resume, RAG eval, semantic routing) · tsc clean · vite + single-file builds clean · headless-browser QA (landing → boot → login → SQL Studio schema tree → NL query result) · load-tested 100 users / 0 errors · OpenAPI docs at `/docs`.

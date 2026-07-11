@@ -1,6 +1,7 @@
-import { ChevronDown, ChevronRight, Database, Play, ShieldCheck, Table2 } from "lucide-react";
-import { useState } from "react";
-import { DB_SCHEMA, mockSQL } from "../lib/mock";
+import { ChevronDown, ChevronRight, Database, FileSpreadsheet, Play, ShieldCheck, Table2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiSchema, apiSql, type SchemaTable, type SQLResult } from "../lib/api";
+import { useOS } from "../store";
 
 const KEYWORDS = /\b(SELECT|FROM|WHERE|GROUP|BY|ORDER|LIMIT|AS|COUNT|AVG|SUM|ROUND|DESC|ASC|JOIN|ON)\b/g;
 
@@ -17,21 +18,22 @@ function Highlight({ sql }: { sql: string }) {
   );
 }
 
-interface RunResult {
-  sql: string;
-  explanation: string;
-  columns: string[];
-  rows: (string | number)[][];
-}
-
 const EXAMPLES = ["Documents by type", "Agent runs with average latency", "How many users do we have?", "Latest documents"];
 
 export default function SQLApp() {
+  const live = useOS((s) => s.live);
   const [question, setQuestion] = useState("");
+  const [schema, setSchema] = useState<SchemaTable[]>([]);
   const [openTables, setOpenTables] = useState<Set<string>>(new Set(["documents"]));
-  const [result, setResult] = useState<RunResult | null>(null);
+  const [result, setResult] = useState<SQLResult | null>(null);
   const [running, setRunning] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    apiSchema().then((s) => alive && setSchema(s)).catch(() => {});
+    return () => { alive = false; };
+  }, [live]);
 
   function toggleTable(name: string) {
     setOpenTables((s) => {
@@ -41,16 +43,19 @@ export default function SQLApp() {
     });
   }
 
-  function run(q: string) {
+  async function run(q: string) {
     const clean = q.trim();
     if (!clean) return;
     setRunning(true);
     setResult(null);
-    setTimeout(() => {
-      setResult(mockSQL(clean));
+    try {
+      setResult(await apiSql(clean));
       setHistory((h) => [clean, ...h.filter((x) => x !== clean)].slice(0, 6));
+    } catch {
+      setResult({ sql: "", explanation: "The SQL service is unreachable right now.", warning: "request failed", columns: [], rows: [] });
+    } finally {
       setRunning(false);
-    }, 650);
+    }
   }
 
   return (
@@ -58,16 +63,21 @@ export default function SQLApp() {
       <aside className="app-sidebar" style={{ padding: "12px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 8px 10px" }}>
           <Database size={14} style={{ color: "var(--good)" }} />
-          <span style={{ fontWeight: 600, fontSize: 12.5 }}>eaios · postgres</span>
+          <span style={{ fontWeight: 600, fontSize: 12.5 }}>eaios · {live ? "live" : "demo"}</span>
         </div>
-        {DB_SCHEMA.map((t) => (
+        {schema.map((t) => (
           <div key={t.table}>
-            <button className="tree-item" onClick={() => toggleTable(t.table)}>
+            <button className="tree-item" onClick={() => toggleTable(t.table)} title={t.source ? `Extracted from: ${t.source}` : undefined}>
               {openTables.has(t.table) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              <Table2 size={12} style={{ color: "#67e8f9" }} />
+              {t.source
+                ? <FileSpreadsheet size={12} style={{ color: "#a78bfa" }} />
+                : <Table2 size={12} style={{ color: "#67e8f9" }} />}
               {t.table}
               <span className="faint" style={{ marginLeft: "auto", fontSize: 10 }}>{t.rows}</span>
             </button>
+            {openTables.has(t.table) && t.source && (
+              <div className="tree-item" style={{ paddingLeft: 34, fontSize: 10.5, color: "#a78bfa" }}>⇪ {t.source}</div>
+            )}
             {openTables.has(t.table) &&
               t.columns.map((c) => (
                 <div key={c} className="tree-item" style={{ paddingLeft: 34, fontSize: 11.5, color: "var(--text-faint)" }}>{c}</div>
@@ -122,6 +132,7 @@ export default function SQLApp() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span className="pill info">generated sql</span>
                   <span className="pill good"><ShieldCheck size={11} /> read-only · LIMIT 50</span>
+                  {result.warning && <span className="pill warn">⚠ {result.warning}</span>}
                 </div>
                 <div className="code-block"><Highlight sql={result.sql} /></div>
               </div>

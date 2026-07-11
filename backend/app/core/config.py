@@ -40,6 +40,10 @@ class Settings(BaseSettings):
 
     TEMPERATURE: float = 0.3  # generation temperature for all providers (0.0–1.0)
 
+    # LangGraph-style checkpointer: persist orchestrator graph state to the DB
+    # after every super-step (keyed by conversation) so interrupted runs resume
+    GRAPH_CHECKPOINTS: bool = True
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

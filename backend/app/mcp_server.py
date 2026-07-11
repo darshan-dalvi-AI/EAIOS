@@ -90,6 +90,10 @@ def query_knowledge_graph(entity_a: str, entity_b: str) -> str:
         rel = kgraph.relate(db, entity_a, entity_b)
         if rel is None:
             return "One or both entities were not found in the knowledge graph."
+        # granular privacy flag — MCP clients count as agent access too
+        from app.services import audit
+
+        audit.flag_pii(db, None, "mcp.query_knowledge_graph", kgraph.sensitive_names(rel))
         return json.dumps(rel, indent=2, default=str)
 
 

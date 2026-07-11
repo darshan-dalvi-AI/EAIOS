@@ -129,6 +129,10 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | Rate limiting (token buckets, Redis-ready) | ✅ implemented |
 | Load tested — 100 concurrent users, 0 errors | ✅ 98 req/s, p95 2.1s (single worker, SQLite) |
 | CI/CD: tests + GHCR image push + gated Helm deploy | ✅ .github/workflows/ci.yml |
+| Structured table extraction → real SQL tables (nested docx, pdf grids, xlsx/csv) | ✅ implemented (`rag/tables.py`) |
+| Granular PII audit flag (agent access to person/email/phone entities) | ✅ implemented (`pii.access` + live `security.pii` event) |
+| LangGraph checkpointer — DB-persisted graph state, resume after interruption | ✅ implemented (`agents/checkpointer.py`) |
+| Live SQL Studio (schema explorer + NL→SQL against the real backend) | ✅ implemented |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 
 ## Testing

@@ -3,7 +3,7 @@
    Demo mode: identical shapes served from mock.ts with realistic latency. */
 import { useOS } from "../store";
 import type { Citation, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
-import { MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockChat, mockRunWorkflow } from "./mock";
+import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockChat, mockRunWorkflow, mockSQL } from "./mock";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -157,6 +157,48 @@ export async function apiGraph(q = ""): Promise<{ nodes: GraphNode[]; edges: Gra
   const nodes = MOCK_GRAPH.nodes.filter((n) => n.name.toLowerCase().includes(ql));
   const ids = new Set(nodes.map((n) => n.id));
   return { nodes, edges: MOCK_GRAPH.edges.filter((e) => ids.has(e.source) && ids.has(e.target)) };
+}
+
+/* ── SQL assistant (live NL→SQL + database explorer) ── */
+export interface SQLResult {
+  sql: string;
+  explanation: string;
+  warning?: string;
+  columns: string[];
+  rows: (string | number)[][];
+}
+
+export interface SchemaTable {
+  table: string;
+  rows: number;
+  columns: string[];
+  source?: string; // set for structured tables extracted from uploaded documents
+}
+
+export async function apiSql(question: string): Promise<SQLResult> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    try {
+      return await request<SQLResult>("/agents/sql", { method: "POST", body: JSON.stringify({ question }) });
+    } catch {
+      /* fall through to demo shape */
+    }
+  }
+  await delay(650);
+  return mockSQL(question);
+}
+
+export async function apiSchema(): Promise<SchemaTable[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    try {
+      return await request<SchemaTable[]>("/agents/sql/schema");
+    } catch {
+      /* fall through */
+    }
+  }
+  await delay(200);
+  return DB_SCHEMA;
 }
 
 /* ── workflows ── */

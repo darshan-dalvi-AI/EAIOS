@@ -74,7 +74,7 @@ class SQLAgent(BaseAgent):
             raw = safe_complete(
                 "You are the SQL Agent's self-correction step. The SQL you wrote failed. "
                 "Fix it. Return ONLY the corrected single read-only SELECT statement — no prose, no fences.",
-                f"SCHEMA:\n{schema_description()}\n\nQUESTION: {question}\n\n"
+                f"SCHEMA:\n{schema_description(self.db)}\n\nQUESTION: {question}\n\n"
                 f"FAILED SQL:\n{failed_sql}\n\nDATABASE ERROR:\n{error}\n\nCorrected SQL:",
             )
             fixed = raw.strip().strip("`").removeprefix("sql").strip()
@@ -96,15 +96,32 @@ class SQLAgent(BaseAgent):
     # ── generation ───────────────────────────────────────────────
     def _generate(self, question: str) -> str:
         q = question.lower()
-        heuristic = self._heuristic(q)
+        heuristic = self._data_table_heuristic(q) or self._heuristic(q)
         if heuristic:
             return heuristic
-        sql = safe_complete(SYSTEM, f"SCHEMA:\n{schema_description()}\n\nQUESTION: {question}")
+        sql = safe_complete(SYSTEM, f"SCHEMA:\n{schema_description(self.db)}\n\nQUESTION: {question}")
         sql = sql.strip().strip("`").removeprefix("sql").strip()
         # Mock provider returns prose, not SQL — fall back to a sensible default.
         if not sql.lower().startswith("select"):
             return "SELECT doc_type, COUNT(*) AS total FROM documents GROUP BY doc_type"
         return sql
+
+    def _data_table_heuristic(self, q: str) -> str | None:
+        """Uploaded structured tables (advanced document parsing): if the
+        question names a document/table that was materialized, query it
+        directly — precise structured retrieval instead of text chunks."""
+        from app.models import DataTable
+
+        try:
+            for dt in self.db.query(DataTable).order_by(DataTable.created_at.desc()).limit(50):
+                names = {dt.table_name.lower(), dt.title.lower(), dt.doc_title.lower()}
+                if any(n and n in q for n in names):
+                    if "how many" in q or "count" in q:
+                        return f'SELECT COUNT(*) AS total FROM "{dt.table_name}"'
+                    return f'SELECT * FROM "{dt.table_name}" LIMIT 20'
+        except Exception:  # noqa: BLE001 — heuristic only
+            return None
+        return None
 
     def _heuristic(self, q: str) -> str | None:
         """Template routes for the most common analytical asks."""
@@ -138,11 +155,25 @@ class SQLAgent(BaseAgent):
         return ""
 
 
-def schema_description() -> str:
+def schema_description(db=None) -> str:
     lines = []
     for table in Base.metadata.sorted_tables:
         cols = ", ".join(f"{c.name} {c.type}" for c in table.columns)
         lines.append(f"{table.name}({cols})")
+
+    # structured tables extracted from uploaded documents (advanced parsing):
+    # physical dt_* tables the LLM can target directly
+    if db is not None:
+        try:
+            import json
+
+            from app.models import DataTable
+
+            for dt in db.query(DataTable).order_by(DataTable.created_at.desc()).limit(25):
+                cols = ", ".join(f"{c['name']} {c['type']}" for c in json.loads(dt.columns or "[]"))
+                lines.append(f"{dt.table_name}({cols})  -- '{dt.title}' extracted from document '{dt.doc_title}'")
+        except Exception:  # noqa: BLE001 — schema listing must never fail
+            pass
     return "\n".join(lines)
 
 

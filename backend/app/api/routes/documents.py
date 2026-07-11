@@ -89,6 +89,12 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), user: User = Dep
     if user.role != "admin" and doc.owner_id != user.id:
         raise HTTPException(403, "Only the owner or an admin can delete this document")
     pipeline.delete_document_vectors(doc_id)
+    try:  # drop structured tables materialized from this document
+        from app.rag import tables as dtables
+
+        dtables.drop_for_document(db, doc_id)
+    except Exception:  # noqa: BLE001
+        pass
     stored = _stored_path(doc)
     if stored:
         os.remove(stored)

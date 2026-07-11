@@ -71,18 +71,19 @@ class StateGraph:
         self.entry = name
         return self
 
-    def compile(self) -> "CompiledGraph":  # noqa: A003
+    def compile(self, checkpointer: Any = None) -> "CompiledGraph":  # noqa: A003
         if not self.entry:
             raise ValueError("Graph has no entry point")
         unknown = [t for t in self.edges.values() if t != END and t not in self.nodes]
         if unknown:
             raise ValueError(f"Edges point to unknown nodes: {unknown}")
-        return CompiledGraph(self)
+        return CompiledGraph(self, checkpointer)
 
 
 class CompiledGraph:
-    def __init__(self, spec: StateGraph) -> None:
+    def __init__(self, spec: StateGraph, checkpointer: Any = None) -> None:
         self.spec = spec
+        self.checkpointer = checkpointer  # LangGraph-style: put/get/done, keyed by thread_id
 
     # ── state helpers ────────────────────────────────────────────────────
     def _apply(self, state: dict, update: dict | None) -> None:
@@ -118,58 +119,112 @@ class CompiledGraph:
                 on_step(name, "done", ms)
         return update, {"node": name, "ms": ms, "status": status}
 
+    # ── checkpointing (LangGraph checkpointer semantics) ─────────────────
+    def _checkpoint(self, thread_id: str | None, state: dict,
+                    next_node: "str | list[str]", status: str = "running") -> None:
+        if self.checkpointer is None or not thread_id:
+            return
+        try:
+            if status == "done":
+                self.checkpointer.done(thread_id, state)
+            else:
+                self.checkpointer.put(thread_id, state, next_node, status=status)
+        except Exception:  # noqa: BLE001 — persistence must never break execution
+            log.exception("checkpoint failed for thread %s", thread_id)
+
+    def _restore(self, thread_id: str | None, state: dict) -> "tuple[dict, str | list[str]] | None":
+        """If this thread has an *interrupted* checkpoint for the same request,
+        resume from the saved node instead of re-running completed ones."""
+        if self.checkpointer is None or not thread_id:
+            return None
+        try:
+            cp = self.checkpointer.get(thread_id)
+        except Exception:  # noqa: BLE001
+            return None
+        if not cp or cp.get("status") != "interrupted":
+            return None
+        saved = cp.get("state") or {}
+        if saved.get("text") != state.get("text"):
+            return None  # different request on this thread → fresh run
+        nxt = cp.get("next")
+        targets = nxt if isinstance(nxt, list) else [nxt]
+        if not targets or any(t != END and t not in self.spec.nodes for t in targets):
+            return None
+        restored = {**state, **saved}
+        restored.setdefault("timeline", []).append({"node": "__resume__", "ms": 0, "status": "resumed"})
+        log.info("thread %s: resuming interrupted graph at %s", thread_id, nxt)
+        return restored, nxt
+
     # ── execution ────────────────────────────────────────────────────────
     def invoke(self, state: dict, max_steps: int = 32,
-               on_step: Callable[[str, str, int], None] | None = None) -> dict:
+               on_step: Callable[[str, str, int], None] | None = None,
+               thread_id: str | None = None) -> dict:
         """Run until END. ``on_step(node, phase, ms)`` fires around every node.
 
         Sequential by default; when a conditional edge returns a list of
         nodes, those branches run in parallel on state snapshots and their
         delta-updates are reduced back in list order.
+
+        With a checkpointer + ``thread_id``, state is persisted after every
+        super-step; a run that died mid-graph resumes from the saved node
+        when the same request is retried on that thread.
         """
         state = dict(state)
         state.setdefault("timeline", [])
         current: str | list[str] = self.spec.entry
+        restored = self._restore(thread_id, state)
+        if restored is not None:
+            state, current = restored
         steps = 0
 
         while current != END:
             if steps >= max_steps:
                 raise RuntimeError(f"Graph exceeded {max_steps} steps (cycle?)")
             steps += 1
+            try:
+                current = self._step(current, state, on_step)
+            except Exception:
+                self._checkpoint(thread_id, state, current, status="interrupted")
+                raise
+            self._checkpoint(thread_id, state, current)
 
-            # ── fan-out: parallel branches ──────────────────────────────
-            if isinstance(current, list):
-                targets = [t for t in current if t != END]
-                if not targets:
-                    break
-                snapshot = dict(state)  # branches see identical pre-fan-out state
-                with ThreadPoolExecutor(max_workers=min(len(targets), 8)) as pool:
-                    futures = []
-                    for t in targets:
-                        ctx = contextvars.copy_context()  # propagate active trace into the thread
-                        futures.append(pool.submit(ctx.run, self._run_node, t, dict(snapshot), on_step))
-                    results = [f.result() for f in futures]  # raises on branch error
-
-                for (update, entry), _name in zip(results, targets):
-                    entry["parallel"] = True
-                    state["timeline"].append(entry)
-                    self._apply(state, update)
-
-                # converge: all branches must agree on the next node
-                nexts = {str(self._next_of(t, state)) for t in targets}
-                raw_next = self._next_of(targets[0], state)
-                if len(nexts) > 1:
-                    raise RuntimeError(f"Parallel branches diverge: {nexts}")
-                current = raw_next
-                continue
-
-            # ── sequential node ─────────────────────────────────────────
-            update, entry = self._run_node(current, state, on_step)
-            state["timeline"].append(entry)
-            self._apply(state, update)
-            current = self._next_of(current, state)
-
+        self._checkpoint(thread_id, state, END, status="done")
         return state
+
+    def _step(self, current: "str | list[str]", state: dict,
+              on_step: Callable[[str, str, int], None] | None) -> "str | list[str]":
+        """One super-step: execute ``current`` (node or parallel fan-out),
+        apply updates, and return the next target(s)."""
+        # ── fan-out: parallel branches ──────────────────────────────────
+        if isinstance(current, list):
+            targets = [t for t in current if t != END]
+            if not targets:
+                return END
+            snapshot = dict(state)  # branches see identical pre-fan-out state
+            with ThreadPoolExecutor(max_workers=min(len(targets), 8)) as pool:
+                futures = []
+                for t in targets:
+                    ctx = contextvars.copy_context()  # propagate active trace into the thread
+                    futures.append(pool.submit(ctx.run, self._run_node, t, dict(snapshot), on_step))
+                results = [f.result() for f in futures]  # raises on branch error
+
+            for (update, entry), _name in zip(results, targets):
+                entry["parallel"] = True
+                state["timeline"].append(entry)
+                self._apply(state, update)
+
+            # converge: all branches must agree on the next node
+            nexts = {str(self._next_of(t, state)) for t in targets}
+            raw_next = self._next_of(targets[0], state)
+            if len(nexts) > 1:
+                raise RuntimeError(f"Parallel branches diverge: {nexts}")
+            return raw_next
+
+        # ── sequential node ─────────────────────────────────────────────
+        update, entry = self._run_node(current, state, on_step)
+        state["timeline"].append(entry)
+        self._apply(state, update)
+        return self._next_of(current, state)
 
     def describe(self) -> dict[str, Any]:
         """Static structure for UI visualization."""

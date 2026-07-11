@@ -22,6 +22,7 @@ log = logging.getLogger("eaios.kgraph")
 
 # ── extraction ───────────────────────────────────────────────────────────
 RX_EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b")
+RX_PHONE = re.compile(r"(?<![\d.])(?:\+\d{1,3}[\s.-]?)?(?:\(\d{2,5}\)[\s.-]?)?\d{2,5}(?:[\s.-]\d{2,5}){1,4}(?![\d.])")
 RX_MONEY = re.compile(r"(?:\$|₹|€|£)\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:k|K|M|million|billion|lakh|crore))?|\b\d[\d,]*(?:\.\d+)?\s?(?:USD|INR|EUR)\b")
 RX_PROPER = re.compile(r"\b(?:[A-Z][a-z]{2,}|[A-Z]{2,6})(?:[ \-](?:[A-Z][a-z]{2,}|[A-Z]{2,6}|of|for|the|&)){0,3}\b")
 RX_ACRONYM = re.compile(r"^[A-Z]{2,6}$")
@@ -39,9 +40,28 @@ PERSON_HINTS = re.compile(r"\b(Mr|Mrs|Ms|Dr|Prof)\.? [A-Z]")
 MONTHS = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\b")
 
 
+# PII: entity types treated as sensitive, personally identifiable — access
+# to these through agents/graph queries is flagged in the audit log.
+SENSITIVE_TYPES = {"person", "email", "phone"}
+
+
+def _digits(s: str) -> str:
+    return re.sub(r"\D", "", s)
+
+
+def _phoneish(name: str) -> bool:
+    """Phone heuristic: matching shape + 8-13 digits + a phone-y marker
+    (leading +, parentheses, or ≥2 separators) to avoid number-pair noise."""
+    if not RX_PHONE.fullmatch(name) or not 8 <= len(_digits(name)) <= 13:
+        return False
+    return "+" in name or "(" in name or len(re.findall(r"[\s.-]", name)) >= 2
+
+
 def _classify(name: str, text: str) -> str:
     if RX_EMAIL.fullmatch(name):
-        return "person"
+        return "email"
+    if _phoneish(name):
+        return "phone"
     if ORG_HINTS.search(name):
         return "org"
     if RX_MONEY.fullmatch(name):
@@ -62,6 +82,10 @@ def extract_entities(text: str, max_entities: int = 12) -> list[tuple[str, str]]
     counts: Counter[str] = Counter()
     for match in RX_EMAIL.findall(text):
         counts[match.lower()] += 2
+    for match in RX_PHONE.findall(text):
+        m = match.strip()
+        if _phoneish(m):
+            counts[m] += 2
     for match in RX_MONEY.findall(text):
         counts[match.strip()] += 1
     for match in RX_PROPER.findall(text):
@@ -93,16 +117,23 @@ def index_chunks(db: Session, doc: Document, chunks: list[Chunk]) -> int:
 
     cache: dict[str, Entity] = {}
 
+    GENERIC = {"term", "concept"}
+
     def upsert(name: str, etype: str) -> Entity:
         key = _norm(name)
         if key in cache:
-            return cache[key]
-        entity = db.scalar(select(Entity).where(Entity.key == key))
-        if entity is None:
-            entity = Entity(name=name[:200], key=key, etype=etype)
-            db.add(entity)
-            db.flush()
-        cache[key] = entity
+            entity = cache[key]
+        else:
+            entity = db.scalar(select(Entity).where(Entity.key == key))
+            if entity is None:
+                entity = Entity(name=name[:200], key=key, etype=etype)
+                db.add(entity)
+                db.flush()
+            cache[key] = entity
+        # type refinement: new evidence can promote a generic entity to a
+        # specific class (e.g. 'concept' → 'person' once a title like Dr. appears)
+        if entity.etype in GENERIC and etype not in GENERIC:
+            entity.etype = etype
         return entity
 
     pair_weights: Counter[tuple[str, str]] = Counter()
@@ -241,19 +272,34 @@ RELATION_RX = re.compile(
 )
 
 
-def relational_context(db: Session, question: str) -> str:
+def sensitive_names(rel: dict | None) -> list[str]:
+    """PII entities touched by a graph query result — endpoints + path nodes
+    whose type is sensitive (person / email / phone). Used to flag the
+    granular audit log whenever an agent accesses them."""
+    if not rel:
+        return []
+    seen: list[str] = []
+    for node in [rel.get("a"), rel.get("b"), *rel.get("path", [])]:
+        if node and node.get("type") in SENSITIVE_TYPES and node["name"] not in seen:
+            seen.append(node["name"])
+    return seen
+
+
+def relational_context(db: Session, question: str) -> tuple[str, list[str]]:
     """If the question is relational ('how are X and Y related'), return a
-    graph-derived context block for the Document Agent; else ''. """
+    graph-derived context block for the Document Agent plus the list of
+    sensitive (PII) entity names it touched; else ('', [])."""
     m = RELATION_RX.search(question.strip())
     if not m:
-        return ""
-    a = (m.group(1) or m.group(3) or "").strip()
-    b = (m.group(2) or m.group(4) or "").strip()
+        return "", []
+    trailer = re.compile(r"\s+(related|connected|linked)$", re.I)
+    a = trailer.sub("", (m.group(1) or m.group(3) or "").strip())
+    b = trailer.sub("", (m.group(2) or m.group(4) or "").strip())
     if not a or not b:
-        return ""
+        return "", []
     rel = relate(db, a, b)
     if rel is None:
-        return ""
+        return "", []
     lines = [f"KNOWLEDGE GRAPH: '{rel['a']['name']}' and '{rel['b']['name']}'"]
     if rel["connected"] and rel["path"]:
         lines.append("Connection path: " + " → ".join(p["name"] for p in rel["path"]))
@@ -261,4 +307,4 @@ def relational_context(db: Session, question: str) -> str:
         lines.append("Co-mentioned in: " + ", ".join(d["title"] for d in rel["shared_documents"]))
     for ev in rel["evidence"]:
         lines.append(f"Evidence: {ev['text']}")
-    return "\n".join(lines)
+    return "\n".join(lines), sensitive_names(rel)

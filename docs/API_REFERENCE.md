@@ -31,6 +31,9 @@ Base URL: `/api` · Auth: `Authorization: Bearer <jwt>` (from login) · Interact
 | GET | /agents | ✓ | Registry: id, name, description, capabilities |
 | GET | /agents/runs?limit= | ✓ | Recent AgentRun telemetry |
 | POST | /agents/sql | ✓ | `{question}` → `{sql, explanation, columns, rows, warning}` (read-only guardrails) |
+| GET | /agents/sql/schema | ✓ | Live schema explorer: platform tables + extracted `dt_*` document tables (`{table, rows, columns[], source?}`) |
+
+Uploads with tabular content (docx/pptx tables incl. nested, xlsx sheets, csv, pdf/txt grids) are **materialized as real SQL tables** (`dt_<doc>_<n>`) at ingest; the SQL Agent sees them in its schema and can query them directly. Chat runs are **checkpointed per conversation** (`graph_checkpoints`): an interrupted run resumes from the saved node when the same message is retried (`GRAPH_CHECKPOINTS=false` to disable).
 
 ## Admin (role: admin)
 
@@ -54,6 +57,8 @@ Base URL: `/api` · Auth: `Authorization: Bearer <jwt>` (from login) · Interact
 |---|---|---|---|
 | GET | /graph?q=&limit= | ✓ | Entities + co-occurrence edges (built automatically at ingest) |
 | GET | /graph/relate?a=&b= | ✓ | Connection path (BFS ≤3 hops), shared documents, evidence chunks |
+
+**PII flagging:** entity types `person` / `email` / `phone` are sensitive. Any access through `/graph/relate`, the Document Agent's graph augmentation, or the MCP server writes a `pii.access` audit entry (`{source, entities[]}`) and publishes a `security.pii` realtime event.
 
 ## Workflows (Automations)
 
@@ -80,7 +85,7 @@ Node types: `trigger` · `agent {agent, prompt}` (`{{input}}` = upstream output)
 
 | Protocol | Path | Description |
 |---|---|---|
-| WebSocket | /ws?token=<jwt> | Presence + live events: `presence`, `agent.step`, `chat.message`, `doc.status`, `workflow.run`, `workflow.notify`. Send `ping` for keep-alive |
+| WebSocket | /ws?token=<jwt> | Presence + live events: `presence`, `agent.step`, `chat.message`, `doc.status` (incl. `tables`), `workflow.run`, `workflow.notify`, `workflow.approval`, `security.pii`. Send `ping` for keep-alive |
 
 ## Misc
 

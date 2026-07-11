@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.models import User
 from app.schemas import GraphOut
-from app.services import kgraph
+from app.services import audit, kgraph
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -20,4 +20,6 @@ def relate(a: str, b: str, db: Session = Depends(get_db), user: User = Depends(g
     result = kgraph.relate(db, a, b)
     if result is None:
         raise HTTPException(404, "One or both entities were not found in the knowledge graph")
+    # granular privacy flag: this query touched sensitive PII entities
+    audit.flag_pii(db, user.id, "graph.relate", kgraph.sensitive_names(result))
     return result

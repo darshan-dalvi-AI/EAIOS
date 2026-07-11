@@ -33,9 +33,11 @@ class DocumentAgent(BaseAgent):
         # knowledge-graph augmentation for relational questions
         graph_block = ""
         try:
-            from app.services import kgraph
+            from app.services import audit, kgraph
 
-            graph_block = kgraph.relational_context(self.db, task)
+            graph_block, pii = kgraph.relational_context(self.db, task)
+            if pii:  # granular privacy flag: agent touched PII entities in the graph
+                audit.flag_pii(self.db, self.user.id, "document_agent.graph", pii)
         except Exception:  # noqa: BLE001 — augmentation never breaks answering
             graph_block = ""
 

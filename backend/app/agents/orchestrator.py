@@ -152,6 +152,28 @@ class OrchestratorResult:
         return json.dumps([c.model_dump() for c in self.citations])
 
 
+# ── checkpoint (de)serialization ─────────────────────────────────────────
+# Graph state carries rich objects; checkpoints are JSON. Citations are
+# rehydrated to pydantic models and queue entries back to tuples on load.
+def checkpoint_dumps(state: dict) -> str:
+    def fallback(o):
+        if hasattr(o, "model_dump"):
+            return o.model_dump()
+        if isinstance(o, (set, tuple)):
+            return list(o)
+        return str(o)
+
+    return json.dumps({k: v for k, v in state.items() if k != "force_agent" or v}, default=fallback)
+
+
+def checkpoint_loads(raw: str) -> dict:
+    state = json.loads(raw or "{}")
+    state["citations"] = [Citation(**c) if isinstance(c, dict) else c for c in state.get("citations") or []]
+    if state.get("queue"):
+        state["queue"] = [tuple(item) for item in state["queue"]]
+    return state
+
+
 class Orchestrator:
     def __init__(self, db: Session, user: User) -> None:
         self.db = db
@@ -175,7 +197,16 @@ class Orchestrator:
         g.add_edge(START, "router")
         g.add_conditional_edges("router", self._after_router)
         g.add_edge("merge", END)
-        return g.compile()
+        return g.compile(checkpointer=self._checkpointer())
+
+    @staticmethod
+    def _checkpointer():
+        """DB-backed LangGraph-style checkpointer (None when disabled)."""
+        if not settings.GRAPH_CHECKPOINTS:
+            return None
+        from app.agents.checkpointer import DBCheckpointer
+
+        return DBCheckpointer(dumps=checkpoint_dumps, loads=checkpoint_loads)
 
     # ── nodes ────────────────────────────────────────────────────────────
     def _node_router(self, state: dict) -> dict:
@@ -274,18 +305,23 @@ class Orchestrator:
         }
 
     # ── public API (unchanged contract) ──────────────────────────────────
-    def handle(self, text: str, force_agent: str | None = None) -> OrchestratorResult:
+    def handle(self, text: str, force_agent: str | None = None,
+               thread_id: str | None = None) -> OrchestratorResult:
+        """``thread_id`` (the conversation id) keys the graph checkpointer:
+        state persists after every super-step, and an interrupted run resumes
+        from the saved node when the same request is retried."""
         if force_agent and force_agent not in AGENT_MAP:
             force_agent = None
         try:
-            return self._handle_graph(text, force_agent)
+            return self._handle_graph(text, force_agent, thread_id)
         except Exception:  # noqa: BLE001 — graph must never take down chat
             log.exception("graph execution failed — using legacy sequential path")
             return self._handle_legacy(text, force_agent)
 
-    def _handle_graph(self, text: str, force_agent: str | None) -> OrchestratorResult:
+    def _handle_graph(self, text: str, force_agent: str | None,
+                      thread_id: str | None = None) -> OrchestratorResult:
         graph = self.build_graph()
-        state = graph.invoke({"text": text, "force_agent": force_agent})
+        state = graph.invoke({"text": text, "force_agent": force_agent}, thread_id=thread_id)
         mode = state.get("route_mode", "regex")
         agents_used = state.get("agents_used", [])
         if mode == "llm":
