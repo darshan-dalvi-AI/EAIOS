@@ -2,14 +2,16 @@
    Premium-SaaS look: animated aurora hero, feature grid, tech stack,
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
-  Activity, ArrowRight, BarChart3, Bot, BookOpen, Cpu, Database, FileText, FolderSearch,
-  Github, Image as ImageIcon, Mic, Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles,
+  Activity, ArrowRight, BarChart3, Bot, BookOpen, Copy, Cpu, Database, FileText, FolderSearch,
+  Github, Image as ImageIcon, Mail, Mic, Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles,
   Square, Sun, Table2, Workflow, X,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useOS } from "../store";
 
 const GITHUB_URL = "https://github.com/darshan-dalvi-AI/EAIOS";
 const DOCS_ANCHOR = "#architecture";
+const CONTACT_EMAIL = "darshanydalvi2005@gmail.com";
 
 const FEATURES = [
   { Icon: FolderSearch, hue: 155, title: "Hybrid Multimodal RAG", text: "BM25 + dense vectors fused with RRF. PDFs, Office docs, spreadsheets, images — cited answers with confidence scores." },
@@ -38,6 +40,23 @@ export default function LandingPage() {
   const theme = useOS((s) => s.theme);
   const setTheme = useOS((s) => s.setTheme);
   const launch = () => setPhase("boot");
+  const [legal, setLegal] = useState<null | "privacy" | "terms" | "contact">(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!legal) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLegal(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [legal]);
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTACT_EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard unavailable (http/file) — the address is shown as text */ }
+  };
 
   return (
     <div className="landing">
@@ -288,14 +307,85 @@ export default function LandingPage() {
         <div className="land-links">
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={12} /> GitHub</a>
           <a href={DOCS_ANCHOR}>Documentation</a>
-          <a href="#features">Privacy</a>
-          <a href="#features">Terms</a>
-          <a href="mailto:darshanydalvi2005@gmail.com">Contact</a>
+          <button className="land-flink" onClick={() => setLegal("privacy")}>Privacy</button>
+          <button className="land-flink" onClick={() => setLegal("terms")}>Terms</button>
+          <button className="land-flink" onClick={() => setLegal("contact")}>Contact</button>
         </div>
         <span className="faint" style={{ fontSize: 11 }}>
           <Activity size={11} style={{ verticalAlign: -1.5 }} /> B.E. Computer Engineering capstone · © {new Date().getFullYear()} Darshan Dalvi
         </span>
       </footer>
+
+      {/* ── privacy / terms / contact ── */}
+      {legal && (
+        <div className="land-modal-backdrop" onClick={() => setLegal(null)} role="dialog" aria-modal="true">
+          <div className="land-modal card" onClick={(e) => e.stopPropagation()}>
+            <div className="land-modal-head">
+              <h3>
+                {legal === "privacy" && "Privacy Policy"}
+                {legal === "terms" && "Terms of Use"}
+                {legal === "contact" && "Contact"}
+              </h3>
+              <button className="btn sm" onClick={() => setLegal(null)} aria-label="Close dialog"><X size={13} /></button>
+            </div>
+
+            {legal === "privacy" && (
+              <div className="land-modal-body">
+                <p><b>What EAIOS stores.</b> Documents you upload, the chunks and embeddings derived from
+                them, your account (name, email, role), chat history, and an append-only audit log. In the
+                hosted demo this lives in an ephemeral database that resets periodically; in demo mode
+                (no backend) nothing leaves your browser at all.</p>
+                <p><b>Where AI processing happens.</b> When a language-model key is configured, your
+                questions and relevant document passages are sent to the configured provider (e.g.
+                OpenRouter or a fully local Ollama model) solely to generate answers. No data is sold or
+                used for advertising, and there is no third-party tracking on this site.</p>
+                <p><b>PII protection.</b> People, email addresses and phone numbers detected in your
+                documents are classified as sensitive; every agent or API access to them is recorded in
+                the audit log and surfaced on the live security feed.</p>
+                <p><b>Your choices.</b> Delete your documents any time from the Knowledge app — vectors,
+                extracted SQL tables and graph entities are removed with them. Questions or removal
+                requests: use the Contact link.</p>
+              </div>
+            )}
+
+            {legal === "terms" && (
+              <div className="land-modal-body">
+                <p><b>What this is.</b> EAIOS is an open-source B.E. Computer Engineering capstone
+                project demonstrating enterprise AI architecture. It is provided free of charge for
+                evaluation, learning and demonstration purposes.</p>
+                <p><b>No warranty.</b> The software is provided “as is”, without warranty of any kind.
+                AI-generated answers can be wrong — verify anything important against the cited sources
+                before acting on it.</p>
+                <p><b>Acceptable use.</b> Don’t upload confidential production data, personal data you
+                have no right to share, or unlawful content to the public demo — it is a shared,
+                periodically-reset environment with per-user rate limits. For real workloads, deploy
+                your own instance from the GitHub repository.</p>
+                <p><b>Source code.</b> The full source is available on{" "}
+                <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>; your use of the code is
+                governed by the license in that repository.</p>
+              </div>
+            )}
+
+            {legal === "contact" && (
+              <div className="land-modal-body">
+                <p>Questions, feedback, bug reports or collaboration — pick whichever is easiest:</p>
+                <div className="land-contact-row">
+                  <Mail size={14} />
+                  <span className="mono-email">{CONTACT_EMAIL}</span>
+                  <button className="btn sm" onClick={copyEmail}><Copy size={12} /> {copied ? "Copied!" : "Copy"}</button>
+                  <a className="btn sm" href={`mailto:${CONTACT_EMAIL}`}>Open mail app</a>
+                </div>
+                <div className="land-contact-row">
+                  <Github size={14} />
+                  <span>Bugs & feature requests:</span>
+                  <a className="btn sm" href={`${GITHUB_URL}/issues`} target="_blank" rel="noreferrer">GitHub Issues</a>
+                </div>
+                <p className="faint" style={{ fontSize: 11.5 }}>Built by Darshan Dalvi · B.E. Computer Engineering capstone.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
