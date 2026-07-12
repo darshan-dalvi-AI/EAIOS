@@ -2,8 +2,8 @@
    Premium-SaaS look: animated aurora hero, feature grid, tech stack,
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
-  Activity, ArrowRight, BarChart3, Bot, BookOpen, Database, FileText, FolderSearch,
-  Github, Image as ImageIcon, Mic, PlayCircle, Share2, Sparkles, Workflow,
+  Activity, ArrowRight, BarChart3, Bot, BookOpen, Cpu, Database, FileText, FolderSearch,
+  Github, Image as ImageIcon, Mic, PlayCircle, Share2, ShieldCheck, Sparkles, Table2, Workflow,
 } from "lucide-react";
 import { useOS } from "../store";
 
@@ -12,21 +12,24 @@ const DOCS_ANCHOR = "#architecture";
 
 const FEATURES = [
   { Icon: FolderSearch, hue: 155, title: "Hybrid Multimodal RAG", text: "BM25 + dense vectors fused with RRF. PDFs, Office docs, spreadsheets, images — cited answers with confidence scores." },
-  { Icon: Bot, hue: 265, title: "Multi-Agent AI", text: "9 specialist agents behind a graph orchestrator: planner decomposes, agents execute, results merge — visible in real time." },
+  { Icon: Bot, hue: 265, title: "Multi-Agent AI", text: "9 specialist agents behind a graph orchestrator: an LLM router fans independent tasks out in parallel, and checkpointed state lets interrupted runs resume mid-graph." },
+  { Icon: Table2, hue: 15, title: "Structured Table → SQL", text: "Complex, nested tables in PDFs, Word files and spreadsheets become real SQL tables at ingest — the SQL agent queries structured data directly, bypassing text chunking." },
   { Icon: ImageIcon, hue: 30, title: "Vision AI", text: "OCR plus VLM captioning at ingest: charts, scans, and screenshots become searchable, answerable knowledge." },
   { Icon: Mic, hue: 330, title: "Voice Assistant", text: "Speak questions, hear answers. Web Speech in, speech synthesis out — hands-free enterprise Q&A." },
   { Icon: Sparkles, hue: 200, title: "Enterprise Search", text: "One query across policies, financials, manuals, contracts — grounded strictly in authorized company knowledge." },
-  { Icon: Database, hue: 130, title: "SQL Assistant", text: "Natural language to safe, read-only SQL with guardrails, result tables, and schema explanations." },
+  { Icon: Database, hue: 130, title: "SQL Assistant", text: "Natural language to safe, read-only SQL with self-correcting retries, a live schema explorer, and direct queries over tables extracted from your documents." },
+  { Icon: Cpu, hue: 285, title: "Any Model, One Key", text: "GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi through a single OpenRouter key — switch live in Settings, or run fully local with Ollama." },
   { Icon: BarChart3, hue: 38, title: "Analytics", text: "Usage KPIs, adoption trends, agent workloads — dashboards that narrate their own insights." },
   { Icon: FileText, hue: 210, title: "Report Generator", text: "Executive summaries and structured business reports assembled from cited sources." },
+  { Icon: ShieldCheck, hue: 358, title: "Security & PII Audit", text: "Sensitive entities — people, emails, phone numbers — are classified at ingest; every agent access is flagged to the append-only audit log and the live security feed." },
   { Icon: Share2, hue: 175, title: "Knowledge Graph", text: "Entities and relationships extracted automatically at ingest — explore the constellation, ask how things connect." },
-  { Icon: Workflow, hue: 95, title: "Automations + MCP", text: "Drag-and-drop workflows on the agent runtime, upload triggers, and MCP tools for AI interoperability." },
+  { Icon: Workflow, hue: 95, title: "Automations + MCP", text: "Drag-and-drop workflows with human-in-the-loop approval nodes, upload triggers, and MCP tools for AI interoperability." },
 ];
 
 const TECH = [
   "React 18", "TypeScript", "Vite", "Zustand", "FastAPI", "Python 3.12", "SQLAlchemy 2",
-  "StateGraph", "PostgreSQL", "SQLite WAL", "Qdrant", "Redis", "Ollama", "Groq · Llama 3.1",
-  "OpenAI", "Anthropic", "WebSockets", "OpenTelemetry", "Docker", "Kubernetes · Helm", "GitHub Actions", "MCP",
+  "StateGraph", "PostgreSQL", "SQLite WAL", "Qdrant", "Redis", "Ollama", "OpenRouter · 7 families",
+  "Llama 3.3", "OpenAI", "Anthropic", "WebSockets", "OpenTelemetry", "Docker", "Kubernetes · Helm", "GitHub Actions", "MCP",
 ];
 
 export default function LandingPage() {
@@ -51,13 +54,14 @@ export default function LandingPage() {
 
       {/* ── hero ── */}
       <header className="land-hero">
-        <div className="land-badge"><span className="dot pulse" style={{ background: "var(--good)" }} /> v0.2 — graph agents · knowledge graph · automations · traces</div>
+        <div className="land-badge"><span className="dot pulse" style={{ background: "var(--good)" }} /> v0.3 — parallel agents · table→SQL · PII audit · checkpointed runs · OpenRouter</div>
         <h1>
           The AI <span className="land-grad">Operating System</span><br />for your enterprise
         </h1>
         <p>
-          Hybrid multimodal RAG, nine cooperating AI agents, enterprise search, automations, and
-          observability — running inside a full desktop OS in your browser. Grounded. Cited. Auditable.
+          Hybrid multimodal RAG, nine parallel AI agents, structured table-to-SQL extraction, enterprise
+          search, automations and observability — running inside a full desktop OS in your browser.
+          Grounded. Cited. Audited. Resumable.
         </p>
         <div className="land-ctas">
           <button className="btn primary" onClick={launch}><PlayCircle size={15} /> Get Started</button>
@@ -87,7 +91,7 @@ export default function LandingPage() {
       {/* ── features ── */}
       <section className="land-section" id="features">
         <h2>Everything an enterprise brain needs</h2>
-        <p className="land-sub">Ten subsystems, one OS — every card below is a working app, not a mockup.</p>
+        <p className="land-sub">One OS, thirteen subsystems — every card below is a working feature, not a mockup.</p>
         <div className="feature-grid">
           {FEATURES.map(({ Icon, hue, title, text }) => (
             <div key={title} className="feature-card" style={{ "--hue": hue } as React.CSSProperties}>
@@ -119,20 +123,27 @@ export default function LandingPage() {
             for images), splits it into semantic chunks, embeds them, and indexes everything twice — a BM25
             keyword index and a vector index. At the same time, an entity extractor builds a knowledge graph of
             the people, organisations, amounts and concepts inside your documents, so enterprise search
-            understands not just words but relationships.
+            understands not just words but relationships. Complex and nested tables get special treatment: they
+            are lifted out as structured data and materialised into real SQL tables the SQL agent can query
+            directly, while sensitive entities — people, email addresses, phone numbers — are classified as PII
+            so any later access to them is flagged in the audit log.
           </p>
           <p>
-            <b>Ask anything.</b> Every question flows through a graph orchestrator: a planning agent decomposes
-            compound requests, and specialist AI agents — document, SQL, research, email, report, analytics,
-            memory and coding — each handle their part. Retrieval fuses keyword and vector results with
-            Reciprocal Rank Fusion, augments relational questions with knowledge-graph paths, and the answer
-            streams back in real time with citations, a confidence score and the exact plan of agents that ran.
-            The LLM layer auto-detects the best available model — Groq-hosted Llama 3.1, local Ollama, OpenAI or
-            Anthropic — and degrades gracefully so a demo can never crash.
+            <b>Ask anything.</b> Every question flows through a graph orchestrator: an LLM semantic router reads
+            the request and fans independent subtasks out to specialist AI agents — document, SQL, research,
+            email, report, analytics, memory and coding — which run in parallel where possible. Retrieval fuses
+            keyword and vector results with Reciprocal Rank Fusion, augments relational questions with
+            knowledge-graph paths, and the answer streams back in real time with citations, a confidence score
+            and the exact plan of agents that ran. The SQL agent repairs its own failed queries with a reflection
+            loop, and every run is checkpointed per conversation, so an interrupted request resumes exactly where
+            it stopped. The LLM layer speaks to GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi through a
+            single OpenRouter key — or fully local models via Ollama — and degrades gracefully so a demo can
+            never crash.
           </p>
           <p>
             <b>Automate and observe.</b> The Automations app turns the same agents into drag-and-drop workflows —
-            trigger, agent, condition, notify — that fire on upload or on demand. A WebSocket hub streams presence
+            trigger, agent, condition, notify, plus human-in-the-loop approval nodes that pause high-stakes
+            pipelines for an admin — firing on upload or on demand. A WebSocket hub streams presence
             and live agent activity to every window, and the Traces app records a span waterfall for each request,
             so latency and behaviour are never a mystery. Everything is protected by JWT authentication,
             role-based access control, rate limiting and an append-only audit log.
@@ -153,10 +164,10 @@ export default function LandingPage() {
           {[
             { x: 20, y: 110, w: 150, h: 80, t1: "React OS Shell", t2: "windows · dock · ⌘K" },
             { x: 220, y: 110, w: 140, h: 80, t1: "FastAPI", t2: "REST · WS · SSE" },
-            { x: 410, y: 30, w: 160, h: 70, t1: "Graph Orchestrator", t2: "planner → 9 agents" },
-            { x: 410, y: 200, w: 160, h: 70, t1: "Hybrid RAG", t2: "BM25 + vectors · RRF" },
-            { x: 640, y: 30, w: 200, h: 70, t1: "LLM Layer", t2: "Groq · Ollama · GPT · Claude" },
-            { x: 640, y: 200, w: 200, h: 70, t1: "Stores", t2: "Postgres · Qdrant · KG" },
+            { x: 410, y: 30, w: 160, h: 70, t1: "Graph Orchestrator", t2: "router → parallel agents" },
+            { x: 410, y: 200, w: 160, h: 70, t1: "Hybrid RAG", t2: "BM25 + vectors · tables→SQL" },
+            { x: 640, y: 30, w: 200, h: 70, t1: "LLM Layer", t2: "OpenRouter · Ollama · mock" },
+            { x: 640, y: 200, w: 200, h: 70, t1: "Stores", t2: "Postgres · Qdrant · KG · checkpoints" },
           ].map((b) => (
             <g key={b.t1}>
               <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="rgba(22,29,48,0.7)" stroke="url(#lg)" strokeWidth="1" />
@@ -196,11 +207,20 @@ export default function LandingPage() {
             </p>
           </details>
           <details>
+            <summary>What happens to tables inside my documents?</summary>
+            <p>
+              Complex and nested tables in PDFs, Word files, spreadsheets and slides are extracted as structured
+              data and materialised into real SQL tables at ingest. The SQL agent queries them directly — precise
+              aggregations instead of fuzzy text retrieval — and each table stays citable in search.
+            </p>
+          </details>
+          <details>
             <summary>What do the nine AI agents do?</summary>
             <p>
-              A planning agent decomposes requests and a graph orchestrator routes each subtask to a specialist:
-              document, SQL, research, email, report, analytics, memory or coding. Their results are merged into
-              one cited answer.
+              An LLM semantic router reads each request and fans independent subtasks out to specialists —
+              document, SQL, research, email, report, analytics, memory and coding — which run in parallel where
+              possible. Their results are merged into one cited answer, and every run is checkpointed so an
+              interrupted request resumes where it stopped.
             </p>
           </details>
           <details>
@@ -214,9 +234,18 @@ export default function LandingPage() {
           <details>
             <summary>Which language models does EAIOS support?</summary>
             <p>
-              EAIOS auto-detects the best available provider: Groq-hosted Llama 3.1, local models through
-              Ollama, OpenAI or Anthropic APIs, and a deterministic mock model as a fallback so the platform
-              always answers.
+              One OpenRouter key unlocks GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi — switchable live
+              from Settings. EAIOS also runs fully local models through Ollama and keeps a deterministic mock
+              fallback so the platform always answers.
+            </p>
+          </details>
+          <details>
+            <summary>How does EAIOS protect sensitive data?</summary>
+            <p>
+              Every request passes JWT authentication, role-based access control and rate limiting. Sensitive
+              entities in the knowledge graph — people, email addresses, phone numbers — are classified as PII,
+              and any agent or API access to them is flagged in an append-only audit log and on the live
+              security feed.
             </p>
           </details>
           <details>

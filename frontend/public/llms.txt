@@ -13,14 +13,23 @@ no backend as well). Source: https://github.com/darshan-dalvi-AI/EAIOS
 ## What it does
 
 - Ingests PDFs, Word, PowerPoint, Excel, CSV, text and images (OCR + vision captioning).
+- Extracts complex/nested tables as structured data and materialises them into real SQL tables
+  the SQL agent queries directly — precise aggregations instead of fuzzy text retrieval.
 - Answers questions strictly from indexed company knowledge, with citations and confidence.
-- A planning agent decomposes compound requests; specialist agents (document, SQL, research,
-  email, report, analytics, memory, coding) execute; results merge into one answer.
+- An LLM semantic router fans independent subtasks out to specialist agents (document, SQL,
+  research, email, report, analytics, memory, coding) that run in parallel; results merge into
+  one cited answer. The SQL agent self-corrects failed queries with a reflection loop.
+- Every run is checkpointed per conversation (LangGraph checkpointer semantics, DB-backed), so
+  interrupted requests resume exactly where they stopped.
 - Extracts entities at ingest into a knowledge graph; answers "how are X and Y related?" with
-  connection paths and evidence passages.
-- Drag-and-drop automations (trigger → agent → condition → notify) run on the same agent runtime.
+  connection paths and evidence passages. Sensitive entities (people, emails, phone numbers) are
+  classified as PII and every agent access to them is flagged in an append-only audit log plus a
+  live security feed.
+- Drag-and-drop automations (trigger → agent → condition → notify, plus human-in-the-loop
+  approval nodes) run on the same agent runtime.
 - Every request records a span waterfall (agent, retrieval, LLM timings) in a Traces app.
-- LLM layer auto-detects: Groq Llama 3.1, local Ollama, OpenAI, Anthropic, deterministic fallback.
+- LLM layer: one OpenRouter key unlocks GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi
+  (switchable live in Settings); local Ollama and a deterministic fallback keep it always on.
 - Exposes an MCP server so AI assistants can call EAIOS search/ask/graph as tools.
 
 ## Docs

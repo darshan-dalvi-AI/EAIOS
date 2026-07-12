@@ -53,7 +53,7 @@
           "operatingSystem": "Web browser",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
           "description": "Enterprise AI operating system combining hybrid multimodal RAG, nine cooperating AI agents, a self-building knowledge graph, enterprise search, visual automations and observability in an OS-metaphor web interface.",
-          "featureList": "Hybrid multimodal RAG, Multi-agent AI, Knowledge graph, Enterprise search, SQL assistant, Visual workflow automations, Voice assistant, Observability traces",
+          "featureList": "Hybrid multimodal RAG, Multi-agent AI with parallel semantic routing, Structured table-to-SQL extraction, Knowledge graph, Enterprise search, Self-correcting SQL assistant, PII access auditing, Checkpointed resumable agent runs, OpenRouter multi-model support, Visual workflow automations with human-in-the-loop approvals, Voice assistant, Observability traces",
           "author": { "@id": "https://eaios.onrender.com/#org" }
         },
         {
@@ -71,8 +71,13 @@
             },
             {
               "@type": "Question",
+              "name": "What happens to tables inside my documents?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Complex and nested tables in PDFs, Word files, spreadsheets and slides are extracted as structured data and materialised into real SQL tables at ingest. The SQL agent queries them directly — precise aggregations instead of fuzzy text retrieval — and each table stays citable in search." }
+            },
+            {
+              "@type": "Question",
               "name": "What do the nine AI agents do?",
-              "acceptedAnswer": { "@type": "Answer", "text": "A planning agent decomposes requests and a graph orchestrator routes each subtask to a specialist: document, SQL, research, email, report, analytics, memory or coding. Their results are merged into one cited answer." }
+              "acceptedAnswer": { "@type": "Answer", "text": "An LLM semantic router reads each request and fans independent subtasks out to specialists — document, SQL, research, email, report, analytics, memory and coding — which run in parallel where possible. Their results are merged into one cited answer, and every run is checkpointed so an interrupted request resumes where it stopped." }
             },
             {
               "@type": "Question",
@@ -82,7 +87,12 @@
             {
               "@type": "Question",
               "name": "Which language models does EAIOS support?",
-              "acceptedAnswer": { "@type": "Answer", "text": "EAIOS auto-detects the best available provider: Groq-hosted Llama 3.1, local models through Ollama, OpenAI or Anthropic APIs, and a deterministic mock model as a fallback so the platform always answers." }
+              "acceptedAnswer": { "@type": "Answer", "text": "One OpenRouter key unlocks GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi — switchable live from Settings. EAIOS also runs fully local models through Ollama and keeps a deterministic mock fallback so the platform always answers." }
+            },
+            {
+              "@type": "Question",
+              "name": "How does EAIOS protect sensitive data?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Every request passes JWT authentication, role-based access control and rate limiting. Sensitive entities in the knowledge graph — people, email addresses, phone numbers — are classified as PII, and any agent or API access to them is flagged in an append-only audit log and on the live security feed." }
             },
             {
               "@type": "Question",
@@ -122,12 +132,17 @@
           ingestion pipeline parses, chunks, embeds and indexes them with both BM25 keyword search and
           vector similarity. Questions are routed by a graph orchestrator: a planning agent decomposes the
           request, specialist agents (document, SQL, research, email, report, analytics, memory, coding)
-          execute it, and answers stream back with citations and confidence scores. Entities extracted at
-          ingest form a knowledge graph that answers relational questions with evidence.
+          run in parallel where possible, and answers stream back with citations and confidence scores.
+          Complex and nested tables are extracted as structured data into real SQL tables the SQL agent
+          queries directly. Entities extracted at ingest form a knowledge graph that answers relational
+          questions with evidence; sensitive entities (people, emails, phone numbers) are classified as PII
+          and every access to them is flagged in an append-only audit log. Runs are checkpointed per
+          conversation, so interrupted requests resume where they stopped.
         </p>
         <p>
-          EAIOS supports Groq-hosted Llama 3.1, local Ollama models, OpenAI and Anthropic, with a
-          deterministic fallback so it always answers. Source code, documentation, a Docker setup, a
+          One OpenRouter key unlocks GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi — switchable live
+          from Settings — alongside fully local Ollama models and a deterministic fallback so it always
+          answers. Source code, documentation, a Docker setup, a
           Render blueprint and a Kubernetes Helm chart are available on
           <a href="https://github.com/darshan-dalvi-AI/EAIOS">GitHub</a>.
         </p>
