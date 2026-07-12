@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # after every super-step (keyed by conversation) so interrupted runs resume
     GRAPH_CHECKPOINTS: bool = True
 
+    # Scheduled workflows: background loop firing trigger=schedule automations
+    SCHEDULER_ENABLED: bool = True
+    SCHEDULER_INTERVAL: int = 60  # seconds between due-checks
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

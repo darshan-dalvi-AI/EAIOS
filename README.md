@@ -133,6 +133,12 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | Granular PII audit flag (agent access to person/email/phone entities) | ✅ implemented (`pii.access` + live `security.pii` event) |
 | LangGraph checkpointer — DB-persisted graph state, resume after interruption | ✅ implemented (`agents/checkpointer.py`) |
 | Live SQL Studio (schema explorer + NL→SQL against the real backend) | ✅ implemented |
+| Report exports — download any agent answer as PDF/DOCX (zero-dep PDF writer) | ✅ implemented (`services/reports.py`) |
+| Scheduled workflows (interval trigger) + notification bell & toasts | ✅ implemented |
+| AI Meeting Assistant — record/paste → minutes → save to Knowledge (12th app) | ✅ implemented |
+| Model Arena — same prompt, two OpenRouter models side by side with latency | ✅ implemented |
+| Document analyzers — Resume / Contract / Invoice scorecards | ✅ implemented (`services/analyze.py`) |
+| MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 
 ## Testing

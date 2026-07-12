@@ -4,6 +4,7 @@ import time
 from fastapi.testclient import TestClient
 
 from app.core import ratelimit
+from app.core.config import settings
 from app.core.ratelimit import Rule, _match, _MemoryBuckets
 from app.main import app
 
@@ -30,6 +31,7 @@ def test_rule_matching():
 def test_middleware_returns_429(monkeypatch):
     tiny = Rule("test-tiny", capacity=2, per_seconds=3600, by_user=False)
     monkeypatch.setattr(ratelimit, "RULES", [("POST", "/api/auth/login", tiny)])
+    monkeypatch.setattr(settings, "RATE_LIMIT_ENABLED", True)  # conftest disables globally
     with TestClient(app) as c:
         body = {"email": "nobody@x.dev", "password": "wrong"}
         r1 = c.post("/api/auth/login", json=body)

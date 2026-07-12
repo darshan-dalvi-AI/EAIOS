@@ -3,7 +3,7 @@
    Demo mode: identical shapes served from mock.ts with realistic latency. */
 import { useOS } from "../store";
 import type { Citation, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
-import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockChat, mockRunWorkflow, mockSQL } from "./mock";
+import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockAnalyze, mockChat, mockMinutes, mockRunWorkflow, mockSQL } from "./mock";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -413,4 +413,87 @@ export async function apiApproveRun(runId: string, approved: boolean): Promise<W
   }
   await delay(300);
   throw new Error("Approvals require the live backend");
+}
+
+/* ── report exports (PDF / DOCX artifacts from any agent answer) ── */
+export async function apiExportReport(title: string, content: string, format: "pdf" | "docx" | "md"): Promise<void> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    const res = await fetch("/api/reports/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ title, content, format }),
+    });
+    if (!res.ok) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
+    const blob = await res.blob();
+    const name = (res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1])
+      || `eaios-report.${format}`;
+    triggerDownload(blob, name);
+    return;
+  }
+  // demo mode: markdown download works entirely client-side
+  triggerDownload(new Blob([content], { type: "text/markdown" }),
+    `${title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "eaios-report"}.md`);
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* ── AI meeting assistant ── */
+export async function apiMeeting(transcript: string, title: string, saveToKnowledge: boolean):
+  Promise<{ minutes: string; doc_id: string | null }> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    return request("/agents/meeting", {
+      method: "POST",
+      body: JSON.stringify({ transcript, title, save_to_knowledge: saveToKnowledge }),
+    });
+  }
+  await delay(900);
+  return { minutes: mockMinutes(transcript), doc_id: null };
+}
+
+/* ── model arena (admin) ── */
+export interface CompareResult { model: string; ms: number; answer: string; error: string | null }
+
+export async function apiCompare(prompt: string, models: [string, string]):
+  Promise<{ prompt: string; results: CompareResult[] }> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    return request("/admin/compare", { method: "POST", body: JSON.stringify({ prompt, models }) });
+  }
+  await delay(1100);
+  return {
+    prompt,
+    results: models.map((m, i) => ({
+      model: m, ms: 640 + i * 420 + Math.floor(Math.random() * 200),
+      answer: `[${m}] ${mockChat(prompt).answer}`, error: null,
+    })),
+  };
+}
+
+/* ── document analyzers ── */
+export interface AnalyzeCard {
+  doc_id: string; title: string; kind: string; verdict: string; score: number;
+  highlights: { label: string; value: string; status: "good" | "warn" | "bad" }[];
+  summary: string; engine: string;
+}
+
+export async function apiAnalyze(docId: string, kind: string, docTitle: string): Promise<AnalyzeCard> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    try {
+      return await request(`/documents/${docId}/analyze`, { method: "POST", body: JSON.stringify({ kind }) });
+    } catch {
+      /* doc not on the backend (demo row) → deterministic demo scorecard */
+    }
+  }
+  await delay(800);
+  return mockAnalyze(docId, kind, docTitle);
 }

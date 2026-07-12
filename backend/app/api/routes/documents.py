@@ -107,3 +107,29 @@ def _stored_path(doc: Document) -> str | None:
     ext = os.path.splitext(doc.filename)[1].lower()
     path = os.path.join(settings.UPLOAD_DIR, f"{doc.id}{ext}")
     return path if os.path.exists(path) else None
+
+
+# ── analyzer quick-actions (Resume / Contract / Invoice / Auto) ──────────
+from pydantic import BaseModel, Field  # noqa: E402
+
+
+class AnalyzeIn(BaseModel):
+    kind: str = Field(default="auto", pattern="^(resume|contract|invoice|auto)$")
+
+
+@router.post("/{doc_id}/analyze")
+def analyze(doc_id: str, body: AnalyzeIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Structured scorecard for an indexed document — templated analyst
+    prompts over its chunks + extracted SQL tables, with a deterministic
+    heuristic fallback so demo mode always answers."""
+    doc = db.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(404, "Document not found")
+    if doc.status != "indexed":
+        raise HTTPException(409, f"Document is not indexed yet (status: {doc.status})")
+
+    from app.services import analyze as analyzer
+
+    result = analyzer.analyze_document(db, doc, body.kind)
+    audit.log(db, "document.analyze", user.id, f"{doc.filename} kind={body.kind} engine={result.get('engine')}")
+    return {"doc_id": doc.id, "title": doc.title, **result}

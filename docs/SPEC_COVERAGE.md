@@ -11,9 +11,9 @@ Status of every item in the EAIOS master prompt.
 | Multi-Agent AI (9 agents) | ✅ | planning, document, sql, research, email, report, analytics, memory, **coding** |
 | Enterprise Search | ✅ | hybrid search across all indexed docs (Knowledge app) |
 | Vision AI | 🟡 | OCR hook + VLM captioning via any pulled Ollama vision model; layout-analysis (unstructured/Docling) is the seam left open |
-| Voice AI | 🟡 | mic input + read-aloud in Chat; wake word / meeting recording 🔜 |
+| Voice AI | 🟡 | mic input + read-aloud in Chat; **Meeting app**: record → live transcript → AI minutes saved to the KB; wake word 🔜 |
 | SQL Agent | ✅ | NL→SQL, guardrails, self-correction loop, live schema explorer incl. extracted document tables (SQL Studio hits the real backend) |
-| Report Generator | 🟡 | structured reports + exec summaries in chat; PDF/DOCX export 🔜 |
+| Report Generator | ✅ | structured reports in chat + one-click **PDF/DOCX download** of any answer (`/api/reports/export`, zero-dependency PDF writer) |
 | Knowledge Base | ✅ | upload, index, chunks drawer, reindex, delete (Knowledge app) |
 | Long-Term Memory | ✅ | Memory agent + memory_entries + Settings view |
 | MCP Integration | ✅ | **EAIOS is an MCP server**: `python -m app.mcp_server` exposes search_knowledge / ask_eaios / query_knowledge_graph / list_agents to Claude Desktop, Cursor, etc. (`pip install mcp`) |
@@ -70,7 +70,7 @@ Streaming (SSE) ✅ · Stop ✅ · Regenerate ✅ · Export ✅ · Citations ✅
 
 ## Bonus features
 
-Done: real-time collab ✅ · WebSocket notifications ✅ · semantic search ✅ · dark/light ✅ · PWA/offline ✅ · knowledge-graph explorer ✅ · AI data-viz (Analytics) ✅ · AI Excel analysis (xlsx ingest + Q&A) ✅ · resume/contract/invoice/paper analyzers 🟡 (upload + ask — the Document agent handles these today; dedicated quick-action UIs 🔜) · diagram/mind-map generators, avatar, voice calls, live cursors, workspaces, version control, prompt library, model comparison 🔜.
+Done: real-time collab ✅ · WebSocket notifications ✅ (bell + toasts) · semantic search ✅ · dark/light ✅ · PWA/offline ✅ · knowledge-graph explorer ✅ · AI data-viz (Analytics) ✅ · AI Excel analysis (xlsx ingest + Q&A + table→SQL) ✅ · **resume/contract/invoice analyzers ✅ (quick-action scorecards in Knowledge)** · **AI meeting assistant ✅** · **model comparison ✅ (Model Arena)** · scheduled automations ✅ · diagram/mind-map generators, avatar, voice calls, live cursors, workspaces, version control, prompt library 🔜.
 
 ## Verified quality gates
 

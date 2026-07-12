@@ -226,3 +226,37 @@ def fire_trigger(db: Session, trigger: str, input_text: str) -> int:
         except Exception:  # noqa: BLE001
             log.exception("workflow %s failed on trigger %s", wf.id, trigger)
     return fired
+
+
+# ── scheduled workflows ──────────────────────────────────────────────────
+def _interval_minutes(wf: Workflow) -> int:
+    """Interval comes from the trigger node's config: {"every": <minutes>}.
+    Defaults to 60 and is clamped to ≥ 1 minute."""
+    try:
+        for node in json.loads(wf.nodes or "[]"):
+            if node.get("type") == "trigger":
+                return max(1, int(float(node.get("data", {}).get("every") or 60)))
+    except Exception:  # noqa: BLE001
+        pass
+    return 60
+
+
+def run_due_scheduled(db: Session, now: datetime | None = None) -> int:
+    """Fire every enabled `trigger=schedule` workflow whose interval has
+    elapsed since its last run. Called by the app's scheduler loop."""
+    now = now or _now()
+    fired = 0
+    for wf in db.scalars(select(Workflow).where(Workflow.trigger == "schedule", Workflow.enabled == True)).all():  # noqa: E712
+        minutes = _interval_minutes(wf)
+        last = wf.last_run_at
+        if last is not None and last.tzinfo is None:  # SQLite returns naive datetimes
+            last = last.replace(tzinfo=timezone.utc)
+        if last is not None and (now - last).total_seconds() < minutes * 60:
+            continue
+        try:
+            execute(db, wf, f"Scheduled run · every {minutes} min · {now.isoformat(timespec='minutes')}",
+                    trigger="schedule")
+            fired += 1
+        except Exception:  # noqa: BLE001
+            log.exception("scheduled workflow %s failed", wf.id)
+    return fired

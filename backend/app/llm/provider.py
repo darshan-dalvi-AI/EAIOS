@@ -262,6 +262,22 @@ def safe_complete(system: str, prompt: str) -> str:
         return MockLLM().complete(system, prompt)
 
 
+def complete_with(model: str, system: str, prompt: str) -> str:
+    """One-off completion against a SPECIFIC model id (Model Arena).
+
+    Uses the active OpenAI-compatible endpoint/key with a temporary model
+    override; on the mock provider returns a deterministic per-model variant
+    so comparisons stay demoable offline. Raises on provider errors — the
+    caller reports them per-model instead of masking with mock text."""
+    active = get_llm()
+    if active.name == "mock" or not settings.OPENAI_API_KEY:
+        base = MockLLM().complete(system, prompt)
+        return f"[{model}] {base}"
+    candidate = OpenAILLM()
+    candidate.model = model
+    return candidate.complete(system, prompt)
+
+
 def _split_prompt(prompt: str) -> tuple[str, str]:
     """Extract CONTEXT/QUESTION segments from a RAG prompt (mock engine helper)."""
     context, question = "", prompt

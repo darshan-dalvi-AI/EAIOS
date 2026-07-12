@@ -6,6 +6,7 @@ import AutomationsApp from "../apps/AutomationsApp";
 import ChatApp from "../apps/ChatApp";
 import GraphApp from "../apps/GraphApp";
 import KnowledgeApp from "../apps/KnowledgeApp";
+import MeetingApp from "../apps/MeetingApp";
 import SettingsApp from "../apps/SettingsApp";
 import SQLApp from "../apps/SQLApp";
 import TerminalApp from "../apps/TerminalApp";
@@ -16,6 +17,7 @@ import type { AppId } from "../types";
 import CommandPalette from "./CommandPalette";
 import Dock from "./Dock";
 import MenuBar from "./MenuBar";
+import Toasts from "./Toasts";
 import Window from "./Window";
 
 const COMPONENTS: Record<AppId, () => JSX.Element> = {
@@ -27,6 +29,7 @@ const COMPONENTS: Record<AppId, () => JSX.Element> = {
   traces: TracesApp,
   sql: SQLApp,
   analytics: AnalyticsApp,
+  meeting: MeetingApp,
   admin: AdminApp,
   terminal: TerminalApp,
   settings: SettingsApp,
@@ -83,6 +86,7 @@ export default function Desktop() {
         })}
       </div>
       <Dock />
+      <Toasts />
       {paletteOpen && <CommandPalette />}
     </>
   );

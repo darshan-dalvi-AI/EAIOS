@@ -399,6 +399,18 @@ export default function AutomationsApp() {
                 onChange={(e) => patchNode(selected.id, { contains: e.target.value })} />
             </>
           )}
+          {selected.type === "trigger" && wf.trigger === "schedule" && (
+            <>
+              <label className="faint" style={{ fontSize: 11, display: "block", margin: "12px 0 4px" }}>Run every (minutes)</label>
+              <input className="input sm" type="number" min={1} style={{ width: "100%" }} placeholder="60"
+                value={selected.data.every ?? ""}
+                onChange={(e) => patchNode(selected.id, { every: e.target.value })} />
+              <p className="faint" style={{ fontSize: 10.5, lineHeight: 1.5 }}>
+                The backend scheduler checks every minute and fires this workflow when the
+                interval has elapsed since its last run. Defaults to 60 minutes.
+              </p>
+            </>
+          )}
           {selected.type === "approve" && (
             <>
               <label className="faint" style={{ fontSize: 11, display: "block", margin: "12px 0 4px" }}>Approval prompt</label>

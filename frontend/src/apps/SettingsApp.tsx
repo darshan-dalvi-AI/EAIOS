@@ -1,6 +1,6 @@
-import { Brain, Cpu, Palette, ServerCog, Info } from "lucide-react";
+import { Brain, Cpu, Palette, ServerCog, Info, Swords } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiModelConfig, apiSetModel, type ModelConfig } from "../lib/api";
+import { apiCompare, apiModelConfig, apiSetModel, type CompareResult, type ModelConfig } from "../lib/api";
 import { MEMORIES } from "../lib/mock";
 import { useOS } from "../store";
 
@@ -37,6 +37,29 @@ export default function SettingsApp() {
   const [cfg, setCfg] = useState<ModelConfig | null>(null);
   const [temp, setTemp] = useState(0.3);
   const [switching, setSwitching] = useState<string | null>(null);
+
+  // Model Arena state
+  const [arenaA, setArenaA] = useState(MODEL_CATALOG[0].model);
+  const [arenaB, setArenaB] = useState(MODEL_CATALOG[1].model);
+  const [arenaPrompt, setArenaPrompt] = useState("Summarize what an enterprise AI operating system does in two sentences.");
+  const [arenaBusy, setArenaBusy] = useState(false);
+  const [arena, setArena] = useState<{ prompt: string; results: CompareResult[] } | null>(null);
+
+  async function runArena() {
+    if (arenaBusy || arenaPrompt.trim().length < 3) return;
+    setArenaBusy(true);
+    setArena(null);
+    try {
+      setArena(await apiCompare(arenaPrompt.trim(), [arenaA, arenaB]));
+    } catch (e) {
+      setArena({ prompt: arenaPrompt, results: [
+        { model: arenaA, ms: 0, answer: "", error: e instanceof Error ? e.message : String(e) },
+        { model: arenaB, ms: 0, answer: "", error: "—" },
+      ] });
+    } finally {
+      setArenaBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -155,6 +178,43 @@ export default function SettingsApp() {
             <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0" }}>
               Lower = precise & deterministic · higher = creative. Applies to every agent + the semantic router.
             </p>
+
+            {/* ── Model Arena: same prompt, two models, side by side ── */}
+            <div className="palette-section" style={{ padding: "14px 0 6px" }}>Model Arena — compare two models</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <select className="input sm" value={arenaA} onChange={(e) => setArenaA(e.target.value)} aria-label="Arena model A" style={{ maxWidth: 190 }}>
+                {MODEL_CATALOG.map((m) => <option key={m.model} value={m.model}>{m.label}</option>)}
+              </select>
+              <span className="faint" style={{ fontSize: 11 }}>vs</span>
+              <select className="input sm" value={arenaB} onChange={(e) => setArenaB(e.target.value)} aria-label="Arena model B" style={{ maxWidth: 190 }}>
+                {MODEL_CATALOG.map((m) => <option key={m.model} value={m.model}>{m.label}</option>)}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <div className="field" style={{ flex: 1 }}>
+                <input value={arenaPrompt} onChange={(e) => setArenaPrompt(e.target.value)}
+                       placeholder="Ask both models the same question…" aria-label="Arena prompt"
+                       onKeyDown={(e) => e.key === "Enter" && runArena()} />
+              </div>
+              <button className="btn primary sm" onClick={runArena} disabled={arenaBusy || arenaPrompt.trim().length < 3}>
+                <Swords size={13} /> {arenaBusy ? "Running…" : "Compare"}
+              </button>
+            </div>
+            {arena && (
+              <div className="arena-grid">
+                {arena.results.map((r) => (
+                  <div key={r.model} className="card arena-card">
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <b style={{ fontSize: 12 }}>{r.model.split("/").pop()}</b>
+                      <span className="pill dim mono" style={{ marginLeft: "auto" }}>{r.ms} ms</span>
+                    </div>
+                    {r.error
+                      ? <p className="arena-answer" style={{ color: "var(--bad)" }}>{r.error}</p>
+                      : <p className="arena-answer">{r.answer}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 

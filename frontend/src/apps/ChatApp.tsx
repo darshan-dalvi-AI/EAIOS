@@ -1,6 +1,6 @@
-import { Bot, Check, Copy, Download, FileText, Mic, Plus, RefreshCw, Send, Sparkles, Square, Volume2 } from "lucide-react";
+import { Bot, Check, Copy, Download, FileText, FileType2, Mic, Plus, RefreshCw, Send, Sparkles, Square, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { apiChatStream } from "../lib/api";
+import { apiChatStream, apiExportReport } from "../lib/api";
 import { AGENTS } from "../lib/mock";
 import { useOS } from "../store";
 import type { ChatMsg } from "../types";
@@ -284,6 +284,34 @@ function RichText({ content }: { content: string }) {
   );
 }
 
+function ExportButtons({ content }: { content: string }) {
+  const live = useOS((s) => s.live);
+  const [busy, setBusy] = useState<"pdf" | "docx" | null>(null);
+  const title = content.match(/^#{1,2}\s+(.{3,80})/m)?.[1] ?? "EAIOS Report";
+
+  async function exportAs(format: "pdf" | "docx") {
+    if (busy) return;
+    setBusy(format);
+    try {
+      await apiExportReport(title, content, format);
+    } catch { /* download errors surface via browser */ } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!live) return null; // rendering happens server-side (demo exports .md via chat export)
+  return (
+    <>
+      <button className="cite" onClick={() => exportAs("pdf")} aria-label="Download as PDF">
+        <Download size={11} /> {busy === "pdf" ? "exporting…" : "PDF"}
+      </button>
+      <button className="cite" onClick={() => exportAs("docx")} aria-label="Download as Word document">
+        <FileType2 size={11} /> {busy === "docx" ? "exporting…" : "DOCX"}
+      </button>
+    </>
+  );
+}
+
 function Bubble({ msg, isLast, canRegenerate, onRegenerate }: {
   msg: ChatMsg;
   isLast: boolean;
@@ -337,6 +365,7 @@ function Bubble({ msg, isLast, canRegenerate, onRegenerate }: {
           >
             <Volume2 size={11} /> listen
           </button>
+          <ExportButtons content={msg.content} />
           {isLast && canRegenerate && (
             <button className="cite" onClick={onRegenerate} aria-label="Regenerate response">
               <RefreshCw size={11} /> regenerate

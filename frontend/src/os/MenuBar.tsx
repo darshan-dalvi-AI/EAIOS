@@ -1,12 +1,17 @@
-import { LogOut, Moon, Search, Sun, Wifi, WifiOff } from "lucide-react";
+import { Bell, LogOut, Moon, Search, Sun, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useOS } from "../store";
 
 export default function MenuBar() {
   const { user, live, agentBusy, setPalette, logout, open, online, wsConnected, theme, setTheme } = useOS();
+  const liveFeed = useOS((s) => s.liveFeed);
   const [now, setNow] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [seenCount, setSeenCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLDivElement>(null);
+  const unread = Math.max(0, liveFeed.length - seenCount);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -16,6 +21,7 @@ export default function MenuBar() {
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) setBellOpen(false);
     };
     window.addEventListener("pointerdown", onClick);
     return () => window.removeEventListener("pointerdown", onClick);
@@ -62,6 +68,38 @@ export default function MenuBar() {
         <button className="mb-item" onClick={() => setPalette(true)} aria-label="Open command palette (Ctrl+K)">
           <Search size={14} />
         </button>
+        <div ref={bellRef} style={{ position: "relative" }}>
+          <button
+            className="mb-item mb-bell"
+            onClick={() => { setBellOpen((v) => !v); setSeenCount(liveFeed.length); }}
+            aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
+            title="Notifications"
+          >
+            <Bell size={14} />
+            {unread > 0 && <span className="bell-badge">{unread > 9 ? "9+" : unread}</span>}
+          </button>
+          {bellOpen && (
+            <div className="card bell-panel">
+              <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Notifications</div>
+              {liveFeed.length === 0 && (
+                <div className="faint" style={{ fontSize: 11.5, padding: "6px 0" }}>
+                  No events yet — agent runs, workflow results and security flags land here.
+                </div>
+              )}
+              {liveFeed.slice(0, 12).map((e) => (
+                <div key={e.id} className="bell-row">
+                  <span className={`dot ${e.kind === "auth" ? "" : ""}`}
+                        style={{ background: e.kind === "auth" ? "var(--warn)" : e.kind === "index" ? "var(--good)" : "var(--accent)", marginTop: 4 }} />
+                  <span style={{ minWidth: 0 }}>
+                    <b style={{ fontSize: 11 }}>{e.agent}</b>
+                    <span className="bell-text">{e.text}</span>
+                  </span>
+                  <span className="faint" style={{ fontSize: 9.5, flex: "none" }}>{e.time}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           className="mb-item"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

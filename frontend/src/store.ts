@@ -10,6 +10,7 @@ const SIZES: Record<AppId, { w: number; h: number }> = {
   traces: { w: 940, h: 620 },
   sql: { w: 900, h: 600 },
   analytics: { w: 920, h: 640 },
+  meeting: { w: 900, h: 620 },
   admin: { w: 880, h: 600 },
   terminal: { w: 660, h: 440 },
   settings: { w: 680, h: 540 },

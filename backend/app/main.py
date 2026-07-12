@@ -1,11 +1,12 @@
 """EAIOS backend — FastAPI application entry point."""
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, agents, analytics, auth, chat, documents, graph, traces, users, workflows, ws
+from app.api.routes import admin, agents, analytics, auth, chat, documents, graph, reports, traces, users, workflows, ws
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
 
@@ -53,13 +54,36 @@ def _seed_if_empty() -> None:
         log.exception("SEED_ON_START failed; continuing with empty KB")
 
 
+async def _schedule_loop() -> None:
+    """Fire due `trigger=schedule` workflows every SCHEDULER_INTERVAL seconds.
+    Workflow execution is sync/blocking, so each tick runs in a worker thread."""
+    from app.services import workflows as wf_service
+
+    def tick() -> int:
+        with SessionLocal() as db:
+            return wf_service.run_due_scheduled(db)
+
+    while True:
+        await asyncio.sleep(settings.SCHEDULER_INTERVAL)
+        try:
+            fired = await asyncio.to_thread(tick)
+            if fired:
+                log.info("scheduler: fired %d workflow(s)", fired)
+        except Exception:  # noqa: BLE001 — the scheduler must never die
+            log.exception("scheduler tick failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     _bootstrap_admin()
     _seed_if_empty()
-    log.info("EAIOS %s ready — llm=%s", settings.VERSION, settings.LLM_PROVIDER)
+    task = asyncio.create_task(_schedule_loop()) if settings.SCHEDULER_ENABLED else None
+    log.info("EAIOS %s ready — llm=%s scheduler=%s", settings.VERSION, settings.LLM_PROVIDER,
+             "on" if task else "off")
     yield
+    if task:
+        task.cancel()
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION, lifespan=lifespan)
@@ -78,7 +102,8 @@ app.add_middleware(
 
 for router in (
     auth.router, users.router, documents.router, chat.router, agents.router,
-    admin.router, analytics.router, graph.router, workflows.router, traces.router, ws.router,
+    admin.router, analytics.router, graph.router, workflows.router, traces.router,
+    reports.router, ws.router,
 ):
     app.include_router(router, prefix="/api")
 

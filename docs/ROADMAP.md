@@ -61,6 +61,15 @@ JWT auth + RBAC + audit · SQLAlchemy schema · hybrid RAG (parse→chunk→embe
 - **Checkpointer memory (state persistence)** — LangGraph's checkpointer interface implemented and DB-backed (`agents/checkpointer.py`, `graph_checkpoints` table): orchestrator state is saved after **every super-step**, keyed by conversation; an interrupted run (LLM outage, restart, closed laptop) resumes from the saved node when the same request is retried — completed agents are not re-run. Toggle: `GRAPH_CHECKPOINTS`.
 - **SQL Studio goes live** — the app now talks to the real backend (NL→SQL + live schema explorer incl. extracted `dt_*` tables with provenance) and keeps the demo fallback.
 
+## Post-roadmap upgrades · batch 3 ✅ shipped 2026-07-12
+
+- **MIT LICENSE** at repo root (the Terms dialog references it).
+- **Report exports** — any agent answer downloads as **PDF** (dependency-free hand-assembled PDF 1.4 writer: Helvetica/Courier, wrapping, bullets, page footers) or **DOCX** (python-docx); `POST /api/reports/export`, buttons on chat bubbles.
+- **Scheduled workflows** — `trigger=schedule` + per-workflow interval (trigger node `every` minutes, editable in the Automations inspector); async scheduler loop in the app lifespan fires due runs. **Notification center**: menubar bell with unread badge + event history, plus transient toasts for workflow/security/system events.
+- **AI Meeting Assistant** (12th OS app) — record via Web Speech or paste a transcript → structured minutes (summary / decisions / action items) → optionally saved and indexed into the knowledge base.
+- **Model Arena** — Settings (admin): one prompt, two OpenRouter models side by side with per-model latency; `POST /api/admin/compare` runs them in parallel threads.
+- **Document analyzers** — Resume / Contract / Invoice / Auto quick-actions in Knowledge: LLM strict-JSON scorecards with a deterministic heuristic fallback (amounts, dates, risk clauses, skills) so demo mode always answers.
+
 ## Deliverables checklist
 
 Report + architecture diagrams (docs/) · demo video script: boot → login → ⌘K → RAG answer with citations → compound request planner demo → SQL Studio → admin audit → kill backend mid-demo to show demo-mode resilience (judges love this) · GitHub repo with CI badge · deployed URL.

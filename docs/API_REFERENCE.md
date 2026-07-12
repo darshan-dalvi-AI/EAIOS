@@ -35,6 +35,15 @@ Base URL: `/api` · Auth: `Authorization: Bearer <jwt>` (from login) · Interact
 
 Uploads with tabular content (docx/pptx tables incl. nested, xlsx sheets, csv, pdf/txt grids) are **materialized as real SQL tables** (`dt_<doc>_<n>`) at ingest; the SQL Agent sees them in its schema and can query them directly. Chat runs are **checkpointed per conversation** (`graph_checkpoints`): an interrupted run resumes from the saved node when the same message is retried (`GRAPH_CHECKPOINTS=false` to disable).
 
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | /agents/meeting | ✓ | `{transcript, title, save_to_knowledge}` → structured minutes (summary/decisions/action items); optional ingest into the KB |
+| POST | /reports/export | ✓ | `{title, content(md), format: pdf\|docx\|md}` → downloadable file (dependency-free PDF writer / python-docx) |
+| POST | /documents/{id}/analyze | ✓ | `{kind: resume\|contract\|invoice\|auto}` → scorecard `{verdict, score, highlights[], summary}` (LLM JSON or deterministic heuristic) |
+| POST | /admin/compare | admin | `{prompt, models[2]}` → both answers with per-model latency (Model Arena) |
+
+**Scheduled workflows:** `trigger=schedule` workflows fire automatically — interval comes from the trigger node's `data.every` (minutes, default 60); the app-level scheduler loop checks every `SCHEDULER_INTERVAL` seconds (`SCHEDULER_ENABLED=false` to disable).
+
 ## Admin (role: admin)
 
 | Method | Path | Description |

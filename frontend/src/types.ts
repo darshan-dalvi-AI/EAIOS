@@ -7,6 +7,7 @@ export type AppId =
   | "traces"
   | "sql"
   | "analytics"
+  | "meeting"
   | "admin"
   | "terminal"
   | "settings";
@@ -115,7 +116,7 @@ export interface WfNode {
   type: WfNodeType;
   x: number;
   y: number;
-  data: { label?: string; agent?: string; prompt?: string; contains?: string; message?: string };
+  data: { label?: string; agent?: string; prompt?: string; contains?: string; message?: string; every?: string };
 }
 
 export interface WfEdge {

@@ -5,6 +5,7 @@ import {
   Database,
   FolderSearch,
   MessageSquare,
+  Mic,
   Settings,
   Share2,
   ShieldCheck,
@@ -23,6 +24,7 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
   traces:      { name: "Traces",      hue: 320, Icon: Activity,       tagline: "Observability & span waterfalls" },
   sql:         { name: "SQL Studio",  hue: 130, Icon: Database,       tagline: "Natural language database assistant" },
   analytics:   { name: "Analytics",   hue: 38,  Icon: BarChart3,      tagline: "Usage metrics & insights" },
+  meeting:     { name: "Meeting",     hue: 15,  Icon: Mic,            tagline: "Record → transcript → minutes" },
   admin:       { name: "Admin",       hue: 350, Icon: ShieldCheck,    tagline: "Users, audit, models" },
   terminal:    { name: "Terminal",    hue: 220, Icon: TerminalSquare, tagline: "EAIOS shell" },
   settings:    { name: "Settings",    hue: 285, Icon: Settings,       tagline: "System preferences" },
@@ -30,7 +32,7 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
 
 export const APP_ORDER: AppId[] = [
   "chat", "knowledge", "agents", "graph", "automations", "traces",
-  "sql", "analytics", "admin", "terminal", "settings",
+  "sql", "analytics", "meeting", "admin", "terminal", "settings",
 ];
 
 export function AppTile({ id, size = "" }: { id: AppId; size?: "" | "sm" | "md" }) {

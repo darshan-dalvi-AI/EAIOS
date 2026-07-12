@@ -95,3 +95,38 @@ def set_model(body: ModelIn, db: Session = Depends(get_db), admin: User = Depend
               f"{llm.name}/{getattr(llm, 'model', '?')} temp={settings.TEMPERATURE}")
     return {"active_provider": llm.name, "active_model": getattr(llm, "model", None),
             "temperature": settings.TEMPERATURE}
+
+
+# ── Model Arena: side-by-side comparison ─────────────────────────────────
+class CompareIn(BaseModel):
+    prompt: str = Field(min_length=3, max_length=4000)
+    models: list[str] = Field(min_length=2, max_length=2)  # exactly two model ids
+
+
+@router.post("/compare")
+def compare_models(body: CompareIn, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    """Run the same prompt against two models in parallel (via the active
+    OpenAI-compatible endpoint — one OpenRouter key covers all families)
+    and return both answers with latency. Powers Settings → Model Arena."""
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.llm.provider import complete_with
+
+    system = "You are EAIOS, an enterprise AI assistant. Answer concisely and factually."
+
+    def run(model: str) -> dict:
+        t0 = time.perf_counter()
+        try:
+            answer = complete_with(model.strip(), system, body.prompt)
+            return {"model": model.strip(), "ms": int((time.perf_counter() - t0) * 1000),
+                    "answer": answer[:6000], "error": None}
+        except Exception as exc:  # noqa: BLE001 — report per-model, don't fail the whole arena
+            return {"model": model.strip(), "ms": int((time.perf_counter() - t0) * 1000),
+                    "answer": "", "error": str(exc)[:300]}
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(run, body.models))
+
+    audit.log(db, "model.compare", admin.id, f"{body.models[0]} vs {body.models[1]}")
+    return {"prompt": body.prompt, "results": results}

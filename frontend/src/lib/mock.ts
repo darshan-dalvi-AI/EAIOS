@@ -307,3 +307,68 @@ export const MOCK_TRACES: TraceInfo[] = [
     ],
   },
 ];
+
+/* ── meeting assistant (demo minutes — mirrors the backend mock) ── */
+export function mockMinutes(transcript: string): string {
+  const sentences = transcript.replace(/\n/g, " ").split(".").map((s) => s.trim()).filter(Boolean);
+  const actionish = sentences.filter((s) => /will |action|todo|follow up|send|prepare|schedule/i.test(s));
+  const decisionish = sentences.filter((s) => /decided|agree|approved|go with|choose/i.test(s));
+  const lines = [
+    "## Summary",
+    `The meeting covered ${Math.min(sentences.length, 5)} main points across ${transcript.split(/\s+/).filter(Boolean).length} words of discussion. ` +
+    "Key threads are captured below; connect the live backend with an LLM key for reasoning-based minutes.",
+    "", "## Decisions",
+    ...(decisionish.slice(0, 4).map((s) => `- ${s}.`) as string[]).concat(decisionish.length ? [] : ["- No explicit decisions detected."]),
+    "", "## Action Items",
+    ...(actionish.slice(0, 5).map((s) => `- [unassigned] ${s}.`) as string[]).concat(actionish.length ? [] : ["- No explicit action items detected."]),
+  ];
+  return lines.join("\n");
+}
+
+/* ── document analyzers (demo scorecards) ── */
+export function mockAnalyze(docId: string, kind: string, title: string) {
+  const base = {
+    resume: {
+      verdict: "Screen-worthy technical profile", score: 82,
+      highlights: [
+        { label: "Skills detected", value: "python, react, sql, docker", status: "good" as const },
+        { label: "Experience signal", value: "senior-level phrasing across 6 chunks", status: "good" as const },
+        { label: "Contact", value: "email present", status: "good" as const },
+        { label: "Gaps", value: "no dates on last role", status: "warn" as const },
+      ],
+      summary: "Strong core-stack coverage with production system mentions. Recommend a systems-design screen; verify the most recent role's timeline in the phone screen.",
+    },
+    contract: {
+      verdict: "3 risk-bearing clause types flagged", score: 61,
+      highlights: [
+        { label: "Risk clauses", value: "termination, liability cap, arbitration", status: "warn" as const },
+        { label: "Liability cap", value: "$50,000", status: "warn" as const },
+        { label: "Term", value: "12 months, auto-renew", status: "good" as const },
+        { label: "Payment", value: "net-30", status: "good" as const },
+      ],
+      summary: "Standard MSA shape, but the liability cap is low relative to contract value and the arbitration venue favours the vendor. Legal review recommended before signature.",
+    },
+    invoice: {
+      verdict: "Totals located — verify against PO", score: 88,
+      highlights: [
+        { label: "Total", value: "$12,450.00", status: "good" as const },
+        { label: "Due date", value: "Aug 15, 2026 (net-30)", status: "good" as const },
+        { label: "Line items", value: "7 items, no duplicates", status: "good" as const },
+        { label: "Tax", value: "GST missing HSN code", status: "warn" as const },
+      ],
+      summary: "Arithmetic checks out and vendor details match the master record. One tax-field gap to fix before booking; otherwise ready for approval.",
+    },
+    auto: {
+      verdict: "General business document", score: 74,
+      highlights: [
+        { label: "Type", value: "policy / report hybrid", status: "good" as const },
+        { label: "Key figures", value: "3 amounts, 2 dates detected", status: "good" as const },
+        { label: "Follow-ups", value: "2 sections reference missing appendices", status: "warn" as const },
+      ],
+      summary: "Readable, well-structured document. The referenced appendices are not attached — request them before relying on the totals.",
+    },
+  }[kind as "resume" | "contract" | "invoice" | "auto"] ?? {
+    verdict: "General document", score: 70, highlights: [], summary: "Demo analysis.",
+  };
+  return { doc_id: docId, title, kind, engine: "demo", ...base };
+}

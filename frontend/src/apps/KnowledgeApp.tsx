@@ -1,5 +1,6 @@
-import { FileSpreadsheet, FileText, Image, Layers, Presentation, Search, Upload, X } from "lucide-react";
+import { FileSpreadsheet, FileText, Image, Layers, Loader2, Presentation, ScanSearch, Search, Upload, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { apiAnalyze, type AnalyzeCard } from "../lib/api";
 import { DOCS, fmtBytes } from "../lib/mock";
 import type { Doc } from "../types";
 
@@ -19,10 +20,30 @@ const STATUS_PILL: Record<Doc["status"], string> = { indexed: "good", processing
 
 let uploadCounter = 0;
 
+const ANALYZE_KINDS = [
+  { id: "auto", label: "Auto" },
+  { id: "resume", label: "Resume" },
+  { id: "contract", label: "Contract" },
+  { id: "invoice", label: "Invoice" },
+] as const;
+
 export default function KnowledgeApp() {
   const [docs, setDocs] = useState<Doc[]>(DOCS);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Doc | null>(null);
+  const [analysis, setAnalysis] = useState<AnalyzeCard | null>(null);
+  const [analyzing, setAnalyzing] = useState<string | null>(null);
+
+  async function runAnalyze(kind: string) {
+    if (!selected || analyzing) return;
+    setAnalyzing(kind);
+    setAnalysis(null);
+    try {
+      setAnalysis(await apiAnalyze(selected.id, kind, selected.title));
+    } finally {
+      setAnalyzing(null);
+    }
+  }
 
   const filtered = useMemo(
     () =>
@@ -97,7 +118,7 @@ export default function KnowledgeApp() {
                   key={doc.id}
                   className="card hover"
                   style={{ textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", gap: 9 }}
-                  onClick={() => setSelected(doc)}
+                  onClick={() => { setSelected(doc); setAnalysis(null); }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div className="app-icon md" style={{ "--hue": t.hue } as React.CSSProperties}>{t.icon}</div>
@@ -124,7 +145,7 @@ export default function KnowledgeApp() {
       </div>
 
       {selected && (
-        <aside className="app-sidebar" style={{ width: 265, borderRight: "none", borderLeft: "1px solid var(--hairline)", padding: 16, gap: 12 }}>
+        <aside className="app-sidebar" style={{ width: 285, borderRight: "none", borderLeft: "1px solid var(--hairline)", padding: 16, gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 className="h-display" style={{ fontSize: 14 }}>Document details</h3>
             <button className="mb-item" onClick={() => setSelected(null)} aria-label="Close details"><X size={14} /></button>
@@ -152,6 +173,42 @@ export default function KnowledgeApp() {
                 : "Not indexed yet — chunks appear once the pipeline completes."}
             </div>
           </div>
+          <div>
+            <div className="palette-section" style={{ padding: "4px 0", display: "flex", alignItems: "center", gap: 6 }}>
+              <ScanSearch size={12} /> AI analyzer
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {ANALYZE_KINDS.map((k) => (
+                <button key={k.id} className="btn sm" disabled={!!analyzing || selected.status !== "indexed"}
+                        onClick={() => runAnalyze(k.id)} aria-label={`Analyze as ${k.label}`}>
+                  {analyzing === k.id ? <Loader2 size={12} className="spin" /> : null} {k.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {analysis && (
+            <div className="scorecard">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className={`score-ring ${analysis.score >= 75 ? "good" : analysis.score >= 50 ? "warn" : "bad"}`}>
+                  {analysis.score}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <b style={{ fontSize: 12.5, display: "block" }}>{analysis.verdict}</b>
+                  <span className="faint" style={{ fontSize: 10.5 }}>{analysis.kind} · {analysis.engine}</span>
+                </span>
+              </div>
+              {analysis.highlights.map((h, i) => (
+                <div key={i} className="score-row">
+                  <span className="dot" style={{ background: h.status === "good" ? "var(--good)" : h.status === "warn" ? "var(--warn)" : "var(--bad)", marginTop: 4 }} />
+                  <span style={{ minWidth: 0 }}>
+                    <b style={{ fontSize: 11 }}>{h.label}</b>
+                    <span style={{ display: "block", fontSize: 11.5, color: "var(--text-dim)", overflowWrap: "anywhere" }}>{h.value}</span>
+                  </span>
+                </div>
+              ))}
+              <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.55, color: "var(--text-dim)" }}>{analysis.summary}</p>
+            </div>
+          )}
           <button className="btn sm" style={{ justifyContent: "center" }}>Re-run pipeline</button>
         </aside>
       )}
