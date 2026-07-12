@@ -3,7 +3,8 @@
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
   Activity, ArrowRight, BarChart3, Bot, BookOpen, Cpu, Database, FileText, FolderSearch,
-  Github, Image as ImageIcon, Mic, PlayCircle, Share2, ShieldCheck, Sparkles, Table2, Workflow,
+  Github, Image as ImageIcon, Mic, Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles,
+  Square, Sun, Table2, Workflow, X,
 } from "lucide-react";
 import { useOS } from "../store";
 
@@ -34,6 +35,8 @@ const TECH = [
 
 export default function LandingPage() {
   const setPhase = useOS((s) => s.setPhase);
+  const theme = useOS((s) => s.theme);
+  const setTheme = useOS((s) => s.setTheme);
   const launch = () => setPhase("boot");
 
   return (
@@ -49,6 +52,14 @@ export default function LandingPage() {
           <a href="#faq">FAQ</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
         </div>
+        <button
+          className="btn sm"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          title={`${theme === "dark" ? "Light" : "Dark"} mode`}
+        >
+          {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
+        </button>
         <button className="btn primary sm" onClick={launch}>Launch <ArrowRight size={13} /></button>
       </nav>
 
@@ -70,9 +81,12 @@ export default function LandingPage() {
           <a className="btn" href={DOCS_ANCHOR}><BookOpen size={14} /> Documentation</a>
         </div>
 
-        {/* mini OS preview */}
+        {/* mini OS preview — Windows-style caption bar (title left, controls right) */}
         <div className="land-preview" aria-hidden>
-          <div className="lp-titlebar"><span /><span /><span /></div>
+          <div className="lp-titlebar">
+            <span className="lp-title"><Bot size={11} /> AI Chat</span>
+            <span className="lp-caps"><Minus size={11} /><Square size={9} /><X size={11} /></span>
+          </div>
           <div className="lp-row">
             <div className="lp-msg user">How many annual leave days do we get?</div>
           </div>

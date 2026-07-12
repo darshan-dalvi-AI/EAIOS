@@ -1,6 +1,7 @@
-import { Check, KeyRound, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { Check, KeyRound, Lock, ScrollText, ShieldCheck, Users } from "lucide-react";
 import { useState } from "react";
 import { AUDIT_ROWS, MOCK_USERS } from "../lib/mock";
+import { useOS } from "../store";
 
 const TABS = [
   { id: "users", label: "Users", icon: <Users size={13} /> },
@@ -24,9 +25,29 @@ const MATRIX: Record<string, boolean[]> = {
 };
 
 export default function AdminApp() {
+  const role = useOS((s) => s.user?.role ?? "employee");
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("users");
   const [users, setUsers] = useState(MOCK_USERS.map((u) => ({ ...u, active: true })));
   const [provider, setProvider] = useState("mock");
+
+  // RBAC gate: the panel manages users, roles, audit and model keys —
+  // only administrators get past this screen (mirrors the API's require_admin).
+  if (role !== "admin") {
+    return (
+      <div className="app-pane">
+        <div className="app-content" style={{ display: "flex" }}>
+          <div className="empty" style={{ margin: "auto" }}>
+            <Lock size={28} style={{ color: "var(--warn)" }} />
+            <h3 style={{ margin: "6px 0 0" }}>Admin access required</h3>
+            <p className="muted" style={{ margin: 0, maxWidth: 400, textAlign: "center", fontSize: 12.5 }}>
+              This panel manages users, roles, audit logs and AI model configuration.
+              You are signed in as <b>{role}</b> — ask an administrator if you need access.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-pane">
