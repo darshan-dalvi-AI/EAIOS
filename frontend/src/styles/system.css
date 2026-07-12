@@ -14,7 +14,7 @@
   --hairline-strong: rgba(148, 163, 184, 0.28);
   --text: #e8edf7;
   --text-dim: #94a3b8;
-  --text-faint: #5b6b84;
+  --text-faint: #6b7d99;
   --accent: #22d3ee;
   --accent-2: #8b5cf6;
   --good: #34d399;
@@ -492,7 +492,7 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   --hairline-strong: rgba(51, 65, 85, 0.28);
   --text: #0f172a;
   --text-dim: #47546b;
-  --text-faint: #7c8aa5;
+  --text-faint: #64748b;
   --accent: #0891b2;
   --accent-2: #7c3aed;
   --good: #059669;
@@ -510,3 +510,17 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 [data-theme="light"] .lp-msg.ai code, [data-theme="light"] .codeblock code { color: #c9e8ff; }
 [data-theme="light"] .inline-code { color: #0e7490; background: rgba(8, 145, 178, 0.08); }
 [data-theme="light"] select.input option { background: #ffffff; color: var(--text); }
+
+/* ── light-mode contrast fixes (side-by-side theme audit 2026-07-12) ──
+   Every dark-theme color literal that became unreadable on light
+   surfaces gets an explicit remap here. */
+[data-theme="light"] .btn.primary {
+  background: linear-gradient(120deg, #0891b2, #7c3aed);
+  border-color: transparent; color: #ffffff;
+}
+[data-theme="light"] .btn.primary:hover { color: #ffffff; border-color: transparent; filter: brightness(1.08); }
+[data-theme="light"] .menubar { background: rgba(255, 255, 255, 0.72); }
+[data-theme="light"] .pill.info { color: #0e7490; border-color: rgba(8, 145, 178, 0.35); }
+[data-theme="light"] .tree-item.on { color: #0e7490; }
+[data-theme="light"] .code-block { background: #0d1220; color: #c9e8ff; }
+[data-theme="light"] .cite { background: rgba(15, 23, 42, 0.06); }

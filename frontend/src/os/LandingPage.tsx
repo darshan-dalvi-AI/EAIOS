@@ -170,9 +170,11 @@ export default function LandingPage() {
             { x: 640, y: 200, w: 200, h: 70, t1: "Stores", t2: "Postgres · Qdrant · KG · checkpoints" },
           ].map((b) => (
             <g key={b.t1}>
-              <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="rgba(22,29,48,0.7)" stroke="url(#lg)" strokeWidth="1" />
-              <text x={b.x + b.w / 2} y={b.y + 32} textAnchor="middle" fill="var(--text)" fontSize="13.5" fontWeight="600">{b.t1}</text>
-              <text x={b.x + b.w / 2} y={b.y + 52} textAnchor="middle" fill="var(--text-dim)" fontSize="10.5">{b.t2}</text>
+              {/* boxes are always dark navy → label colors are fixed light values so
+                  they stay readable in BOTH themes (var(--text) is dark in light mode) */}
+              <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="rgba(22,29,48,0.85)" stroke="url(#lg)" strokeWidth="1" />
+              <text x={b.x + b.w / 2} y={b.y + 32} textAnchor="middle" fill="#e8edf7" fontSize="13.5" fontWeight="600">{b.t1}</text>
+              <text x={b.x + b.w / 2} y={b.y + 52} textAnchor="middle" fill="#9fb0c8" fontSize="10.5">{b.t2}</text>
             </g>
           ))}
           {[
