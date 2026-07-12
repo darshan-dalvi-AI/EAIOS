@@ -7,16 +7,66 @@ import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockCha
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/* ── mid-session resilience ─────────────────────────────────────────
+   If the backend process dies while the app is open (closed terminal,
+   crash, redeploy), fetch fails at the NETWORK level. Instead of letting
+   windows crash, we demote to demo mode (mock data keeps every app
+   usable) and poll /api/health in the background to restore live mode
+   the moment the backend returns. */
+let recoveryTimer: number | null = null;
+
+function notifyFeed(text: string) {
+  useOS.getState().pushFeed({ agent: "system", text, kind: "system" });
+}
+
+function startRecoveryLoop() {
+  if (recoveryTimer != null) return;
+  recoveryTimer = window.setInterval(async () => {
+    if (!(await ping())) return; // still down — keep waiting
+    const stop = () => { if (recoveryTimer != null) { window.clearInterval(recoveryTimer); recoveryTimer = null; } };
+    const { token } = useOS.getState();
+    if (!token) { stop(); return; }
+    try {
+      const me = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
+      if (me.ok) {
+        useOS.getState().setLive(true);
+        notifyFeed("Backend is back — live mode restored.");
+      } else {
+        // backend restarted with a fresh database → old session is gone
+        notifyFeed("Backend is back, but your session expired (database was reset). Log out and back in for live mode.");
+      }
+      stop();
+    } catch {
+      /* went down again mid-check — keep polling */
+    }
+  }, 15000);
+}
+
+export function demoteToDemo(): void {
+  const os = useOS.getState();
+  if (!os.live) return;
+  os.setLive(false);
+  notifyFeed("Backend unreachable — switched to demo mode (mock data). Watching for it to come back…");
+  startRecoveryLoop();
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { token } = useOS.getState();
-  const res = await fetch(`/api${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    if ((err as DOMException)?.name === "AbortError") throw err;
+    demoteToDemo(); // network-level failure: backend process is gone
+    throw new Error("Backend unreachable — switched to demo mode. Try that again.");
+  }
   if (!res.ok) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -65,18 +115,23 @@ export interface ChatResult {
 export async function apiChat(message: string, agent?: string): Promise<ChatResult> {
   const { live, token } = useOS.getState();
   if (live && token) {
-    const data = await request<{
-      message: { content: string; agent: string; confidence: number };
-      plan: string[];
-      retrieved: Citation[];
-    }>("/chat", { method: "POST", body: JSON.stringify({ message, agent: agent || null }) });
-    return {
-      agent: data.message.agent,
-      plan: data.plan,
-      answer: data.message.content,
-      citations: data.retrieved,
-      confidence: data.message.confidence,
-    };
+    try {
+      const data = await request<{
+        message: { content: string; agent: string; confidence: number };
+        plan: string[];
+        retrieved: Citation[];
+      }>("/chat", { method: "POST", body: JSON.stringify({ message, agent: agent || null }) });
+      return {
+        agent: data.message.agent,
+        plan: data.plan,
+        answer: data.message.content,
+        citations: data.retrieved,
+        confidence: data.message.confidence,
+      };
+    } catch (err) {
+      if (useOS.getState().live) throw err; // real API error — surface it
+      /* backend died mid-session → demoted: answer from demo data instead */
+    }
   }
   await delay(700 + Math.random() * 800);
   const reply = mockChat(message);
@@ -92,6 +147,25 @@ export interface StreamMeta {
   confidence: number;
 }
 
+async function streamMock(
+  message: string,
+  agent: string | undefined,
+  handlers: { onMeta: (m: StreamMeta) => void; onDelta: (text: string) => void },
+  signal?: AbortSignal,
+): Promise<void> {
+  await delay(450 + Math.random() * 500);
+  const r = mockChat(message);
+  const routed = agent && agent !== "auto" ? { ...r, agent, plan: [agent] } : r;
+  handlers.onMeta({ conversation_id: "demo", agent: routed.agent, plan: routed.plan, citations: routed.citations, confidence: routed.confidence });
+  const text = routed.answer;
+  const step = Math.max(4, Math.floor(text.length / 110));
+  for (let i = 0; i < text.length; i += step) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    handlers.onDelta(text.slice(i, i + step));
+    await delay(13);
+  }
+}
+
 export async function apiChatStream(
   message: string,
   agent: string | undefined,
@@ -100,35 +174,39 @@ export async function apiChatStream(
 ): Promise<void> {
   const { live, token } = useOS.getState();
 
-  if (!(live && token)) {
-    // demo mode: identical streaming behavior over mock data
-    await delay(450 + Math.random() * 500);
-    const r = mockChat(message);
-    const routed = agent && agent !== "auto" ? { ...r, agent, plan: [agent] } : r;
-    handlers.onMeta({ conversation_id: "demo", agent: routed.agent, plan: routed.plan, citations: routed.citations, confidence: routed.confidence });
-    const text = routed.answer;
-    const step = Math.max(4, Math.floor(text.length / 110));
-    for (let i = 0; i < text.length; i += step) {
-      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-      handlers.onDelta(text.slice(i, i + step));
-      await delay(13);
-    }
-    return;
-  }
+  // demo mode: identical streaming behavior over mock data
+  if (!(live && token)) return streamMock(message, agent, handlers, signal);
 
-  const res = await fetch("/api/chat/stream", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ message, agent: agent || null }),
-    signal,
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ message, agent: agent || null }),
+      signal,
+    });
+  } catch (err) {
+    if ((err as DOMException)?.name === "AbortError") throw err;
+    // backend process is gone → demote and answer this message from demo data
+    demoteToDemo();
+    return streamMock(message, agent, handlers, signal);
+  }
   if (!res.ok || !res.body) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   for (;;) {
-    const { done, value } = await reader.read();
+    let done: boolean, value: Uint8Array | undefined;
+    try {
+      ({ done, value } = await reader.read());
+    } catch (err) {
+      if ((err as DOMException)?.name === "AbortError") throw err;
+      // connection dropped mid-stream (backend closed while answering)
+      demoteToDemo();
+      handlers.onDelta("\n\n_Connection to the backend was lost mid-answer — EAIOS switched to demo mode._");
+      return;
+    }
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     let sep;
