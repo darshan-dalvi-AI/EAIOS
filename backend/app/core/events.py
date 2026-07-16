@@ -91,5 +91,23 @@ class Hub:
                 with self._lock:
                     self._clients.pop(id(ws), None)
 
+    # ── targeted delivery (WebRTC signaling relay) ───────────────────────
+    async def send_to_user(self, user_id: str, event: dict) -> int:
+        """Deliver an event to every socket a specific user has open.
+        Returns the number of sockets reached (0 → offline). NOT added to
+        the ring buffer: signaling traffic is point-to-point and private."""
+        data = json.dumps(event)
+        with self._lock:
+            targets = [c["ws"] for c in self._clients.values() if c["user_id"] == user_id]
+        sent = 0
+        for ws in targets:
+            try:
+                await ws.send_text(data)
+                sent += 1
+            except Exception:  # noqa: BLE001
+                with self._lock:
+                    self._clients.pop(id(ws), None)
+        return sent
+
 
 hub = Hub()

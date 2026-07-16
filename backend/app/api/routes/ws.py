@@ -3,6 +3,7 @@
 Auth: browsers can't set headers on WebSocket, so the JWT rides the query
 string (``/api/ws?token=…``). Same HMAC verification as REST.
 """
+import json
 import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -40,12 +41,33 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
     await hub.connect(ws, info)
     try:
         while True:
-            # Client → server messages: ping keeps proxies alive; typing is fanned out.
+            # Client → server messages: ping keeps proxies alive; typing is
+            # fanned out; rtc.* is point-to-point WebRTC signaling relay.
             raw = await ws.receive_text()
             if raw == "ping":
                 await ws.send_text('{"type":"pong"}')
-            elif raw.startswith('{"type":"typing"'):
+                continue
+            if not raw.startswith("{") or len(raw) > 65_536:
+                continue
+            try:
+                msg = json.loads(raw)
+            except ValueError:
+                continue
+            mtype = str(msg.get("type", ""))
+            if mtype == "typing":
                 hub.publish("typing", user=info["name"])
+            elif mtype.startswith("rtc."):
+                target = str(msg.get("to", ""))
+                if not target:
+                    continue
+                relayed = {
+                    "type": mtype,
+                    "from": {"id": info["user_id"], "name": info["name"], "hue": info["hue"]},
+                    "payload": msg.get("payload") or {},
+                }
+                reached = await hub.send_to_user(target, relayed)
+                if reached == 0 and mtype == "rtc.ring":  # callee offline → tell the caller
+                    await ws.send_text(json.dumps({"type": "rtc.unavailable", "payload": {"to": target}}))
     except WebSocketDisconnect:
         pass
     except Exception:  # noqa: BLE001

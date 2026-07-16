@@ -11,6 +11,7 @@ import SettingsApp from "../apps/SettingsApp";
 import SQLApp from "../apps/SQLApp";
 import TerminalApp from "../apps/TerminalApp";
 import TracesApp from "../apps/TracesApp";
+import VideoApp from "../apps/VideoApp";
 import { connectRealtime, disconnectRealtime } from "../lib/ws";
 import { useOS } from "../store";
 import type { AppId } from "../types";
@@ -30,6 +31,7 @@ const COMPONENTS: Record<AppId, () => JSX.Element> = {
   sql: SQLApp,
   analytics: AnalyticsApp,
   meeting: MeetingApp,
+  video: VideoApp,
   admin: AdminApp,
   terminal: TerminalApp,
   settings: SettingsApp,

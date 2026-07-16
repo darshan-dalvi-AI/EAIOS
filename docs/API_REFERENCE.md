@@ -96,6 +96,8 @@ Node types: `trigger` · `agent {agent, prompt}` (`{{input}}` = upstream output)
 |---|---|---|
 | WebSocket | /ws?token=<jwt> | Presence + live events: `presence`, `agent.step`, `chat.message`, `doc.status` (incl. `tables`), `workflow.run`, `workflow.notify`, `workflow.approval`, `security.pii`. Send `ping` for keep-alive |
 
+**WebRTC signaling (Video Call):** `rtc.*` frames sent over the same socket carry a `{to: <user_id>}` field and are relayed point-to-point to that user only (never broadcast, never buffered). Types: `rtc.ring` / `rtc.accept` / `rtc.decline` / `rtc.offer` / `rtc.answer` / `rtc.ice` / `rtc.caption` / `rtc.end`; the server replies `rtc.unavailable` to the caller if the target has no open socket. Media is peer-to-peer (STUN only) and never touches the server.
+
 ## Misc
 
 | Method | Path | Description |

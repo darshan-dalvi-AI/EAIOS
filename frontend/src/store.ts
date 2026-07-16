@@ -11,6 +11,7 @@ const SIZES: Record<AppId, { w: number; h: number }> = {
   sql: { w: 900, h: 600 },
   analytics: { w: 920, h: 640 },
   meeting: { w: 900, h: 620 },
+  video: { w: 980, h: 660 },
   admin: { w: 880, h: 600 },
   terminal: { w: 660, h: 440 },
   settings: { w: 680, h: 540 },
@@ -69,6 +70,10 @@ interface OSStore {
   setOnline: (u: PresenceUser[]) => void;
   liveFeed: FeedEvent[];
   pushFeed: (e: Omit<FeedEvent, "id" | "time">) => void;
+
+  /* incoming video call (WebRTC ring) */
+  ring: { id: string; name: string; hue: number } | null;
+  setRing: (r: OSStore["ring"]) => void;
 }
 
 const savedTheme = ((): Theme => {
@@ -167,4 +172,7 @@ export const useOS = create<OSStore>((set, get) => ({
         ...s.liveFeed,
       ].slice(0, 40),
     })),
+
+  ring: null,
+  setRing: (ring) => set({ ring }),
 }));

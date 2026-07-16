@@ -8,6 +8,7 @@ export type AppId =
   | "sql"
   | "analytics"
   | "meeting"
+  | "video"
   | "admin"
   | "terminal"
   | "settings";

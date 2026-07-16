@@ -28,6 +28,27 @@ export function onChatMessage(fn: (convId: string) => void): () => void {
   return () => chatListeners.delete(fn);
 }
 
+/* ── WebRTC signaling (video calls) ──────────────────────────────────────
+   rtc.* frames are point-to-point: relayed by the backend to one user,
+   never added to the public feed. The Video app subscribes via onRtc. */
+export interface RtcEvent {
+  type: string; // rtc.ring | rtc.accept | rtc.decline | rtc.offer | rtc.answer | rtc.ice | rtc.caption | rtc.end | rtc.unavailable
+  from?: { id: string; name: string; hue: number };
+  payload: Record<string, unknown>;
+}
+
+const rtcListeners = new Set<(ev: RtcEvent) => void>();
+export function onRtc(fn: (ev: RtcEvent) => void): () => void {
+  rtcListeners.add(fn);
+  return () => rtcListeners.delete(fn);
+}
+
+export function sendRtc(type: string, to: string, payload: unknown = {}): boolean {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify({ type, to, payload }));
+  return true;
+}
+
 function feedFrom(ev: WsEvent): Omit<FeedEvent, "id" | "time"> | null {
   switch (ev.type) {
     case "agent.step":
@@ -63,6 +84,17 @@ function handleMessage(raw: string) {
     return;
   }
   const os = useOS.getState();
+  // WebRTC signaling: fan out to the Video app, surface rings globally
+  if (typeof ev.type === "string" && ev.type.startsWith("rtc.")) {
+    const rtc = ev as unknown as RtcEvent;
+    if (rtc.type === "rtc.ring" && rtc.from) {
+      os.setRing({ id: rtc.from.id, name: rtc.from.name, hue: rtc.from.hue });
+      os.pushFeed({ agent: "video", text: `📞 Incoming video call from ${rtc.from.name}`, kind: "system" });
+      os.open("video"); // bring the Video app up so the answer UI is visible
+    }
+    rtcListeners.forEach((fn) => fn(rtc));
+    return;
+  }
   if (ev.type === "presence") {
     os.setOnline(ev.users);
     return;

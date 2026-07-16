@@ -138,6 +138,7 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | AI Meeting Assistant — record/paste → minutes → save to Knowledge (12th app) | ✅ implemented |
 | Model Arena — same prompt, two OpenRouter models side by side with latency | ✅ implemented |
 | Document analyzers — Resume / Contract / Invoice scorecards | ✅ implemented (`services/analyze.py`) |
+| Video Call (13th app) — WebRTC 1:1 calls with AI: live captions, auto Minutes-of-Meeting, virtual backgrounds/effects, screen share | ✅ implemented (`apps/VideoApp.tsx`, `rtc.*` WS relay) |
 | MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 

@@ -70,7 +70,7 @@ Streaming (SSE) ✅ · Stop ✅ · Regenerate ✅ · Export ✅ · Citations ✅
 
 ## Bonus features
 
-Done: real-time collab ✅ · WebSocket notifications ✅ (bell + toasts) · semantic search ✅ · dark/light ✅ · PWA/offline ✅ · knowledge-graph explorer ✅ · AI data-viz (Analytics) ✅ · AI Excel analysis (xlsx ingest + Q&A + table→SQL) ✅ · **resume/contract/invoice analyzers ✅ (quick-action scorecards in Knowledge)** · **AI meeting assistant ✅** · **model comparison ✅ (Model Arena)** · scheduled automations ✅ · diagram/mind-map generators, avatar, voice calls, live cursors, workspaces, version control, prompt library 🔜.
+Done: real-time collab ✅ · WebSocket notifications ✅ (bell + toasts) · semantic search ✅ · dark/light ✅ · PWA/offline ✅ · knowledge-graph explorer ✅ · AI data-viz (Analytics) ✅ · AI Excel analysis (xlsx ingest + Q&A + table→SQL) ✅ · **resume/contract/invoice analyzers ✅ (quick-action scorecards in Knowledge)** · **AI meeting assistant ✅** · **model comparison ✅ (Model Arena)** · scheduled automations ✅ · **AI video calls ✅ (WebRTC + live captions + auto MoM + virtual backgrounds + screen share)** · diagram/mind-map generators, avatar, live cursors, workspaces, version control, prompt library 🔜.
 
 ## Verified quality gates
 

@@ -70,6 +70,16 @@ JWT auth + RBAC + audit · SQLAlchemy schema · hybrid RAG (parse→chunk→embe
 - **Model Arena** — Settings (admin): one prompt, two OpenRouter models side by side with per-model latency; `POST /api/admin/compare` runs them in parallel threads.
 - **Document analyzers** — Resume / Contract / Invoice / Auto quick-actions in Knowledge: LLM strict-JSON scorecards with a deterministic heuristic fallback (amounts, dates, risk clauses, skills) so demo mode always answers.
 
+## Post-roadmap upgrades · batch 4 ✅ shipped 2026-07-12
+
+- **Video Call** (13th OS app, `apps/VideoApp.tsx`) — built-in **WebRTC** 1:1 video calling with AI features:
+  - Signaling rides the existing realtime WebSocket as point-to-point `rtc.*` frames (relayed to one user, never broadcast/buffered); media is peer-to-peer, STUN-only, never touches the server.
+  - **Live captions** (Web Speech) for both sides, exchanged over the signaling channel so each participant sees a merged transcript.
+  - **Auto Minutes-of-Meeting** on hang-up: the merged caption transcript is sent through the Meeting agent → summary / decisions / action items, optionally saved to the knowledge base.
+  - **Virtual backgrounds & effects** via a canvas pipeline (portrait blur, noir, aurora wash, nebula backdrop) — the outgoing track is always the canvas, so switching effects never renegotiates the connection.
+  - Screen share (`replaceTrack`), mute / camera toggles, talk-time balance meter, incoming-call ring with accept/decline.
+  - Verified: 3 signaling-relay unit tests + a headless two-browser call (ring → accept → both live → mid-call effect switch → hang-up → both return to idle) all green; pixel-level media flow needs a real browser/camera.
+
 ## Deliverables checklist
 
 Report + architecture diagrams (docs/) · demo video script: boot → login → ⌘K → RAG answer with citations → compound request planner demo → SQL Studio → admin audit → kill backend mid-demo to show demo-mode resilience (judges love this) · GitHub repo with CI badge · deployed URL.
