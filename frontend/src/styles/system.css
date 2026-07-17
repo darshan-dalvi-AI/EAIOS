@@ -266,7 +266,7 @@ input, textarea, select { font: inherit; color: inherit; }
 .input:focus { border-color: rgba(34,211,238,.5); }
 .input::placeholder { color: var(--text-faint); }
 .input.sm { padding: 5px 9px; font-size: 12px; border-radius: 8px; }
-select.input option { background: #0b0f1a; color: var(--text); }
+select.input option, select.plain option { background: #0b0f1a; color: var(--text); }
 
 .card { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--radius-sm);
   padding: 14px 16px; transition: border-color .2s, transform .2s; }
@@ -537,7 +537,7 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 [data-theme="light"] .dock.taskbar { background: rgba(255, 255, 255, 0.8); }
 [data-theme="light"] .lp-msg.ai code, [data-theme="light"] .codeblock code { color: #c9e8ff; }
 [data-theme="light"] .inline-code { color: #0e7490; background: rgba(8, 145, 178, 0.08); }
-[data-theme="light"] select.input option { background: #ffffff; color: var(--text); }
+[data-theme="light"] select.input option, [data-theme="light"] select.plain option { background: #ffffff; color: var(--text); }
 
 /* ── light-mode contrast fixes (side-by-side theme audit 2026-07-12) ──
    Every dark-theme color literal that became unreadable on light
