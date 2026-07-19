@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_INTERVAL: int = 60  # seconds between due-checks
 
+    # One-click "Connect with Google" for the Connectors app (Drive/Gmail).
+    # Create an OAuth *Web application* client ID in Google Cloud Console,
+    # add your site to Authorized JavaScript origins, and set it here.
+    # Empty → the Connectors UI falls back to paste-an-access-token.
+    GOOGLE_CLIENT_ID: str = ""
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

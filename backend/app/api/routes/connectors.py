@@ -5,12 +5,20 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
 from app.models import Connector, User
 from app.services import audit, connectors
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
 _LABELS = {"sample": "Sample Workspace", "google_drive": "Google Drive", "gmail": "Gmail"}
+
+
+@router.get("/config")
+def connector_config(user: User = Depends(get_current_user)):
+    """Client config for the Connectors UI. A configured Google client id
+    enables one-click 'Connect with Google' (popup consent, no token paste)."""
+    return {"google_client_id": settings.GOOGLE_CLIENT_ID}
 
 
 def _out(c: Connector) -> dict:

@@ -1,16 +1,42 @@
-/* Connectors — pull real enterprise data into the knowledge base. The Sample
-   Workspace works instantly (bundled demo Gmail + Drive data). Google Drive
-   and Gmail sync live data when given an OAuth access token. */
-import { Check, Cloud, Loader2, Mail, RefreshCw, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
-import { apiConnectors, apiSyncConnector, type ConnectorRow } from "../lib/api";
+/* Connectors — pull real enterprise data into the knowledge base.
+   · Sample Workspace: bundled demo data, zero setup.
+   · Google Drive / Gmail: ONE-CLICK "Connect with Google" (popup consent via
+     Google Identity Services) when the admin has set GOOGLE_CLIENT_ID —
+     otherwise a paste-an-OAuth-token fallback (OAuth Playground, ~30s). */
+import { Check, Cloud, KeyRound, Loader2, Mail, RefreshCw, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { apiConnectorConfig, apiConnectors, apiSyncConnector, type ConnectorRow } from "../lib/api";
 import { useOS } from "../store";
 
 const PROVIDERS = [
-  { id: "sample", name: "Sample Workspace", Icon: Sparkles, hue: 200, blurb: "Bundled demo Gmail threads + Drive docs. No setup — great for a quick demo.", needsToken: false },
-  { id: "google_drive", name: "Google Drive", Icon: Cloud, hue: 130, blurb: "Indexes your Drive documents and spreadsheets. Needs a Google OAuth token.", needsToken: true },
-  { id: "gmail", name: "Gmail", Icon: Mail, hue: 350, blurb: "Indexes recent inbox threads. Needs a Google OAuth token.", needsToken: true },
+  { id: "sample", name: "Sample Workspace", Icon: Sparkles, hue: 200, blurb: "Bundled demo Gmail threads + Drive docs. No setup — great for a quick demo.", scope: "" },
+  { id: "google_drive", name: "Google Drive", Icon: Cloud, hue: 130, blurb: "Indexes your Drive documents and spreadsheets.", scope: "https://www.googleapis.com/auth/drive.readonly" },
+  { id: "gmail", name: "Gmail", Icon: Mail, hue: 350, blurb: "Indexes recent inbox threads.", scope: "https://www.googleapis.com/auth/gmail.readonly" },
 ];
+
+/* Google Identity Services (loaded on demand) */
+interface TokenClient { requestAccessToken: () => void }
+interface GisGlobal {
+  google?: { accounts?: { oauth2?: { initTokenClient: (cfg: {
+    client_id: string; scope: string;
+    callback: (resp: { access_token?: string; error?: string }) => void;
+    error_callback?: (err: { type?: string; message?: string }) => void;
+  }) => TokenClient } } };
+}
+let gisLoading: Promise<void> | null = null;
+function loadGis(): Promise<void> {
+  const w = window as unknown as GisGlobal;
+  if (w.google?.accounts?.oauth2) return Promise.resolve();
+  gisLoading ??= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { gisLoading = null; reject(new Error("Couldn't load Google sign-in (network/ad-blocker?). Paste a token instead.")); };
+    document.head.appendChild(s);
+  });
+  return gisLoading;
+}
 
 export default function ConnectorsApp() {
   const live = useOS((s) => s.live);
@@ -19,29 +45,67 @@ export default function ConnectorsApp() {
   const [tokens, setTokens] = useState<Record<string, string>>({});
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [okMsg, setOkMsg] = useState<Record<string, string>>({});
+  const [clientId, setClientId] = useState("");
+  const busyRef = useRef<string | null>(null);
 
-  useEffect(() => { apiConnectors().then(setRows).catch(() => {}); }, []);
+  useEffect(() => {
+    apiConnectors().then(setRows).catch(() => {});
+    apiConnectorConfig().then((c) => setClientId(c.google_client_id || "")).catch(() => {});
+  }, []);
 
-  async function sync(provider: string, needsToken: boolean) {
-    if (busy) return;
-    setErrs((e) => ({ ...e, [provider]: "" }));
-    setOkMsg((m) => ({ ...m, [provider]: "" }));
-    // guard client-side: don't even call the backend without a token
-    if (needsToken && !(tokens[provider] || "").trim()) {
-      setErrs((e) => ({ ...e, [provider]: "Paste a Google OAuth access token above first — takes ~30s via the OAuth Playground (link below)." }));
-      return;
-    }
-    setBusy(provider);
+  const note = (provider: string, err: string, good = "") => {
+    setErrs((e) => ({ ...e, [provider]: err }));
+    setOkMsg((m) => ({ ...m, [provider]: good }));
+  };
+
+  async function runSync(provider: string, token: string) {
+    setBusy(provider); busyRef.current = provider;
+    note(provider, "");
     try {
-      const r = await apiSyncConnector(provider, needsToken ? tokens[provider].trim() : "");
+      const r = await apiSyncConnector(provider, token);
       setRows((list) => [r, ...list.filter((c) => c.provider !== provider)]);
-      setOkMsg((m) => ({ ...m, [provider]: `Synced ${r.ingested ?? r.synced_count} item(s) into the knowledge base ✓` }));
+      note(provider, "", `Synced ${r.ingested ?? r.synced_count} item(s) into the knowledge base ✓`);
     } catch (e) {
-      setErrs((er) => ({ ...er, [provider]: e instanceof Error ? e.message : String(e) }));
-    } finally { setBusy(null); }
+      note(provider, e instanceof Error ? e.message : String(e));
+    } finally { setBusy(null); busyRef.current = null; }
+  }
+
+  /* one-click: popup consent → access token → sync */
+  async function connectWithGoogle(provider: string, scope: string) {
+    if (busy) return;
+    note(provider, "");
+    setBusy(provider); busyRef.current = provider;
+    try {
+      await loadGis();
+      const w = window as unknown as GisGlobal;
+      const tc = w.google!.accounts!.oauth2!.initTokenClient({
+        client_id: clientId,
+        scope,
+        callback: (resp) => {
+          if (resp.access_token) void runSync(provider, resp.access_token);
+          else { note(provider, resp.error || "Google didn't return a token — try again."); setBusy(null); busyRef.current = null; }
+        },
+        error_callback: (err) => {
+          note(provider, err?.type === "popup_closed" ? "Popup closed before finishing — try again." : (err?.message || "Google sign-in failed."));
+          setBusy(null); busyRef.current = null;
+        },
+      });
+      tc.requestAccessToken(); // opens the Google consent popup
+    } catch (e) {
+      note(provider, e instanceof Error ? e.message : String(e));
+      setBusy(null); busyRef.current = null;
+    }
+  }
+
+  function pasteSync(provider: string) {
+    if (busy) return;
+    const tok = (tokens[provider] || "").trim();
+    if (!tok) { note(provider, "Paste a token first — get one from the OAuth Playground link above."); return; }
+    void runSync(provider, tok);
   }
 
   const statusOf = (id: string) => rows.find((r) => r.provider === id);
+  const oneClick = live && !!clientId;
 
   return (
     <div className="app-pane">
@@ -54,6 +118,7 @@ export default function ConnectorsApp() {
         {PROVIDERS.map((p) => {
           const st = statusOf(p.id);
           const connected = st?.status === "connected";
+          const isGoogle = !!p.scope;
           return (
             <div key={p.id} className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -67,26 +132,45 @@ export default function ConnectorsApp() {
               </div>
               <p className="faint" style={{ fontSize: 11.5, margin: 0, lineHeight: 1.5 }}>{p.blurb}</p>
 
-              {p.needsToken && (
-                <div className="field">
-                  <input type="password" value={tokens[p.id] || ""} onChange={(e) => { setTokens({ ...tokens, [p.id]: e.target.value }); setErrs((er) => ({ ...er, [p.id]: "" })); }}
-                         placeholder="Paste Google OAuth access token" aria-label={`${p.name} token`} disabled={!live} />
-                </div>
-              )}
-              {p.needsToken && (
-                <span className="faint" style={{ fontSize: 10.5 }}>
-                  {live
-                    ? <>Get a token in ~30s: <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>OAuth Playground</a> → authorize the {p.id === "gmail" ? "gmail.readonly" : "drive.readonly"} scope → copy the access token. Full steps in docs/DEPLOY.md.</>
-                    : "Live backend required for real Google sync."}
-                </span>
+              {/* ── sample: plain sync ── */}
+              {!isGoogle && (
+                <button className="btn sm" style={{ justifyContent: "center", marginTop: "auto" }}
+                        onClick={() => runSync(p.id, "")} disabled={busy === p.id}>
+                  {busy === p.id ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                  {busy === p.id ? " Syncing…" : connected ? " Re-sync" : " Connect & sync"}
+                </button>
               )}
 
-              <button className="btn sm" style={{ justifyContent: "center", marginTop: "auto" }}
-                      onClick={() => sync(p.id, p.needsToken)} disabled={busy === p.id || (p.needsToken && !live)}>
-                {busy === p.id ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
-                {busy === p.id ? " Syncing…" : connected ? " Re-sync" : " Connect & sync"}
-              </button>
-              {errs[p.id] && <span className="pill warn" style={{ whiteSpace: "normal", lineHeight: 1.45, height: "auto", padding: "5px 10px" }}>⚠ {errs[p.id]}</span>}
+              {/* ── google: one-click if configured, else token paste ── */}
+              {isGoogle && oneClick && (
+                <button className="btn primary sm" style={{ justifyContent: "center", marginTop: "auto" }}
+                        onClick={() => connectWithGoogle(p.id, p.scope)} disabled={busy === p.id}>
+                  {busy === p.id ? <Loader2 size={13} className="spin" /> : (
+                    <svg width="13" height="13" viewBox="0 0 48 48" aria-hidden="true"><path fill="currentColor" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/></svg>
+                  )}
+                  {busy === p.id ? " Connecting…" : connected ? " Re-sync with Google" : " Connect with Google"}
+                </button>
+              )}
+              {isGoogle && !oneClick && (
+                <>
+                  <div className="field">
+                    <input type="password" value={tokens[p.id] || ""} onChange={(e) => { setTokens({ ...tokens, [p.id]: e.target.value }); note(p.id, ""); }}
+                           placeholder="Paste Google OAuth access token" aria-label={`${p.name} token`} disabled={!live} />
+                  </div>
+                  <span className="faint" style={{ fontSize: 10.5, lineHeight: 1.55 }}>
+                    {live
+                      ? <><KeyRound size={10} /> Get a token in ~30s: <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>OAuth Playground</a> → authorize <code style={{ fontSize: 10 }}>{p.id === "gmail" ? "gmail.readonly" : "drive.readonly"}</code> → copy the access token. Admins: set <code style={{ fontSize: 10 }}>GOOGLE_CLIENT_ID</code> to enable one-click connect (docs/DEPLOY.md).</>
+                      : "Live backend required for real Google sync."}
+                  </span>
+                  <button className="btn sm" style={{ justifyContent: "center", marginTop: "auto" }}
+                          onClick={() => pasteSync(p.id)} disabled={busy === p.id || !live}>
+                    {busy === p.id ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                    {busy === p.id ? " Syncing…" : connected ? " Re-sync" : " Connect & sync"}
+                  </button>
+                </>
+              )}
+
+              {errs[p.id] && <span className="pill warn" style={{ whiteSpace: "normal", lineHeight: 1.45, height: "auto", padding: "5px 10px" }}>{errs[p.id]}</span>}
               {!errs[p.id] && okMsg[p.id] && <span className="pill good" style={{ whiteSpace: "normal", height: "auto", padding: "5px 10px" }}>{okMsg[p.id]}</span>}
               {!errs[p.id] && !okMsg[p.id] && st?.detail && <span className="faint" style={{ fontSize: 10.5 }}>{st.detail}</span>}
             </div>

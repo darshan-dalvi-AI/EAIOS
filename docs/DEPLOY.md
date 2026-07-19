@@ -83,6 +83,25 @@ connect **real** Google Drive / Gmail you supply an OAuth *access token*; the
 providers then call the Drive API v3 (`files.list` + export Docs as text) and
 the Gmail API (recent message snippets).
 
+### One-click "Connect with Google" (recommended)
+
+Set `GOOGLE_CLIENT_ID` and users just click **Connect with Google** — a popup
+asks for consent and the sync starts automatically. One-time setup (~3 min):
+
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
+   **Create credentials → OAuth client ID → Web application**.
+2. Under **Authorized JavaScript origins** add your URLs, e.g.
+   `https://eaios.onrender.com` and `http://localhost:5173`.
+   (No redirect URI needed — the token flow uses a popup.)
+3. Enable the **Google Drive API** and **Gmail API**
+   (APIs & Services → Library) and add yourself as a test user on the
+   OAuth consent screen.
+4. Set the env var — Render: Environment → `GOOGLE_CLIENT_ID=…apps.googleusercontent.com`;
+   local: add the same line to `backend/.env` — and restart/redeploy.
+
+### Paste-a-token fallback (no setup)
+
+Without `GOOGLE_CLIENT_ID` the cards show a token field instead.
 Getting a token for a demo (fastest):
 
 1. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/).

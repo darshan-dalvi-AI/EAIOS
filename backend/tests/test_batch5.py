@@ -8,6 +8,14 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def test_connector_config_exposes_google_client_id():
+    with client() as c:
+        h = _headers(c)
+        r = c.get("/api/connectors/config", headers=h)
+        assert r.status_code == 200
+        assert "google_client_id" in r.json()  # "" unless GOOGLE_CLIENT_ID is set
+
+
 def _headers(c: TestClient, email="admin@eaios.dev", pw="admin12345") -> dict:
     r = c.post("/api/auth/login", json={"email": email, "password": pw})
     assert r.status_code == 200

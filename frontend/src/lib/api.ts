@@ -606,6 +606,11 @@ export interface ConnectorRow {
   id: string; provider: string; label: string; status: string; detail: string;
   synced_count: number; last_sync_at: string | null;
 }
+export async function apiConnectorConfig(): Promise<{ google_client_id: string }> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/connectors/config"); } catch { /* demo */ } }
+  return { google_client_id: "" };
+}
 let demoConnectors: ConnectorRow[] | null = null;
 export async function apiConnectors(): Promise<ConnectorRow[]> {
   const { live, token } = useOS.getState();
