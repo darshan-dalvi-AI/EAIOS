@@ -67,7 +67,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     demoteToDemo(); // network-level failure: backend process is gone
     throw new Error("Backend unreachable — switched to demo mode. Try that again.");
   }
-  if (!res.ok) throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
+  if (!res.ok) {
+    // FastAPI errors arrive as {"detail": "..."} — surface the human message, never raw JSON
+    const raw = (await res.text().catch(() => "")) || "";
+    let msg = raw;
+    try {
+      const j = JSON.parse(raw) as { detail?: unknown };
+      if (j && j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+    } catch { /* plain-text body */ }
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
   return res.json() as Promise<T>;
 }
 

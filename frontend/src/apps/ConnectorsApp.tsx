@@ -17,19 +17,27 @@ export default function ConnectorsApp() {
   const [rows, setRows] = useState<ConnectorRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [tokens, setTokens] = useState<Record<string, string>>({});
-  const [err, setErr] = useState<string>("");
+  const [errs, setErrs] = useState<Record<string, string>>({});
+  const [okMsg, setOkMsg] = useState<Record<string, string>>({});
 
   useEffect(() => { apiConnectors().then(setRows).catch(() => {}); }, []);
 
   async function sync(provider: string, needsToken: boolean) {
     if (busy) return;
-    setErr("");
+    setErrs((e) => ({ ...e, [provider]: "" }));
+    setOkMsg((m) => ({ ...m, [provider]: "" }));
+    // guard client-side: don't even call the backend without a token
+    if (needsToken && !(tokens[provider] || "").trim()) {
+      setErrs((e) => ({ ...e, [provider]: "Paste a Google OAuth access token above first — takes ~30s via the OAuth Playground (link below)." }));
+      return;
+    }
     setBusy(provider);
     try {
-      const r = await apiSyncConnector(provider, needsToken ? (tokens[provider] || "") : "");
+      const r = await apiSyncConnector(provider, needsToken ? tokens[provider].trim() : "");
       setRows((list) => [r, ...list.filter((c) => c.provider !== provider)]);
+      setOkMsg((m) => ({ ...m, [provider]: `Synced ${r.ingested ?? r.synced_count} item(s) into the knowledge base ✓` }));
     } catch (e) {
-      setErr(`${provider}: ${e instanceof Error ? e.message : e}`);
+      setErrs((er) => ({ ...er, [provider]: e instanceof Error ? e.message : String(e) }));
     } finally { setBusy(null); }
   }
 
@@ -40,7 +48,6 @@ export default function ConnectorsApp() {
       <div className="app-toolbar">
         <span className="pill info"><Cloud size={11} /> data connectors</span>
         <span className="faint" style={{ fontSize: 11.5 }}>Synced sources feed the same RAG pipeline as uploads — searchable, cited, entity-linked.</span>
-        {err && <span className="pill warn" style={{ marginLeft: "auto" }}>⚠ {err}</span>}
       </div>
 
       <div className="app-content" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14, alignContent: "start" }}>
@@ -62,18 +69,26 @@ export default function ConnectorsApp() {
 
               {p.needsToken && (
                 <div className="field">
-                  <input type="password" value={tokens[p.id] || ""} onChange={(e) => setTokens({ ...tokens, [p.id]: e.target.value })}
+                  <input type="password" value={tokens[p.id] || ""} onChange={(e) => { setTokens({ ...tokens, [p.id]: e.target.value }); setErrs((er) => ({ ...er, [p.id]: "" })); }}
                          placeholder="Paste Google OAuth access token" aria-label={`${p.name} token`} disabled={!live} />
                 </div>
               )}
-              {p.needsToken && !live && <span className="faint" style={{ fontSize: 10.5 }}>Live backend required for real Google sync.</span>}
+              {p.needsToken && (
+                <span className="faint" style={{ fontSize: 10.5 }}>
+                  {live
+                    ? <>Get a token in ~30s: <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>OAuth Playground</a> → authorize the {p.id === "gmail" ? "gmail.readonly" : "drive.readonly"} scope → copy the access token. Full steps in docs/DEPLOY.md.</>
+                    : "Live backend required for real Google sync."}
+                </span>
+              )}
 
               <button className="btn sm" style={{ justifyContent: "center", marginTop: "auto" }}
                       onClick={() => sync(p.id, p.needsToken)} disabled={busy === p.id || (p.needsToken && !live)}>
                 {busy === p.id ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
                 {busy === p.id ? " Syncing…" : connected ? " Re-sync" : " Connect & sync"}
               </button>
-              {st?.detail && <span className="faint" style={{ fontSize: 10.5 }}>{st.detail}</span>}
+              {errs[p.id] && <span className="pill warn" style={{ whiteSpace: "normal", lineHeight: 1.45, height: "auto", padding: "5px 10px" }}>⚠ {errs[p.id]}</span>}
+              {!errs[p.id] && okMsg[p.id] && <span className="pill good" style={{ whiteSpace: "normal", height: "auto", padding: "5px 10px" }}>{okMsg[p.id]}</span>}
+              {!errs[p.id] && !okMsg[p.id] && st?.detail && <span className="faint" style={{ fontSize: 10.5 }}>{st.detail}</span>}
             </div>
           );
         })}
