@@ -86,6 +86,9 @@ export default function Desktop() {
       <div style={{ position: "fixed", inset: 0, zIndex: "var(--z-window)" as unknown as number }}>
         {windows.map((win) => {
           const Component = COMPONENTS[win.id];
+          // Unknown app id (stale session state from an older/newer bundle):
+          // skip it instead of crashing the whole desktop.
+          if (!Component) return null;
           return (
             <Window key={win.id} win={win}>
               <Component />

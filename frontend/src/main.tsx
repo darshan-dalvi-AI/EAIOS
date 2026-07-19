@@ -1,14 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { ping } from "./lib/api";
 import { useOS } from "./store";
 import "./styles/system.css";
 
 /* Crash shield: without this, any uncaught render error blanks the whole
    page (e.g. a window crashing after the backend process is closed).
-   Instead we show a recovery screen: reload, or continue on mock data. */
+   First it tries to SELF-HEAL: if the backend is unreachable (terminal
+   closed), it silently continues in demo mode — no interruption. The
+   recovery card only appears for repeated/real crashes. */
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
+  static recoveries: number[] = [];
 
   static getDerivedStateFromError(error: Error) {
     return { error };
@@ -16,6 +20,22 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("EAIOS crashed:", error, info.componentStack);
+    // Self-heal: crashes right after the backend process dies are transient —
+    // switch to demo mode and resume without bothering the user. Rate-limited
+    // to 2/minute so a genuine crash loop still shows the recovery card.
+    const now = Date.now();
+    ErrorBoundary.recoveries = ErrorBoundary.recoveries.filter((t) => now - t < 60000);
+    if (ErrorBoundary.recoveries.length < 2) {
+      ErrorBoundary.recoveries.push(now);
+      void ping().then((backendAlive) => {
+        if (!backendAlive && this.state.error) {
+          const os = useOS.getState();
+          os.setLive(false);
+          this.setState({ error: null });
+          os.pushFeed({ agent: "system", text: "Backend closed — recovered automatically in demo mode. Live mode restores when it's back.", kind: "system" });
+        }
+      });
+    }
   }
 
   private continueInDemo = () => {
@@ -65,6 +85,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
   }
 }
 
+// Debug handle (console): window.__eaios.getState() — helps diagnose issues in the field.
+(window as unknown as { __eaios: typeof useOS }).__eaios = useOS;
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
@@ -78,5 +101,16 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 if (import.meta.env.PROD && "serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {/* non-fatal */});
+  });
+  // After a deploy, the new service worker takes control (skipWaiting +
+  // clients.claim) — reload ONCE so this tab runs the fresh bundle instead of
+  // a stale one (mixed old/new chunks caused "… is not a function" crashes).
+  // Guard: no controller at load = first-ever install → don't reload.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
   });
 }
