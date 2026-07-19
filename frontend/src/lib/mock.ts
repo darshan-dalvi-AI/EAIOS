@@ -372,3 +372,31 @@ export function mockAnalyze(docId: string, kind: string, title: string) {
   };
   return { doc_id: docId, title, kind, engine: "demo", ...base };
 }
+
+/* ── NL-to-BI chart (demo) — deterministic spec from the question ── */
+export function mockChart(question: string) {
+  const q = question.toLowerCase();
+  const mk = (type: "bar" | "line" | "pie" | "table", x: string, series: string[], data: Record<string, string | number>[], sql: string) => ({
+    question, sql, explanation: "Demo chart from mock data (connect the backend for live SQL).", warning: "",
+    type, x, series, columns: [x, ...series], rows: data.map((d) => [d.x, ...series.map((s) => d[s])]), data, note: `${type} · ${data.length} rows`,
+  });
+  if (/(over time|trend|daily|month|timeline)/.test(q))
+    return mk("line", "day", ["messages"], [
+      { x: "Mon", messages: 120 }, { x: "Tue", messages: 180 }, { x: "Wed", messages: 150 },
+      { x: "Thu", messages: 210 }, { x: "Fri", messages: 240 }, { x: "Sat", messages: 90 }, { x: "Sun", messages: 60 },
+    ], "SELECT day, COUNT(*) AS messages\nFROM messages\nGROUP BY day\nORDER BY day");
+  if (/(share|breakdown|proportion|distribution|role)/.test(q))
+    return mk("pie", "role", ["users"], [
+      { x: "employee", users: 6 }, { x: "manager", users: 2 }, { x: "admin", users: 1 },
+    ], "SELECT role, COUNT(*) AS users\nFROM users\nGROUP BY role");
+  if (/region|sales|revenue/.test(q))
+    return mk("bar", "region", ["q1_revenue", "q2_revenue", "q3_revenue"], [
+      { x: "North", q1_revenue: 120, q2_revenue: 140, q3_revenue: 165 },
+      { x: "South", q1_revenue: 95, q2_revenue: 90, q3_revenue: 105 },
+      { x: "West", q1_revenue: 60, q2_revenue: 75, q3_revenue: 88 },
+      { x: "East", q1_revenue: 150, q2_revenue: 160, q3_revenue: 172 },
+    ], "SELECT region, q1_revenue, q2_revenue, q3_revenue\nFROM regional_sales");
+  return mk("bar", "doc_type", ["total"], [
+    { x: "pdf", total: 4 }, { x: "docx", total: 3 }, { x: "xlsx", total: 2 }, { x: "csv", total: 1 }, { x: "image", total: 1 },
+  ], "SELECT doc_type, COUNT(*) AS total\nFROM documents\nGROUP BY doc_type\nORDER BY total DESC");
+}

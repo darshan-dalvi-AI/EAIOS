@@ -225,3 +225,58 @@ class GraphCheckpoint(Base):
     status: Mapped[str] = mapped_column(String(12), default="running")  # running | interrupted | done
     steps: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+
+
+# ── Agent Studio (no-code custom agents) ─────────────────────────────────
+class CustomAgent(Base):
+    """A user-authored agent: a name, a system prompt, and a set of enabled
+    tools (rag / web). Runs through the same BaseAgent contract as the
+    built-in fleet and is invocable from Chat's route picker."""
+
+    __tablename__ = "custom_agents"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    slug: Mapped[str] = mapped_column(String(60), unique=True, index=True)  # route id, e.g. "studio_hrbot"
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[str] = mapped_column(String(300), default="")
+    system_prompt: Mapped[str] = mapped_column(Text)
+    tools: Mapped[str] = mapped_column(String(200), default="[]")  # JSON list: ["rag","web"]
+    hue: Mapped[int] = mapped_column(Integer, default=265)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    run_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+
+
+# ── Connectors (Gmail / Drive / sample workspace → RAG) ──────────────────
+class Connector(Base):
+    """A configured data source. Syncing pulls items from the provider and
+    feeds them through the same ingestion pipeline as uploaded documents."""
+
+    __tablename__ = "connectors"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    provider: Mapped[str] = mapped_column(String(30))  # sample | google_drive | gmail
+    label: Mapped[str] = mapped_column(String(120), default="")
+    status: Mapped[str] = mapped_column(String(20), default="disconnected")  # disconnected | connected | syncing | error
+    detail: Mapped[str] = mapped_column(Text, default="")     # last sync summary / error
+    synced_count: Mapped[int] = mapped_column(Integer, default=0)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    last_sync_at: Mapped[datetime | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+# ── Saved dashboards (NL-to-BI charts) ───────────────────────────────────
+class SavedChart(Base):
+    """A pinned natural-language chart: the question, the generated SQL, the
+    chart spec and a snapshot of the result so a dashboard renders instantly."""
+
+    __tablename__ = "saved_charts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    question: Mapped[str] = mapped_column(String(400))
+    sql: Mapped[str] = mapped_column(Text, default="")
+    spec: Mapped[str] = mapped_column(Text, default="{}")     # JSON {type,x,y,columns,rows}
+    created_at: Mapped[datetime] = mapped_column(default=_now)

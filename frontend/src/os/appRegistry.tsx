@@ -2,8 +2,10 @@ import {
   Activity,
   BarChart3,
   Bot,
+  Cloud,
   Database,
   FolderSearch,
+  LayoutDashboard,
   MessageSquare,
   Mic,
   Settings,
@@ -11,6 +13,7 @@ import {
   ShieldCheck,
   TerminalSquare,
   Video,
+  Wand2,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -25,6 +28,9 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
   traces:      { name: "Traces",      hue: 320, Icon: Activity,       tagline: "Observability & span waterfalls" },
   sql:         { name: "SQL Studio",  hue: 130, Icon: Database,       tagline: "Natural language database assistant" },
   analytics:   { name: "Analytics",   hue: 38,  Icon: BarChart3,      tagline: "Usage metrics & insights" },
+  dashboards:  { name: "Dashboards",  hue: 260, Icon: LayoutDashboard, tagline: "Natural-language BI charts" },
+  studio:      { name: "Agent Studio", hue: 285, Icon: Wand2,         tagline: "Build custom AI agents, no code" },
+  connectors:  { name: "Connectors",  hue: 175, Icon: Cloud,          tagline: "Gmail, Drive & more → knowledge" },
   meeting:     { name: "Meeting",     hue: 15,  Icon: Mic,            tagline: "Record → transcript → minutes" },
   video:       { name: "Video Call",  hue: 340, Icon: Video,          tagline: "AI video calls — captions, MoM, effects" },
   admin:       { name: "Admin",       hue: 350, Icon: ShieldCheck,    tagline: "Users, audit, models" },
@@ -33,8 +39,8 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
 };
 
 export const APP_ORDER: AppId[] = [
-  "chat", "knowledge", "agents", "graph", "automations", "traces",
-  "sql", "analytics", "meeting", "video", "admin", "terminal", "settings",
+  "chat", "knowledge", "connectors", "agents", "studio", "graph", "automations", "traces",
+  "sql", "analytics", "dashboards", "meeting", "video", "admin", "terminal", "settings",
 ];
 
 export function AppTile({ id, size = "" }: { id: AppId; size?: "" | "sm" | "md" }) {

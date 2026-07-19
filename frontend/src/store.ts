@@ -10,6 +10,9 @@ const SIZES: Record<AppId, { w: number; h: number }> = {
   traces: { w: 940, h: 620 },
   sql: { w: 900, h: 600 },
   analytics: { w: 920, h: 640 },
+  dashboards: { w: 960, h: 660 },
+  studio: { w: 940, h: 640 },
+  connectors: { w: 900, h: 600 },
   meeting: { w: 900, h: 620 },
   video: { w: 980, h: 660 },
   admin: { w: 880, h: 600 },
@@ -72,7 +75,7 @@ interface OSStore {
   pushFeed: (e: Omit<FeedEvent, "id" | "time">) => void;
 
   /* incoming video call (WebRTC ring) */
-  ring: { id: string; name: string; hue: number } | null;
+  ring: { id: string; name: string; hue: number; roster?: { id: string; name: string; hue: number }[] } | null;
   setRing: (r: OSStore["ring"]) => void;
 }
 

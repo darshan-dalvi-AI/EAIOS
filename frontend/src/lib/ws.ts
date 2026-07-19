@@ -88,7 +88,8 @@ function handleMessage(raw: string) {
   if (typeof ev.type === "string" && ev.type.startsWith("rtc.")) {
     const rtc = ev as unknown as RtcEvent;
     if (rtc.type === "rtc.ring" && rtc.from) {
-      os.setRing({ id: rtc.from.id, name: rtc.from.name, hue: rtc.from.hue });
+      const roster = (rtc.payload?.roster as { id: string; name: string; hue: number }[] | undefined);
+      os.setRing({ id: rtc.from.id, name: rtc.from.name, hue: rtc.from.hue, roster });
       os.pushFeed({ agent: "video", text: `📞 Incoming video call from ${rtc.from.name}`, kind: "system" });
       os.open("video"); // bring the Video app up so the answer UI is visible
     }

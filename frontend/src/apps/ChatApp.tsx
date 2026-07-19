@@ -1,6 +1,6 @@
 import { Bot, Check, Copy, Download, FileText, FileType2, Mic, Plus, RefreshCw, Send, Sparkles, Square, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { apiChatStream, apiExportReport } from "../lib/api";
+import { apiChatStream, apiExportReport, apiStudioList, type StudioAgent } from "../lib/api";
 import { AGENTS } from "../lib/mock";
 import { useOS } from "../store";
 import type { ChatMsg } from "../types";
@@ -21,11 +21,14 @@ export default function ChatApp() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [agent, setAgent] = useState("auto");
+  const [customAgents, setCustomAgents] = useState<StudioAgent[]>([]);
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [listening, setListening] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastUserText = useRef("");
+
+  useEffect(() => { apiStudioList().then((a) => setCustomAgents(a.filter((x) => x.enabled))).catch(() => {}); }, []);
 
   function startVoice() {
     const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -140,11 +143,18 @@ export default function ChatApp() {
         <span className="pill dim">multi-agent</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <label className="faint" style={{ fontSize: 11 }} htmlFor="agent-select">Route</label>
-          <select id="agent-select" className="plain" value={agent} onChange={(e) => setAgent(e.target.value)}>
+          <select id="agent-select" className="plain" value={agent}
+                  onMouseDown={() => apiStudioList().then((a) => setCustomAgents(a.filter((x) => x.enabled))).catch(() => {})}
+                  onChange={(e) => setAgent(e.target.value)}>
             <option value="auto">Auto (planner)</option>
             {AGENTS.map((a) => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
+            {customAgents.length > 0 && (
+              <optgroup label="Custom (Agent Studio)">
+                {customAgents.map((a) => <option key={a.slug} value={a.slug}>{a.name}</option>)}
+              </optgroup>
+            )}
           </select>
           {messages.length > 0 && (
             <button className="btn sm" onClick={exportChat} aria-label="Export conversation as Markdown" title="Export .md">

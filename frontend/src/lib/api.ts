@@ -3,7 +3,7 @@
    Demo mode: identical shapes served from mock.ts with realistic latency. */
 import { useOS } from "../store";
 import type { Citation, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
-import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockAnalyze, mockChat, mockMinutes, mockRunWorkflow, mockSQL } from "./mock";
+import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockAnalyze, mockChart, mockChat, mockMinutes, mockRunWorkflow, mockSQL } from "./mock";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -496,4 +496,125 @@ export async function apiAnalyze(docId: string, kind: string, docTitle: string):
   }
   await delay(800);
   return mockAnalyze(docId, kind, docTitle);
+}
+
+/* ── NL-to-BI dashboards ── */
+export interface ChartSpec {
+  question: string; sql: string; explanation?: string; warning?: string;
+  type: "bar" | "line" | "pie" | "table"; x: string | null; series: string[];
+  columns: string[]; rows: (string | number)[][]; data?: Record<string, string | number>[]; note?: string;
+}
+export interface SavedChartRow { id: string; question: string; sql: string; spec: ChartSpec; created_at: string }
+
+export async function apiChart(question: string): Promise<ChartSpec> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    try { return await request("/dashboards/chart", { method: "POST", body: JSON.stringify({ question }) }); }
+    catch { /* fall through to demo */ }
+  }
+  await delay(650);
+  return mockChart(question);
+}
+let demoPins: SavedChartRow[] | null = null;
+export async function apiListCharts(): Promise<SavedChartRow[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/dashboards"); } catch { /* demo */ } }
+  await delay(150);
+  return (demoPins ??= []);
+}
+export async function apiPinChart(spec: ChartSpec): Promise<string> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    try { return (await request<{ id: string }>("/dashboards", { method: "POST", body: JSON.stringify({ question: spec.question, sql: spec.sql, spec }) })).id; }
+    catch { /* demo */ }
+  }
+  const id = `demo-${Date.now()}`;
+  (demoPins ??= []).unshift({ id, question: spec.question, sql: spec.sql, spec, created_at: new Date().toISOString() });
+  return id;
+}
+export async function apiUnpinChart(id: string): Promise<void> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { await request(`/dashboards/${id}`, { method: "DELETE" }); return; } catch { /* demo */ } }
+  demoPins = (demoPins ?? []).filter((c) => c.id !== id);
+}
+
+/* ── Agent Studio ── */
+export interface StudioAgent {
+  id: string; slug: string; name: string; description: string;
+  system_prompt: string; tools: string[]; hue: number; enabled: boolean; run_count: number;
+}
+export type StudioDraft = Omit<StudioAgent, "id" | "slug" | "run_count">;
+
+let demoAgents: StudioAgent[] | null = null;
+const seedDemoAgents = (): StudioAgent[] => (demoAgents ??= [
+  { id: "demo-hr", slug: "studio_hr_helper", name: "HR Helper", description: "Answers HR & policy questions from the knowledge base",
+    system_prompt: "You are a friendly HR assistant. Answer clearly and cite the relevant policy.", tools: ["rag"], hue: 150, enabled: true, run_count: 12 },
+  { id: "demo-sales", slug: "studio_deal_coach", name: "Deal Coach", description: "Sales objection handling & pitch tips",
+    system_prompt: "You are a sales coach. Give concise, actionable advice for the deal described.", tools: [], hue: 30, enabled: true, run_count: 5 },
+]);
+
+export async function apiStudioList(): Promise<StudioAgent[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/studio/agents"); } catch { /* demo */ } }
+  await delay(200);
+  return seedDemoAgents();
+}
+export async function apiStudioSave(draft: StudioDraft, id?: string): Promise<StudioAgent> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    try {
+      return id
+        ? await request(`/studio/agents/${id}`, { method: "PUT", body: JSON.stringify(draft) })
+        : await request("/studio/agents", { method: "POST", body: JSON.stringify(draft) });
+    } catch { /* demo */ }
+  }
+  await delay(250);
+  const list = seedDemoAgents();
+  if (id) {
+    const i = list.findIndex((a) => a.id === id);
+    if (i >= 0) list[i] = { ...list[i], ...draft };
+    return list[i];
+  }
+  const created: StudioAgent = { ...draft, id: `demo-${Date.now()}`, slug: `studio_${draft.name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`, run_count: 0 };
+  list.unshift(created);
+  return created;
+}
+export async function apiStudioDelete(id: string): Promise<void> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { await request(`/studio/agents/${id}`, { method: "DELETE" }); return; } catch { /* demo */ } }
+  demoAgents = (demoAgents ?? []).filter((a) => a.id !== id);
+}
+export async function apiStudioRun(id: string, input: string): Promise<{ answer: string; confidence: number }> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request(`/studio/agents/${id}/run`, { method: "POST", body: JSON.stringify({ input }) }); } catch { /* demo */ } }
+  await delay(700);
+  const a = seedDemoAgents().find((x) => x.id === id);
+  return { answer: `**${a?.name ?? "Agent"}** (demo): ${mockChat(input).answer}`, confidence: 74 };
+}
+
+/* ── Connectors ── */
+export interface ConnectorRow {
+  id: string; provider: string; label: string; status: string; detail: string;
+  synced_count: number; last_sync_at: string | null;
+}
+let demoConnectors: ConnectorRow[] | null = null;
+export async function apiConnectors(): Promise<ConnectorRow[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/connectors"); } catch { /* demo */ } }
+  await delay(150);
+  return (demoConnectors ??= []);
+}
+export async function apiSyncConnector(provider: string, tokenStr = ""): Promise<ConnectorRow & { ingested: number }> {
+  const { live, token } = useOS.getState();
+  if (live && token) {
+    return request("/connectors/sync", { method: "POST", body: JSON.stringify({ provider, token: tokenStr }) });
+  }
+  await delay(1100);
+  if (provider !== "sample") throw new Error("Live backend required to connect real Google accounts.");
+  const row: ConnectorRow & { ingested: number } = {
+    id: "demo-sample", provider: "sample", label: "Sample Workspace", status: "connected",
+    detail: "Ingested 5 item(s).", synced_count: 5, last_sync_at: new Date().toISOString(), ingested: 5,
+  };
+  demoConnectors = [row, ...(demoConnectors ?? []).filter((c) => c.provider !== "sample")];
+  return row;
 }

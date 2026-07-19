@@ -6,7 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, agents, analytics, auth, chat, documents, graph, reports, traces, users, workflows, ws
+from app.api.routes import (
+    admin, agents, analytics, auth, chat, connectors, dashboards, documents,
+    graph, reports, studio, traces, users, workflows, ws,
+)
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
 
@@ -103,7 +106,7 @@ app.add_middleware(
 for router in (
     auth.router, users.router, documents.router, chat.router, agents.router,
     admin.router, analytics.router, graph.router, workflows.router, traces.router,
-    reports.router, ws.router,
+    reports.router, dashboards.router, studio.router, connectors.router, ws.router,
 ):
     app.include_router(router, prefix="/api")
 

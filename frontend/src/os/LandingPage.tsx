@@ -2,9 +2,9 @@
    Premium-SaaS look: animated aurora hero, feature grid, tech stack,
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
-  Activity, ArrowRight, BarChart3, Bot, BookOpen, Copy, Cpu, Database, FileText, FolderSearch,
-  Github, Image as ImageIcon, Mail, Mic, Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles,
-  Square, Sun, Table2, Workflow, X,
+  Activity, ArrowRight, BarChart3, Bot, BookOpen, Cloud, Copy, Cpu, Database, FileText, FolderSearch,
+  Github, Image as ImageIcon, LayoutDashboard, Mail, Mic, Minus, Moon, PlayCircle, Share2, ShieldCheck,
+  Sparkles, Square, Sun, Table2, Video, Wand2, Workflow, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useOS } from "../store";
@@ -27,6 +27,10 @@ const FEATURES = [
   { Icon: ShieldCheck, hue: 358, title: "Security & PII Audit", text: "Sensitive entities — people, emails, phone numbers — are classified at ingest; every agent access is flagged to the append-only audit log and the live security feed." },
   { Icon: Share2, hue: 175, title: "Knowledge Graph", text: "Entities and relationships extracted automatically at ingest — explore the constellation, ask how things connect." },
   { Icon: Workflow, hue: 95, title: "Automations + MCP", text: "Drag-and-drop workflows with human-in-the-loop approval nodes, upload triggers, and MCP tools for AI interoperability." },
+  { Icon: Cloud, hue: 175, title: "Connectors", text: "Pull Gmail, Google Drive and more into the same RAG pipeline as uploads — searchable, cited, entity-linked. Sample workspace works with zero setup." },
+  { Icon: Wand2, hue: 285, title: "Agent Studio", text: "Compose custom AI agents with no code — a system prompt plus knowledge-base and web-search tools. They appear in Chat's route picker instantly." },
+  { Icon: LayoutDashboard, hue: 260, title: "NL-to-BI Dashboards", text: "Describe a chart in plain English; the SQL agent writes the query and it renders as a bar, line or pie chart you can pin to a dashboard." },
+  { Icon: Video, hue: 340, title: "AI Video Calls", text: "Built-in WebRTC mesh calls with live captions, virtual backgrounds, screen share, and Minutes-of-Meeting generated live or on hang-up." },
 ];
 
 const TECH = [

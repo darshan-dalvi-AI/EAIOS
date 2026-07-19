@@ -4,10 +4,13 @@ import AgentsApp from "../apps/AgentsApp";
 import AnalyticsApp from "../apps/AnalyticsApp";
 import AutomationsApp from "../apps/AutomationsApp";
 import ChatApp from "../apps/ChatApp";
+import ConnectorsApp from "../apps/ConnectorsApp";
+import DashboardsApp from "../apps/DashboardsApp";
 import GraphApp from "../apps/GraphApp";
 import KnowledgeApp from "../apps/KnowledgeApp";
 import MeetingApp from "../apps/MeetingApp";
 import SettingsApp from "../apps/SettingsApp";
+import StudioApp from "../apps/StudioApp";
 import SQLApp from "../apps/SQLApp";
 import TerminalApp from "../apps/TerminalApp";
 import TracesApp from "../apps/TracesApp";
@@ -30,6 +33,9 @@ const COMPONENTS: Record<AppId, () => JSX.Element> = {
   traces: TracesApp,
   sql: SQLApp,
   analytics: AnalyticsApp,
+  dashboards: DashboardsApp,
+  studio: StudioApp,
+  connectors: ConnectorsApp,
   meeting: MeetingApp,
   video: VideoApp,
   admin: AdminApp,

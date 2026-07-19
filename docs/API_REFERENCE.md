@@ -35,6 +35,17 @@ Base URL: `/api` · Auth: `Authorization: Bearer <jwt>` (from login) · Interact
 
 Uploads with tabular content (docx/pptx tables incl. nested, xlsx sheets, csv, pdf/txt grids) are **materialized as real SQL tables** (`dt_<doc>_<n>`) at ingest; the SQL Agent sees them in its schema and can query them directly. Chat runs are **checkpointed per conversation** (`graph_checkpoints`): an interrupted run resumes from the saved node when the same message is retried (`GRAPH_CHECKPOINTS=false` to disable).
 
+### NL-to-BI · Agent Studio · Connectors
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | /dashboards/chart | ✓ | `{question}` → SQL agent runs it, spec inferred: `{type: bar\|line\|pie\|table, x, series[], data[], sql, rows}` |
+| GET/POST/DELETE | /dashboards | ✓ | Pin / list / unpin saved charts (per user) |
+| GET/POST/PUT/DELETE | /studio/agents | ✓ | Custom-agent CRUD (`{name, system_prompt, tools:[rag\|web], hue}`); edit/delete gated to owner or admin |
+| POST | /studio/agents/{id}/run | ✓ | Test-run a custom agent → `{answer, confidence, citations}`. Custom agents are also invocable via `POST /chat {agent: <slug>}` |
+| GET | /connectors | ✓ | Configured sources with sync status |
+| POST | /connectors/sync | ✓ | `{provider: sample\|google_drive\|gmail, token?}` → fetches + ingests into the KB → `{ingested, ...}`. `sample` needs no token; Drive/Gmail need an OAuth access token |
+
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | /agents/meeting | ✓ | `{transcript, title, save_to_knowledge}` → structured minutes (summary/decisions/action items); optional ingest into the KB |

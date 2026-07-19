@@ -138,7 +138,10 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | AI Meeting Assistant — record/paste → minutes → save to Knowledge (12th app) | ✅ implemented |
 | Model Arena — same prompt, two OpenRouter models side by side with latency | ✅ implemented |
 | Document analyzers — Resume / Contract / Invoice scorecards | ✅ implemented (`services/analyze.py`) |
-| Video Call (13th app) — WebRTC 1:1 calls with AI: live captions, auto Minutes-of-Meeting, virtual backgrounds/effects, screen share | ✅ implemented (`apps/VideoApp.tsx`, `rtc.*` WS relay) |
+| Video Call — WebRTC **multi-party mesh** calls with AI: live captions, live + on-hangup Minutes-of-Meeting, virtual backgrounds/effects, screen share | ✅ implemented (`apps/VideoApp.tsx`, `rtc.*` WS relay) |
+| NL-to-BI **Dashboards** — describe a chart in English → SQL agent → rendered chart, pin to a dashboard | ✅ implemented (`services/charts.py`, Recharts) |
+| **Agent Studio** — no-code custom agents (system prompt + RAG/web tools); appear in Chat's route picker | ✅ implemented (`agents/custom_agent.py`, `routes/studio.py`) |
+| **Connectors** — Gmail / Google Drive (OAuth token) + bundled Sample Workspace → RAG pipeline | ✅ implemented (`services/connectors.py`) |
 | MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 

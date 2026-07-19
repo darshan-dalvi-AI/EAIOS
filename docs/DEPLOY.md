@@ -74,3 +74,28 @@ CI can do this for you: push to GitHub → Actions → **CI → Run workflow**
   (`safe_complete`) instead of erroring, so demos never break.
 - **First request after idle is slow** → free-tier cold start; open the URL
   a minute before presenting.
+
+## Connectors — Google Drive / Gmail OAuth
+
+The Connectors app ingests external data into the knowledge base. The **Sample
+Workspace** provider works out of the box (bundled demo data, no setup). To
+connect **real** Google Drive / Gmail you supply an OAuth *access token*; the
+providers then call the Drive API v3 (`files.list` + export Docs as text) and
+the Gmail API (recent message snippets).
+
+Getting a token for a demo (fastest):
+
+1. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/).
+2. In *Step 1*, authorize the scopes
+   `https://www.googleapis.com/auth/drive.readonly` and
+   `https://www.googleapis.com/auth/gmail.readonly`.
+3. *Step 2* → **Exchange authorization code for tokens** → copy the **Access
+   token**.
+4. Paste it into the Google Drive / Gmail card in the Connectors app and hit
+   **Connect & sync**.
+
+Access tokens expire in ~1 hour — fine for a live demo. For a production
+consent flow, register an OAuth client in Google Cloud Console (APIs &
+Services → Credentials), add your deployed URL to the authorized redirect
+URIs, request the read-only scopes, and store the refresh token server-side.
+EAIOS never stores the token: it's used only for the single sync request.

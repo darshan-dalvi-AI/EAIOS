@@ -80,6 +80,16 @@ JWT auth + RBAC + audit · SQLAlchemy schema · hybrid RAG (parse→chunk→embe
   - Screen share (`replaceTrack`), mute / camera toggles, talk-time balance meter, incoming-call ring with accept/decline.
   - Verified: 3 signaling-relay unit tests + a headless two-browser call (ring → accept → both live → mid-call effect switch → hang-up → both return to idle) all green; pixel-level media flow needs a real browser/camera.
 
+## Post-roadmap upgrades · batch 5 ✅ shipped 2026-07-12 (the "Google/Microsoft would add this" set)
+
+Four platform features that shift EAIOS from "AI demo" toward "enterprise platform":
+
+- **Connectors** (`services/connectors.py`, Connectors app) — pull external data into the same RAG pipeline as uploads. A bundled **Sample Workspace** (demo Gmail threads + Drive docs incl. a structured CSV) works with zero setup; **Google Drive** and **Gmail** sync real data given a user-supplied OAuth access token (Drive API v3 export / Gmail API). The full OAuth consent flow is documented in docs/DEPLOY.md. Synced items are parsed, chunked, embedded, entity-linked and (for tables) materialised as SQL — searchable and citable like any upload.
+- **Agent Studio** (`agents/custom_agent.py`, `routes/studio.py`, Studio app) — compose a custom agent with **no code**: a name, a system prompt, and tool toggles (knowledge-base RAG, web search). Custom agents run through the same `BaseAgent` contract (AgentRun telemetry, tracing) and are selectable in Chat's Route picker. RBAC: only the owner or an admin can edit/delete.
+- **NL-to-BI Dashboards** (`services/charts.py`, Dashboards app) — describe a chart in English; the SQL agent writes and runs a safe query, a heuristic infers the chart type (bar/line/pie/table) and axes, and it renders with Recharts. Pin charts to a persistent dashboard grid.
+- **Multi-party video** — the Video app is now a **mesh room**: start a call and invite more people (each joiner offers to everyone already in the room → full mesh), rendered as a participant grid. **Live Minutes-of-Meeting**: a "MoM now" button generates minutes mid-call from the running transcript, in addition to the auto-MoM on hang-up.
+- 16 OS apps total. Verified: **58/58 backend pytest** (+test_batch5: chart inference/endpoint/pin, studio CRUD/run/chat-route/RBAC, connector sample-sync + drive-token guard), tsc clean, both builds, **10/10 + 9/9 headless QA** (all four apps end-to-end; two-user mesh call state machine + MoM-now).
+
 ## Deliverables checklist
 
 Report + architecture diagrams (docs/) · demo video script: boot → login → ⌘K → RAG answer with citations → compound request planner demo → SQL Studio → admin audit → kill backend mid-demo to show demo-mode resilience (judges love this) · GitHub repo with CI badge · deployed URL.

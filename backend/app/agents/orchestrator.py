@@ -310,13 +310,34 @@ class Orchestrator:
         """``thread_id`` (the conversation id) keys the graph checkpointer:
         state persists after every super-step, and an interrupted run resumes
         from the saved node when the same request is retried."""
+        # Agent Studio: a forced custom-agent slug runs its runner directly,
+        # bypassing the built-in graph (custom agents aren't in AGENT_MAP).
         if force_agent and force_agent not in AGENT_MAP:
+            custom = self._run_custom_agent(text, force_agent)
+            if custom is not None:
+                return custom
             force_agent = None
         try:
             return self._handle_graph(text, force_agent, thread_id)
         except Exception:  # noqa: BLE001 — graph must never take down chat
             log.exception("graph execution failed — using legacy sequential path")
             return self._handle_legacy(text, force_agent)
+
+    def _run_custom_agent(self, text: str, slug: str) -> "OrchestratorResult | None":
+        try:
+            from app.agents.custom_agent import load_runner
+
+            runner = load_runner(self.db, self.user, slug)
+            if runner is None:
+                return None
+            result = runner.run(text)
+            return OrchestratorResult(
+                answer=result.answer, agent=slug, plan=[slug],
+                citations=result.citations[:10], confidence=result.confidence,
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("custom agent %s failed", slug)
+            return None
 
     def _handle_graph(self, text: str, force_agent: str | None,
                       thread_id: str | None = None) -> OrchestratorResult:
