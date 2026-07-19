@@ -2,9 +2,10 @@
    Premium-SaaS look: animated aurora hero, feature grid, tech stack,
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
-  Activity, ArrowRight, BarChart3, Bot, BookOpen, Cloud, Copy, Cpu, Database, FileText, FolderSearch,
-  Github, Image as ImageIcon, LayoutDashboard, Mail, Mic, Minus, Moon, PlayCircle, Share2, ShieldCheck,
-  Sparkles, Square, Sun, Table2, Video, Wand2, Workflow, X,
+  Activity, ArrowRight, BarChart3, Bot, BookOpen, Briefcase, Cloud, Copy, Cpu, Database, FileText,
+  FolderSearch, Github, Image as ImageIcon, Landmark, LayoutDashboard, Mail, Mic, Minus, Moon,
+  PlayCircle, Share2, ShieldCheck, Sparkles, Square, Sun, Table2, TrendingUp, Users, Video, Wand2,
+  Workflow, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useOS } from "../store";
@@ -31,6 +32,21 @@ const FEATURES = [
   { Icon: Wand2, hue: 285, title: "Agent Studio", text: "Compose custom AI agents with no code — a system prompt plus knowledge-base and web-search tools. They appear in Chat's route picker instantly." },
   { Icon: LayoutDashboard, hue: 260, title: "NL-to-BI Dashboards", text: "Describe a chart in plain English; the SQL agent writes the query and it renders as a bar, line or pie chart you can pin to a dashboard." },
   { Icon: Video, hue: 340, title: "AI Video Calls", text: "Built-in WebRTC mesh calls with live captions, virtual backgrounds, screen share, and Minutes-of-Meeting generated live or on hang-up." },
+];
+
+/* Target market: mid-size, document-heavy teams (50–500 people) —
+   enterprise knowledge problems without enterprise budgets. */
+const VERTICALS = [
+  { Icon: Briefcase, hue: 200, title: "IT services & consultancies", text: "Client docs, runbooks and policies become one cited brain. Chat answers from them, the Coding agent drafts scripts, and Traces proves exactly what ran for every request." },
+  { Icon: Users, hue: 150, title: "HR & staffing teams", text: "Leave policies and handbooks answered with citations instead of email chains. The Resume analyzer scores candidates, and every access to personal data is flagged in the audit log." },
+  { Icon: Landmark, hue: 38, title: "Finance & accounting firms", text: "Invoices and contracts get instant scorecards, tables inside documents become real SQL, and “revenue by region as a bar chart” is a sentence, not a BI ticket." },
+  { Icon: TrendingUp, hue: 340, title: "Sales & operations teams", text: "Spreadsheets turn into NL-to-BI dashboards, meetings end with auto-generated minutes, and upload-triggered workflows handle the busywork." },
+];
+
+const ROLES = [
+  { Icon: Bot, hue: 200, title: "Employees", text: "Ask cited questions instead of pinging seniors — by text or voice — and export any answer as PDF or DOCX." },
+  { Icon: BarChart3, hue: 260, title: "Managers", text: "Pin live dashboards, run meetings with automatic minutes, review analytics, and approve high-stakes workflow steps." },
+  { Icon: ShieldCheck, hue: 350, title: "Admins", text: "Control users and roles, watch the append-only audit log, switch AI models live, and connect Gmail or Drive." },
 ];
 
 const TECH = [
@@ -69,6 +85,7 @@ export default function LandingPage() {
         <span className="land-logo"><span className="orb" style={{ width: 16, height: 16 }} /> EAIOS</span>
         <div className="land-links">
           <a href="#features">Features</a>
+          <a href="#who-its-for">Who it's for</a>
           <a href="#how-it-works">How it works</a>
           <a href="#tech">Technology</a>
           <a href="#architecture">Architecture</a>
@@ -131,6 +148,35 @@ export default function LandingPage() {
         <p className="land-sub">One OS, thirteen subsystems — every card below is a working feature, not a mockup.</p>
         <div className="feature-grid">
           {FEATURES.map(({ Icon, hue, title, text }) => (
+            <div key={title} className="feature-card" style={{ "--hue": hue } as React.CSSProperties}>
+              <div className="app-icon md" style={{ "--hue": hue } as React.CSSProperties}><Icon size={16} /></div>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── who it's for ── */}
+      <section className="land-section" id="who-its-for">
+        <h2>Who is EAIOS built for?</h2>
+        <p className="land-sub">
+          Mid-size, document-heavy teams (50–500 people) — companies with enterprise knowledge problems,
+          not enterprise budgets. Your company’s private ChatGPT that actually knows <i>your</i> files:
+          no per-seat licensing, runs on one server, or fully offline with local models.
+        </p>
+        <div className="feature-grid">
+          {VERTICALS.map(({ Icon, hue, title, text }) => (
+            <div key={title} className="feature-card" style={{ "--hue": hue } as React.CSSProperties}>
+              <div className="app-icon md" style={{ "--hue": hue } as React.CSSProperties}><Icon size={16} /></div>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </div>
+          ))}
+        </div>
+        <p className="land-sub" style={{ marginTop: 34 }}>And inside the company, every role gets its own surface:</p>
+        <div className="feature-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+          {ROLES.map(({ Icon, hue, title, text }) => (
             <div key={title} className="feature-card" style={{ "--hue": hue } as React.CSSProperties}>
               <div className="app-icon md" style={{ "--hue": hue } as React.CSSProperties}><Icon size={16} /></div>
               <h3>{title}</h3>
@@ -234,6 +280,16 @@ export default function LandingPage() {
               EAIOS is an enterprise AI operating system that runs in the browser. It combines hybrid multimodal
               RAG, nine cooperating AI agents, a knowledge graph, enterprise search, visual automations and
               observability behind a desktop-style interface with windows, a taskbar and a command palette.
+            </p>
+          </details>
+          <details open>
+            <summary>Who is EAIOS for?</summary>
+            <p>
+              Mid-size, document-heavy organisations of roughly 50–500 people — IT consultancies, HR and
+              staffing teams, finance and accounting firms, and sales or operations teams that live in
+              spreadsheets. They have enterprise knowledge problems but not enterprise budgets: EAIOS gives
+              them a private, cited company AI with no per-seat licensing that runs on a single server or
+              fully offline.
             </p>
           </details>
           <details open>
