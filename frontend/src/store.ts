@@ -66,6 +66,8 @@ interface OSStore {
   agentBusy: boolean;
   setAgentBusy: (b: boolean) => void;
   chatDraft: string;
+  knowledgeQuery: string;
+  setKnowledgeQuery: (q: string) => void;
   setChatDraft: (s: string) => void;
 
   /* realtime (live mode) */
@@ -160,6 +162,8 @@ export const useOS = create<OSStore>((set, get) => ({
   setAgentBusy: (agentBusy) => set({ agentBusy }),
   chatDraft: "",
   setChatDraft: (chatDraft) => set({ chatDraft }),
+  knowledgeQuery: "",
+  setKnowledgeQuery: (knowledgeQuery) => set({ knowledgeQuery }),
 
   wsConnected: false,
   setWsConnected: (wsConnected) => set({ wsConnected }),

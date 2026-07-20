@@ -1,6 +1,7 @@
 import { FileSpreadsheet, FileText, Image, Layers, Loader2, Presentation, ScanSearch, Search, Upload, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiAnalyze, type AnalyzeCard } from "../lib/api";
+import { useOS } from "../store";
 import { DOCS, fmtBytes } from "../lib/mock";
 import type { Doc } from "../types";
 
@@ -30,6 +31,12 @@ const ANALYZE_KINDS = [
 export default function KnowledgeApp() {
   const [docs, setDocs] = useState<Doc[]>(DOCS);
   const [query, setQuery] = useState("");
+  // Citation jump: a chat citation chip sets this and opens Knowledge —
+  // adopt it as the search filter so the cited document is front and center.
+  const kq = useOS((s) => s.knowledgeQuery);
+  useEffect(() => {
+    if (kq) { setQuery(kq); useOS.getState().setKnowledgeQuery(""); }
+  }, [kq]);
   const [selected, setSelected] = useState<Doc | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeCard | null>(null);
   const [analyzing, setAnalyzing] = useState<string | null>(null);

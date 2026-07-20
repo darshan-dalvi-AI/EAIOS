@@ -359,7 +359,8 @@ function Bubble({ msg, isLast, canRegenerate, onRegenerate }: {
       {done && (msg.citations?.length || msg.confidence !== undefined) && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingLeft: 37 }}>
           {msg.citations?.map((c, i) => (
-            <button key={i} className="cite" title={`relevance ${(c.score * 100).toFixed(0)}%`}>
+            <button key={i} className="cite" title={`relevance ${(c.score * 100).toFixed(0)}% — click to open in Knowledge`}
+                    onClick={() => { const s = useOS.getState(); s.setKnowledgeQuery(c.title); s.open("knowledge"); }}>
               <FileText size={11} />
               {c.title}{c.section ? ` · ${c.section}` : ""}
               <span className="meter" style={{ width: 30 }}><i style={{ width: `${c.score * 100}%` }} /></span>
