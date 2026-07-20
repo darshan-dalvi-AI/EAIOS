@@ -1,6 +1,6 @@
-import { Brain, Cpu, Palette, ServerCog, Info, Swords } from "lucide-react";
+import { Brain, Cpu, Download, Mic, Palette, PlayCircle, ServerCog, ShieldCheck, Info, Swords, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiCompare, apiModelConfig, apiSetModel, type CompareResult, type ModelConfig } from "../lib/api";
+import { apiCompare, apiDeleteMyData, apiExportMyData, apiModelConfig, apiSetModel, type CompareResult, type ModelConfig } from "../lib/api";
 import { MEMORIES } from "../lib/mock";
 import { useOS } from "../store";
 
@@ -233,6 +233,8 @@ export default function SettingsApp() {
           </div>
         </section>
 
+        <PrivacySection />
+
         <section className="card">
           <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
             <Info size={14} className="muted" /> About EAIOS
@@ -247,5 +249,61 @@ export default function SettingsApp() {
         </section>
       </div>
     </div>
+  );
+}
+
+function PrivacySection() {
+  const [wake, setWake] = useState(() => localStorage.getItem("eaios-wake") === "1");
+  const [busy, setBusy] = useState<"export" | "erase" | null>(null);
+  const [msg, setMsg] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
+  function toggleWake() {
+    const next = !wake;
+    setWake(next);
+    localStorage.setItem("eaios-wake", next ? "1" : "0");
+    window.dispatchEvent(new Event("eaios:wake-changed"));
+  }
+  async function doExport() {
+    setBusy("export"); setMsg("");
+    try { await apiExportMyData(); setMsg("Export downloaded ✓"); }
+    catch (e) { setMsg(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(null); }
+  }
+  async function doErase() {
+    if (!confirming) { setConfirming(true); return; }
+    setConfirming(false); setBusy("erase"); setMsg("");
+    try {
+      const r = await apiDeleteMyData();
+      setMsg(`Erased: ${Object.entries(r.removed).map(([k, v]) => `${v} ${k}`).join(", ")} ✓`);
+    } catch (e) { setMsg(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(null); }
+  }
+
+  return (
+    <section className="card">
+      <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
+        <ShieldCheck size={14} style={{ color: "var(--accent)" }} /> Privacy & data
+      </h3>
+      <p className="muted" style={{ fontSize: 12, margin: "8px 0 12px" }}>
+        GDPR-style self-service: take your data with you, or erase your conversations, tasks and usage
+        history. Admins can also set <span className="mono">RETENTION_DAYS</span> to auto-purge old chats.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="btn sm" onClick={doExport} disabled={busy !== null}>
+          <Download size={13} /> {busy === "export" ? "Exporting…" : "Export my data (JSON)"}
+        </button>
+        <button className={`btn sm ${confirming ? "primary" : ""}`} onClick={doErase} disabled={busy !== null}>
+          <Trash2 size={13} /> {busy === "erase" ? "Erasing…" : confirming ? "Click again to confirm erase" : "Delete my data"}
+        </button>
+        <button className="btn sm" onClick={() => window.dispatchEvent(new Event("eaios:replay-tour"))}>
+          <PlayCircle size={13} /> Replay the guided tour
+        </button>
+        <button className={`btn sm ${wake ? "primary" : ""}`} onClick={toggleWake} title="Say “Hey EAIOS” to open the assistant">
+          <Mic size={13} /> Wake word: {wake ? "on" : "off"}
+        </button>
+      </div>
+      {msg && <p className="faint" style={{ fontSize: 11.5, margin: "10px 0 0" }}>{msg}</p>}
+    </section>
   );
 }

@@ -10,8 +10,20 @@ from app.agents.orchestrator import Orchestrator
 from app.api.deps import get_current_user, get_db
 from app.core.events import hub
 from app.core.tracing import end_trace, start_trace
-from app.models import Conversation, Message, User
+from app.models import Conversation, Message, UsageEvent, User
 from app.schemas import ChatIn, ChatOut, ConversationOut, MessageOut
+
+
+def _record_usage(db: Session, user: User, prompt: str, answer: str, kind: str = "chat") -> None:
+    """Metering for the Admin usage view — token counts estimated at ~4 chars/token."""
+    try:
+        from app.core.config import settings
+
+        db.add(UsageEvent(user_id=user.id, kind=kind, model=settings.OPENAI_MODEL,
+                          prompt_tokens=max(1, len(prompt) // 4), completion_tokens=max(1, len(answer) // 4)))
+        db.commit()
+    except Exception:  # noqa: BLE001 — metering must never break chat
+        db.rollback()
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -66,6 +78,7 @@ def send(body: ChatIn, db: Session = Depends(get_db), user: User = Depends(get_c
     except Exception:
         end_trace("error")
         raise
+    _record_usage(db, user, text, result.answer)
 
     reply = Message(
         conversation_id=conv.id,
@@ -123,6 +136,7 @@ def send_stream(body: ChatIn, db: Session = Depends(get_db), user: User = Depend
         end_trace("error")
         raise
 
+    _record_usage(db, user, text, result.answer)
     reply = Message(
         conversation_id=conv.id, role="assistant", content=result.answer,
         agent=result.agent, citations=result.citations_json, confidence=result.confidence,

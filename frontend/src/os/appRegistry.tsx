@@ -8,8 +8,10 @@ import {
   LayoutDashboard,
   MessageSquare,
   Mic,
+  Search,
   Settings,
   Share2,
+  SquareKanban,
   ShieldCheck,
   TerminalSquare,
   Video,
@@ -27,6 +29,8 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
   automations: { name: "Automations", hue: 95,  Icon: Workflow,       tagline: "Visual workflow builder" },
   traces:      { name: "Traces",      hue: 320, Icon: Activity,       tagline: "Observability & span waterfalls" },
   sql:         { name: "SQL Studio",  hue: 130, Icon: Database,       tagline: "Natural language database assistant" },
+  search:      { name: "Search",      hue: 210, Icon: Search,         tagline: "One query across everything" },
+  tasks:       { name: "Tasks",       hue: 120, Icon: SquareKanban,   tagline: "Kanban — auto-fed from meetings" },
   analytics:   { name: "Analytics",   hue: 38,  Icon: BarChart3,      tagline: "Usage metrics & insights" },
   dashboards:  { name: "Dashboards",  hue: 260, Icon: LayoutDashboard, tagline: "Natural-language BI charts" },
   studio:      { name: "Agent Studio", hue: 285, Icon: Wand2,         tagline: "Build custom AI agents, no code" },
@@ -39,8 +43,8 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
 };
 
 export const APP_ORDER: AppId[] = [
-  "chat", "knowledge", "connectors", "agents", "studio", "graph", "automations", "traces",
-  "sql", "analytics", "dashboards", "meeting", "video", "admin", "terminal", "settings",
+  "chat", "search", "knowledge", "connectors", "agents", "studio", "graph", "automations", "traces",
+  "sql", "analytics", "dashboards", "tasks", "meeting", "video", "admin", "terminal", "settings",
 ];
 
 export function AppTile({ id, size = "" }: { id: AppId; size?: "" | "sm" | "md" }) {

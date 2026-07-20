@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import AdminApp from "../apps/AdminApp";
 import AgentsApp from "../apps/AgentsApp";
 import AnalyticsApp from "../apps/AnalyticsApp";
@@ -9,9 +9,11 @@ import DashboardsApp from "../apps/DashboardsApp";
 import GraphApp from "../apps/GraphApp";
 import KnowledgeApp from "../apps/KnowledgeApp";
 import MeetingApp from "../apps/MeetingApp";
+import SearchApp from "../apps/SearchApp";
 import SettingsApp from "../apps/SettingsApp";
 import StudioApp from "../apps/StudioApp";
 import SQLApp from "../apps/SQLApp";
+import TasksApp from "../apps/TasksApp";
 import TerminalApp from "../apps/TerminalApp";
 import TracesApp from "../apps/TracesApp";
 import VideoApp from "../apps/VideoApp";
@@ -22,6 +24,8 @@ import CommandPalette from "./CommandPalette";
 import Dock from "./Dock";
 import MenuBar from "./MenuBar";
 import Toasts from "./Toasts";
+import Tour from "./Tour";
+import WakeWord from "./WakeWord";
 import Window from "./Window";
 
 const COMPONENTS: Record<AppId, () => JSX.Element> = {
@@ -31,6 +35,8 @@ const COMPONENTS: Record<AppId, () => JSX.Element> = {
   graph: GraphApp,
   automations: AutomationsApp,
   traces: TracesApp,
+  search: SearchApp,
+  tasks: TasksApp,
   sql: SQLApp,
   analytics: AnalyticsApp,
   dashboards: DashboardsApp,
@@ -45,6 +51,17 @@ const COMPONENTS: Record<AppId, () => JSX.Element> = {
 
 export default function Desktop() {
   const { windows, paletteOpen, setPalette, open } = useOS();
+  const [tour, setTour] = useState(() => localStorage.getItem("eaios-tour-done") !== "1");
+  const [wake, setWake] = useState(() => localStorage.getItem("eaios-wake") === "1");
+
+  // Settings can replay the tour / toggle the wake word via these events
+  useEffect(() => {
+    const onTour = () => setTour(true);
+    const onWake = () => setWake(localStorage.getItem("eaios-wake") === "1");
+    window.addEventListener("eaios:replay-tour", onTour);
+    window.addEventListener("eaios:wake-changed", onWake);
+    return () => { window.removeEventListener("eaios:replay-tour", onTour); window.removeEventListener("eaios:wake-changed", onWake); };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,6 +116,8 @@ export default function Desktop() {
       <Dock />
       <Toasts />
       {paletteOpen && <CommandPalette />}
+      {wake && <WakeWord />}
+      {tour && <Tour onDone={() => { localStorage.setItem("eaios-tour-done", "1"); setTour(false); }} />}
     </>
   );
 }

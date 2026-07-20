@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_INTERVAL: int = 60  # seconds between due-checks
 
+    # Compliance: auto-purge conversations older than N days (0 = keep forever)
+    RETENTION_DAYS: int = 0
+
     # One-click "Connect with Google" for the Connectors app (Drive/Gmail).
     # Create an OAuth *Web application* client ID in Google Cloud Console,
     # add your site to Authorized JavaScript origins, and set it here.

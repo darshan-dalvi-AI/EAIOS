@@ -1,5 +1,6 @@
-import { Check, KeyRound, Lock, ScrollText, ShieldCheck, Users } from "lucide-react";
-import { useState } from "react";
+import { Check, Gauge, KeyRound, Lock, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiAiUsage, type AiUsage } from "../lib/api";
 import { AUDIT_ROWS, MOCK_USERS } from "../lib/mock";
 import { useOS } from "../store";
 
@@ -8,6 +9,7 @@ const TABS = [
   { id: "audit", label: "Audit log", icon: <ScrollText size={13} /> },
   { id: "models", label: "Models", icon: <KeyRound size={13} /> },
   { id: "access", label: "Access", icon: <ShieldCheck size={13} /> },
+  { id: "usage", label: "AI usage", icon: <Gauge size={13} /> },
 ] as const;
 
 const PROVIDERS = [
@@ -63,6 +65,7 @@ export default function AdminApp() {
       </div>
 
       <div className="app-content" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tab === "usage" && <UsagePanel />}
         {tab === "users" && (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
@@ -174,6 +177,37 @@ export default function AdminApp() {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function UsagePanel() {
+  const [data, setData] = useState<AiUsage | null>(null);
+  useEffect(() => { apiAiUsage().then(setData).catch(() => {}); }, []);
+  if (!data) return <p className="faint" style={{ fontSize: 12 }}>Loading usage…</p>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <p className="faint" style={{ fontSize: 11.5, margin: 0 }}>
+        Last {data.window_days} days · {data.note}. Govern AI spend: who uses it, which models, and what it costs.
+      </p>
+      <div className="card" style={{ padding: 0, overflow: "auto" }}>
+        <table className="table">
+          <thead><tr><th>User</th><th>Requests</th><th>Tokens (est.)</th><th>Cost (est.)</th></tr></thead>
+          <tbody>{data.by_user.map((r) => (
+            <tr key={r.user}><td>{r.user}</td><td className="mono">{r.requests}</td>
+              <td className="mono">{r.tokens.toLocaleString()}</td><td className="mono">${r.est_cost.toFixed(4)}</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <div className="card" style={{ padding: 0, overflow: "auto" }}>
+        <table className="table">
+          <thead><tr><th>Model</th><th>Requests</th><th>Tokens (est.)</th><th>Cost (est.)</th></tr></thead>
+          <tbody>{data.by_model.map((r) => (
+            <tr key={r.model}><td className="mono" style={{ fontSize: 11.5 }}>{r.model}</td><td className="mono">{r.requests}</td>
+              <td className="mono">{r.tokens.toLocaleString()}</td><td className="mono">${r.est_cost.toFixed(4)}</td></tr>
+          ))}</tbody>
+        </table>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ from app.services import audit, connectors
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
-_LABELS = {"sample": "Sample Workspace", "google_drive": "Google Drive", "gmail": "Gmail"}
+_LABELS = {"sample": "Sample Workspace", "google_drive": "Google Drive", "gmail": "Gmail", "website": "Website / Docs"}
 
 
 @router.get("/config")
@@ -34,8 +34,8 @@ def list_connectors(db: Session = Depends(get_db), user: User = Depends(get_curr
 
 
 class SyncIn(BaseModel):
-    provider: str = Field(pattern="^(sample|google_drive|gmail)$")
-    token: str = Field(default="", max_length=4000)  # OAuth access token (drive/gmail)
+    provider: str = Field(pattern="^(sample|google_drive|gmail|website)$")
+    token: str = Field(default="", max_length=4000)  # OAuth access token (drive/gmail) or URL (website)
 
 
 @router.post("/sync")

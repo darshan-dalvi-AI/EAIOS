@@ -142,6 +142,15 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | NL-to-BI **Dashboards** — describe a chart in English → SQL agent → rendered chart, pin to a dashboard | ✅ implemented (`services/charts.py`, Recharts) |
 | **Agent Studio** — no-code custom agents (system prompt + RAG/web tools); appear in Chat's route picker | ✅ implemented (`agents/custom_agent.py`, `routes/studio.py`) |
 | **Connectors** — Gmail / Google Drive (OAuth token) + bundled Sample Workspace → RAG pipeline | ✅ implemented (`services/connectors.py`) |
+| **Mobile mode** — full-screen apps + scrollable dock ≤740px; same platform on a phone | ✅ implemented (CSS media layer) |
+| **Guided onboarding tour** — first-run spotlight walkthrough, replayable from Settings | ✅ implemented (`os/Tour.tsx`) |
+| **Website connector** — paste a URL, crawl same-domain pages into the RAG pipeline (SSRF-guarded) | ✅ implemented (`services/connectors.py`) |
+| **Tasks kanban** — meeting action items auto-become cards; drag/move/assign (18th app) | ✅ implemented (`apps/TasksApp.tsx`, `routes/tasks.py`) |
+| **AI usage & cost metering** — requests/tokens/est. cost per user & model in Admin | ✅ implemented (`UsageEvent`, `/analytics/ai-usage`) |
+| **Global search hub** — one query across docs, passages, entities, tables & chats (17th app) | ✅ implemented (`apps/SearchApp.tsx`, `/search`) |
+| **Compliance pack** — GDPR export / erase-my-data + `RETENTION_DAYS` auto-purge | ✅ implemented (`routes/me.py`) |
+| **Live RAG eval card** — hit-rate@3 + MRR run live in Analytics | ✅ implemented (`/analytics/rag-eval`) |
+| **"Hey EAIOS" wake word** — hands-free open-the-assistant (Settings toggle) | ✅ implemented (`os/WakeWord.tsx`) |
 | MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 

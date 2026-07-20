@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { apiRagEval } from "../lib/api";
 import { AGENT_USAGE, DOCS_BY_TYPE, MESSAGES_DAILY } from "../lib/mock";
 
 const PIE_COLORS = ["#22d3ee", "#8b5cf6", "#34d399", "#fbbf24", "#f87171", "#60a5fa", "#f472b6", "#a3e635"];
@@ -22,6 +24,8 @@ const STATS = [
 ];
 
 export default function AnalyticsApp() {
+  const [ev, setEv] = useState<{ queries: number; hit_rate: number | null; mrr: number | null; note: string } | null>(null);
+  useEffect(() => { apiRagEval().then(setEv).catch(() => {}); }, []);
   return (
     <div className="app-pane">
       <div className="app-toolbar">
@@ -37,6 +41,16 @@ export default function AnalyticsApp() {
               <span className={`pill ${s.delta.startsWith("−") ? "good" : "info"}`} style={{ marginTop: 8 }}>{s.delta}</span>
             </div>
           ))}
+        </div>
+
+        <div className="card" data-testid="rag-eval">
+          <h3 className="h-display" style={{ fontSize: 13.5, marginBottom: 4 }}>Answer quality (live RAG eval)</h3>
+          <p className="faint" style={{ fontSize: 11, margin: "0 0 12px" }}>{ev?.note ?? "Running the retrieval eval…"}</p>
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+            <div><div className="stat-value">{ev?.hit_rate != null ? `${Math.round(ev.hit_rate * 100)}%` : "—"}</div><div className="stat-label">Hit-rate @3</div></div>
+            <div><div className="stat-value">{ev?.mrr != null ? ev.mrr.toFixed(2) : "—"}</div><div className="stat-label">MRR</div></div>
+            <div><div className="stat-value">{ev?.queries ?? "—"}</div><div className="stat-label">Eval queries</div></div>
+          </div>
         </div>
 
         <div className="card">

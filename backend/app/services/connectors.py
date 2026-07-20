@@ -113,6 +113,61 @@ def _fetch_gmail(token: str, limit: int = 15) -> list[tuple[str, str, str]]:
     return items
 
 
+_BLOCKED_HOSTS = ("localhost", "127.", "0.0.0.0", "10.", "192.168.", "169.254.", "172.16.", "172.17.", "[::1]", "metadata")
+
+
+def _strip_html(html: str) -> str:
+    import re
+    html = re.sub(r"(?is)<(script|style|nav|footer|svg)[^>]*>.*?</\1>", " ", html)
+    html = re.sub(r"(?s)<[^>]+>", " ", html)
+    import html as h
+    return re.sub(r"\s{2,}", " ", h.unescape(html)).strip()
+
+
+def _fetch_website(url: str, max_pages: int = 8) -> list[tuple[str, str, str]]:
+    """Crawl a site breadth-first (same host only) and return page texts."""
+    import re
+    from urllib.parse import urljoin, urlparse
+
+    import httpx
+
+    start = urlparse(url if "://" in url else f"https://{url}")
+    if start.scheme not in ("http", "https") or not start.netloc:
+        raise ValueError("Enter a full website URL, e.g. https://docs.example.com")
+    if any(start.netloc.lower().startswith(b) or b in start.netloc.lower() for b in _BLOCKED_HOSTS):
+        raise ValueError("That host isn't allowed.")
+
+    seen: set[str] = set()
+    queue = [start.geturl()]
+    items: list[tuple[str, str, str]] = []
+    with httpx.Client(follow_redirects=True, timeout=8, headers={"User-Agent": "EAIOS-connector/1.0"}) as client:
+        while queue and len(items) < max_pages:
+            page = queue.pop(0)
+            if page in seen:
+                continue
+            seen.add(page)
+            try:
+                r = client.get(page)
+                if r.status_code != 200 or "text/html" not in r.headers.get("content-type", "text/html"):
+                    continue
+                html = r.text[:400_000]
+            except Exception:  # noqa: BLE001
+                continue
+            m = re.search(r"(?is)<title[^>]*>(.*?)</title>", html)
+            title = _strip_html(m.group(1))[:150] if m else page
+            text = _strip_html(html)[:20_000]
+            if len(text) > 80:
+                items.append((f"Web — {title}", "txt", f"Source: {page}\n\n{text}"))
+            for href in re.findall(r'(?i)href="([^"#?]+)"', html)[:60]:
+                nxt = urljoin(page, href)
+                p = urlparse(nxt)
+                if p.netloc == start.netloc and p.scheme in ("http", "https") and nxt not in seen:
+                    queue.append(nxt)
+    if not items:
+        raise ValueError("Couldn't read any pages from that URL — check it's reachable and returns HTML.")
+    return items
+
+
 def fetch(provider: str, token: str = "") -> list[tuple[str, str, str]]:
     if provider == "sample":
         return _fetch_sample()
@@ -124,6 +179,10 @@ def fetch(provider: str, token: str = "") -> list[tuple[str, str, str]]:
         if not token:
             raise ValueError("Gmail needs an OAuth access token.")
         return _fetch_gmail(token)
+    if provider == "website":
+        if not token:
+            raise ValueError("Website connector needs a URL.")
+        return _fetch_website(token)
     raise ValueError(f"Unknown provider '{provider}'")
 
 

@@ -280,3 +280,34 @@ class SavedChart(Base):
     sql: Mapped[str] = mapped_column(Text, default="")
     spec: Mapped[str] = mapped_column(Text, default="{}")     # JSON {type,x,y,columns,rows}
     created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class Task(Base):
+    """Kanban task — created manually or auto-extracted from meeting minutes
+    ("action items" bullets become cards). Assignable to any workspace user."""
+
+    __tablename__ = "tasks"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    title: Mapped[str] = mapped_column(String(400))
+    status: Mapped[str] = mapped_column(String(12), default="todo")  # todo | doing | done
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual | meeting
+    assignee_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), default=None)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+
+
+class UsageEvent(Base):
+    """One AI request — powers the Admin usage/cost view. Token counts are
+    estimated (~4 chars/token) when the provider doesn't report real usage."""
+
+    __tablename__ = "usage_events"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True, default=None)
+    kind: Mapped[str] = mapped_column(String(20), default="chat")  # chat | studio | workflow | meeting | sql
+    model: Mapped[str] = mapped_column(String(120), default="")
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=_now, index=True)

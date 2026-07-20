@@ -5,6 +5,8 @@ export type AppId =
   | "graph"
   | "automations"
   | "traces"
+  | "search"
+  | "tasks"
   | "sql"
   | "analytics"
   | "dashboards"

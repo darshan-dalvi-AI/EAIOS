@@ -65,7 +65,7 @@ export default function MenuBar() {
           <span className={`dot ${agentBusy ? "pulse" : ""}`} style={{ background: agentBusy ? "var(--accent)" : "var(--text-faint)" }} />
           {agentBusy ? "Agents working" : "Agents idle"}
         </div>
-        <button className="mb-item" onClick={() => setPalette(true)} aria-label="Open command palette (Ctrl+K)">
+        <button className="mb-item" onClick={() => open("search")} aria-label="Open global search">
           <Search size={14} />
         </button>
         <div ref={bellRef} style={{ position: "relative" }}>

@@ -3,15 +3,16 @@
    · Google Drive / Gmail: ONE-CLICK "Connect with Google" (popup consent via
      Google Identity Services) when the admin has set GOOGLE_CLIENT_ID —
      otherwise a paste-an-OAuth-token fallback (OAuth Playground, ~30s). */
-import { Check, Cloud, KeyRound, Loader2, Mail, RefreshCw, Sparkles } from "lucide-react";
+import { Check, Cloud, Globe, KeyRound, Loader2, Mail, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { apiConnectorConfig, apiConnectors, apiSyncConnector, type ConnectorRow } from "../lib/api";
 import { useOS } from "../store";
 
 const PROVIDERS = [
-  { id: "sample", name: "Sample Workspace", Icon: Sparkles, hue: 200, blurb: "Bundled demo Gmail threads + Drive docs. No setup — great for a quick demo.", scope: "" },
-  { id: "google_drive", name: "Google Drive", Icon: Cloud, hue: 130, blurb: "Indexes your Drive documents and spreadsheets.", scope: "https://www.googleapis.com/auth/drive.readonly" },
-  { id: "gmail", name: "Gmail", Icon: Mail, hue: 350, blurb: "Indexes recent inbox threads.", scope: "https://www.googleapis.com/auth/gmail.readonly" },
+  { id: "sample", name: "Sample Workspace", Icon: Sparkles, hue: 200, blurb: "Bundled demo Gmail threads + Drive docs. No setup — great for a quick demo.", scope: "", url: false },
+  { id: "website", name: "Website / Docs", Icon: Globe, hue: 260, blurb: "Paste any site URL — a company wiki, docs site or blog. EAIOS crawls up to 8 same-domain pages into the knowledge base.", scope: "", url: true },
+  { id: "google_drive", name: "Google Drive", Icon: Cloud, hue: 130, blurb: "Indexes your Drive documents and spreadsheets.", scope: "https://www.googleapis.com/auth/drive.readonly", url: false },
+  { id: "gmail", name: "Gmail", Icon: Mail, hue: 350, blurb: "Indexes recent inbox threads.", scope: "https://www.googleapis.com/auth/gmail.readonly", url: false },
 ];
 
 /* Google Identity Services (loaded on demand) */
@@ -132,8 +133,25 @@ export default function ConnectorsApp() {
               </div>
               <p className="faint" style={{ fontSize: 11.5, margin: 0, lineHeight: 1.5 }}>{p.blurb}</p>
 
+              {/* ── website: URL input + crawl ── */}
+              {p.url && (
+                <>
+                  <div className="field">
+                    <input value={tokens[p.id] || ""} onChange={(e) => { setTokens({ ...tokens, [p.id]: e.target.value }); note(p.id, ""); }}
+                           placeholder="https://docs.your-company.com" aria-label="Website URL" disabled={!live} />
+                  </div>
+                  {!live && <span className="faint" style={{ fontSize: 10.5 }}>Live backend required to crawl real sites.</span>}
+                  <button className="btn sm" style={{ justifyContent: "center", marginTop: "auto" }}
+                          onClick={() => { const u = (tokens[p.id] || "").trim(); if (!u) { note(p.id, "Paste a website URL first — e.g. https://docs.python.org"); return; } void runSync(p.id, u); }}
+                          disabled={busy === p.id || !live}>
+                    {busy === p.id ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                    {busy === p.id ? " Crawling…" : connected ? " Re-crawl" : " Crawl & index"}
+                  </button>
+                </>
+              )}
+
               {/* ── sample: plain sync ── */}
-              {!isGoogle && (
+              {!isGoogle && !p.url && (
                 <button className="btn sm" style={{ justifyContent: "center", marginTop: "auto" }}
                         onClick={() => runSync(p.id, "")} disabled={busy === p.id}>
                   {busy === p.id ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}

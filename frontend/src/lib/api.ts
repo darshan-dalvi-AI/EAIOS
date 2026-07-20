@@ -3,7 +3,7 @@
    Demo mode: identical shapes served from mock.ts with realistic latency. */
 import { useOS } from "../store";
 import type { Citation, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
-import { DB_SCHEMA, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockAnalyze, mockChart, mockChat, mockMinutes, mockRunWorkflow, mockSQL } from "./mock";
+import { DB_SCHEMA, DOCS, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockAnalyze, mockChart, mockChat, mockMinutes, mockRunWorkflow, mockSQL } from "./mock";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -606,6 +606,104 @@ export interface ConnectorRow {
   id: string; provider: string; label: string; status: string; detail: string;
   synced_count: number; last_sync_at: string | null;
 }
+/* ── Tasks (kanban) ── */
+export interface TaskRow { id: string; title: string; status: "todo" | "doing" | "done"; source: string; assignee_id: string | null; assignee: string | null; created_at: string }
+let demoTasks: TaskRow[] | null = null;
+const seedDemoTasks = (): TaskRow[] => (demoTasks ??= [
+  { id: "dt1", title: "Update the security policy by Friday", status: "todo", source: "meeting", assignee_id: null, assignee: null, created_at: new Date().toISOString() },
+  { id: "dt2", title: "Prepare the demo environment", status: "doing", source: "meeting", assignee_id: null, assignee: "Maya Iyer", created_at: new Date().toISOString() },
+  { id: "dt3", title: "Review Q3 revenue report", status: "done", source: "manual", assignee_id: null, assignee: null, created_at: new Date().toISOString() },
+]);
+export async function apiTasks(): Promise<TaskRow[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/tasks"); } catch { /* demo */ } }
+  await delay(150);
+  return seedDemoTasks();
+}
+export async function apiTaskCreate(title: string): Promise<TaskRow> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/tasks", { method: "POST", body: JSON.stringify({ title }) }); } catch { /* demo */ } }
+  const t: TaskRow = { id: `d-${Date.now()}`, title, status: "todo", source: "manual", assignee_id: null, assignee: null, created_at: new Date().toISOString() };
+  seedDemoTasks().unshift(t);
+  return t;
+}
+export async function apiTaskPatch(id: string, patch: Partial<Pick<TaskRow, "status" | "assignee_id" | "title">>): Promise<TaskRow> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }); } catch { /* demo */ } }
+  const list = seedDemoTasks(); const i = list.findIndex((x) => x.id === id);
+  if (i >= 0) list[i] = { ...list[i], ...patch } as TaskRow;
+  return list[i];
+}
+export async function apiTaskDelete(id: string): Promise<void> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { await request(`/tasks/${id}`, { method: "DELETE" }); return; } catch { /* demo */ } }
+  demoTasks = seedDemoTasks().filter((x) => x.id !== id);
+}
+
+/* ── Global search ── */
+export interface SearchResults {
+  query: string;
+  documents: { id: string; title: string; doc_type: string; status: string }[];
+  passages: { doc_id: string; title: string; section: string; text: string; score: number }[];
+  entities: { id: string; name: string; type: string; mentions: number }[];
+  tables: { name: string; source: string; rows: number }[];
+  messages: { conversation: string; role: string; snippet: string; at: string }[];
+}
+export async function apiSearch(q: string): Promise<SearchResults> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request(`/search?q=${encodeURIComponent(q)}`); } catch { /* demo */ } }
+  await delay(300);
+  const ql = q.toLowerCase();
+  const docs = DOCS.filter((d) => d.title.toLowerCase().includes(ql));
+  return {
+    query: q,
+    documents: docs.slice(0, 6).map((d) => ({ id: d.id, title: d.title, doc_type: d.doc_type, status: d.status })),
+    passages: docs.slice(0, 3).map((d) => ({ doc_id: d.id, title: d.title, section: "§1", text: `Demo passage matching “${q}” inside ${d.title}…`, score: 0.82 })),
+    entities: ql.length > 2 ? [{ id: "e1", name: q[0].toUpperCase() + q.slice(1), type: "concept", mentions: 4 }] : [],
+    tables: /sales|revenue|table/.test(ql) ? [{ name: "dt_regional_sales_1", source: "Regional Sales.csv", rows: 4 }] : [],
+    messages: [],
+  };
+}
+
+/* ── Compliance ── */
+export async function apiExportMyData(): Promise<void> {
+  const { live, token, user } = useOS.getState();
+  let data: unknown;
+  if (live && token) data = await request("/me/export");
+  else { await delay(300); data = { user, note: "Demo-mode export — connect the backend for your real data." }; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `eaios-export-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+export async function apiDeleteMyData(): Promise<{ removed: Record<string, number> }> {
+  const { live, token } = useOS.getState();
+  if (live && token) return request("/me/data", { method: "DELETE" });
+  await delay(300);
+  return { removed: { conversations: 0 } };
+}
+
+/* ── Metering + RAG eval ── */
+export interface AiUsage { window_days: number; note: string; by_user: { user: string; requests: number; tokens: number; est_cost: number }[]; by_model: { model: string; requests: number; tokens: number; est_cost: number }[] }
+export async function apiAiUsage(): Promise<AiUsage> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/analytics/ai-usage"); } catch { /* demo */ } }
+  await delay(200);
+  return { window_days: 30, note: "demo data", by_user: [
+    { user: "System Administrator", requests: 42, tokens: 61200, est_cost: 0.0122 },
+    { user: "Maya Iyer", requests: 18, tokens: 24400, est_cost: 0.0049 },
+    { user: "Dev Sharma", requests: 9, tokens: 8100, est_cost: 0.0016 },
+  ], by_model: [{ model: "meta-llama/llama-3.3-70b-instruct", requests: 69, tokens: 93700, est_cost: 0.0187 }] };
+}
+export async function apiRagEval(): Promise<{ queries: number; hit_rate: number | null; mrr: number | null; note: string }> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/analytics/rag-eval"); } catch { /* demo */ } }
+  await delay(250);
+  return { queries: 6, hit_rate: 0.83, mrr: 0.78, note: "demo numbers — hit-rate@3 and MRR over the built-in eval set" };
+}
+
 export async function apiConnectorConfig(): Promise<{ google_client_id: string }> {
   const { live, token } = useOS.getState();
   if (live && token) { try { return await request("/connectors/config"); } catch { /* demo */ } }

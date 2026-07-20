@@ -9,6 +9,8 @@ const SIZES: Record<AppId, { w: number; h: number }> = {
   automations: { w: 980, h: 640 },
   traces: { w: 940, h: 620 },
   sql: { w: 900, h: 600 },
+  search: { w: 880, h: 620 },
+  tasks: { w: 980, h: 620 },
   analytics: { w: 920, h: 640 },
   dashboards: { w: 960, h: 660 },
   studio: { w: 940, h: 640 },

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     admin, agents, analytics, auth, chat, connectors, dashboards, documents,
-    graph, reports, studio, traces, users, workflows, ws,
+    graph, me, reports, search, studio, tasks, traces, users, workflows, ws,
 )
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
@@ -64,7 +64,23 @@ async def _schedule_loop() -> None:
 
     def tick() -> int:
         with SessionLocal() as db:
-            return wf_service.run_due_scheduled(db)
+            fired = wf_service.run_due_scheduled(db)
+            # Data retention (compliance): purge conversations older than RETENTION_DAYS
+            if settings.RETENTION_DAYS > 0:
+                from datetime import datetime, timedelta, timezone
+
+                from sqlalchemy import delete as sqldelete, select
+
+                from app.models import Conversation, Message
+
+                cutoff = datetime.now(timezone.utc) - timedelta(days=settings.RETENTION_DAYS)
+                old_ids = [c.id for c in db.scalars(select(Conversation).where(Conversation.updated_at < cutoff)).all()]
+                if old_ids:
+                    db.execute(sqldelete(Message).where(Message.conversation_id.in_(old_ids)))
+                    db.execute(sqldelete(Conversation).where(Conversation.id.in_(old_ids)))
+                    db.commit()
+                    log.info("retention: purged %d conversation(s) older than %dd", len(old_ids), settings.RETENTION_DAYS)
+            return fired
 
     while True:
         await asyncio.sleep(settings.SCHEDULER_INTERVAL)
@@ -106,7 +122,8 @@ app.add_middleware(
 for router in (
     auth.router, users.router, documents.router, chat.router, agents.router,
     admin.router, analytics.router, graph.router, workflows.router, traces.router,
-    reports.router, dashboards.router, studio.router, connectors.router, ws.router,
+    reports.router, dashboards.router, studio.router, connectors.router,
+    tasks.router, search.router, me.router, ws.router,
 ):
     app.include_router(router, prefix="/api")
 

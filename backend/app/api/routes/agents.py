@@ -125,5 +125,25 @@ def meeting_minutes(
 
     from app.services import audit
 
-    audit.log(db, "meeting.minutes", user.id, f"{body.title} ({len(body.transcript)} chars, saved={bool(doc_id)})")
-    return {"minutes": minutes, "doc_id": doc_id}
+    # Action items → kanban cards (Tasks app): every "- [owner] text" bullet
+    # under the action-items heading becomes a task for this user.
+    from app.models import Task, UsageEvent
+
+    tasks_created = 0
+    in_actions = False
+    for line in minutes.splitlines():
+        low = line.strip().lower()
+        if low.startswith("#") or low.endswith(":"):
+            in_actions = "action" in low
+            continue
+        if in_actions and line.strip().startswith(("-", "*")):
+            title = line.strip().lstrip("-* ").strip()
+            if len(title) > 3 and "no explicit action" not in title.lower():
+                db.add(Task(title=title[:400], owner_id=user.id, source="meeting"))
+                tasks_created += 1
+    db.add(UsageEvent(user_id=user.id, kind="meeting", model=get_llm().name,
+                      prompt_tokens=len(body.transcript) // 4, completion_tokens=len(minutes) // 4))
+    db.commit()
+
+    audit.log(db, "meeting.minutes", user.id, f"{body.title} ({len(body.transcript)} chars, saved={bool(doc_id)}, tasks={tasks_created})")
+    return {"minutes": minutes, "doc_id": doc_id, "tasks_created": tasks_created}
