@@ -25,17 +25,24 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
     // to 2/minute so a genuine crash loop still shows the recovery card.
     const now = Date.now();
     ErrorBoundary.recoveries = ErrorBoundary.recoveries.filter((t) => now - t < 60000);
-    if (ErrorBoundary.recoveries.length < 2) {
-      ErrorBoundary.recoveries.push(now);
-      void ping().then((backendAlive) => {
-        if (!backendAlive && this.state.error) {
-          const os = useOS.getState();
-          os.setLive(false);
-          this.setState({ error: null });
-          os.pushFeed({ agent: "system", text: "Backend closed — recovered automatically in demo mode. Live mode restores when it's back.", kind: "system" });
-        }
-      });
+    ErrorBoundary.recoveries.push(now);
+    if (ErrorBoundary.recoveries.length <= 2) {
+      // 1st/2nd crash in a minute: recover in place UNCONDITIONALLY — demo
+      // mode keeps every app working whatever the cause.
+      setTimeout(() => {
+        const os = useOS.getState();
+        os.setLive(false);
+        this.setState({ error: null });
+        os.pushFeed({ agent: "system", text: "Recovered from an error automatically — running in demo mode. Live mode restores when the backend responds.", kind: "system" });
+        void ping().then((alive) => { if (alive) os.setLive(true); });
+      }, 50);
+    } else if (sessionStorage.getItem("eaios-crash-reloaded") !== "1") {
+      // Still crashing: reload ONCE — a fresh load replaces any stale/mixed
+      // bundle (the usual root cause of minified "x is not a function").
+      sessionStorage.setItem("eaios-crash-reloaded", "1");
+      location.reload();
     }
+    // Reloaded already and still crashing → genuine loop, show the card.
   }
 
   private continueInDemo = () => {
