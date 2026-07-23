@@ -151,6 +151,7 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | **Compliance pack** — GDPR export / erase-my-data + `RETENTION_DAYS` auto-purge | ✅ implemented (`routes/me.py`) |
 | **Live RAG eval card** — hit-rate@3 + MRR run live in Analytics | ✅ implemented (`/analytics/rag-eval`) |
 | **"Hey EAIOS" wake word** — hands-free open-the-assistant (Settings toggle) | ✅ implemented (`os/WakeWord.tsx`) |
+| **Supabase Storage** for uploads — files mirrored to cloud object storage, survive redeploys (local-disk fallback, zero-config dev) | ✅ implemented (`core/storage.py`) |
 | MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 

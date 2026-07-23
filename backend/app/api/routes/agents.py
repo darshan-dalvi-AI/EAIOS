@@ -121,6 +121,9 @@ def meeting_minutes(
         from app.rag import pipeline
 
         tasks.add_task(pipeline.ingest_document, doc.id, dest)
+        from app.core import storage
+
+        tasks.add_task(storage.put, f"{doc.id}.txt", dest)  # mirror to Supabase Storage
         doc_id = doc.id
 
     from app.services import audit

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core import storage
 from app.core.config import settings
 from app.models import Chunk, Document, User
 from app.rag import pipeline
@@ -51,6 +52,7 @@ def upload(
     db.commit()
 
     tasks.add_task(pipeline.ingest_document, doc.id, dest)
+    tasks.add_task(storage.put, f"{doc.id}{ext}", dest)  # mirror to Supabase Storage (no-op if unset)
     audit.log(db, "document.upload", user.id, file.filename or "")
     return doc
 
@@ -95,18 +97,18 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), user: User = Dep
         dtables.drop_for_document(db, doc_id)
     except Exception:  # noqa: BLE001
         pass
-    stored = _stored_path(doc)
-    if stored:
-        os.remove(stored)
+    ext = os.path.splitext(doc.filename)[1].lower()
+    storage.remove(f"{doc.id}{ext}")  # deletes local + Supabase copy
     db.delete(doc)
     db.commit()
     audit.log(db, "document.delete", user.id, doc.filename)
 
 
 def _stored_path(doc: Document) -> str | None:
+    """Local path to the original file, re-fetched from Supabase Storage if the
+    container's cache is cold (e.g. after a redeploy)."""
     ext = os.path.splitext(doc.filename)[1].lower()
-    path = os.path.join(settings.UPLOAD_DIR, f"{doc.id}{ext}")
-    return path if os.path.exists(path) else None
+    return storage.ensure_local(f"{doc.id}{ext}")
 
 
 # ── analyzer quick-actions (Resume / Contract / Invoice / Auto) ──────────

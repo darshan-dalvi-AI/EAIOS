@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     # Compliance: auto-purge conversations older than N days (0 = keep forever)
     RETENTION_DAYS: int = 0
 
+    # Blob storage: local disk by default. Set SUPABASE_URL + SUPABASE_SERVICE_KEY
+    # to ALSO mirror uploaded files to a Supabase Storage bucket so they survive
+    # container redeploys (the DB already persists via DATABASE_URL).
+    SUPABASE_URL: str = ""            # e.g. https://<ref>.supabase.co
+    SUPABASE_SERVICE_KEY: str = ""    # service_role key (secret) — server-side only
+    STORAGE_BUCKET: str = "documents"
+
     # One-click "Connect with Google" for the Connectors app (Drive/Gmail).
     # Create an OAuth *Web application* client ID in Google Cloud Console,
     # add your site to Authorized JavaScript origins, and set it here.

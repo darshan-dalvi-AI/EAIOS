@@ -97,6 +97,9 @@ async def lifespan(app: FastAPI):
     init_db()
     _bootstrap_admin()
     _seed_if_empty()
+    from app.core import storage
+
+    storage.ensure_bucket()  # create the Supabase Storage bucket if configured (idempotent)
     task = asyncio.create_task(_schedule_loop()) if settings.SCHEDULER_ENABLED else None
     log.info("EAIOS %s ready — llm=%s scheduler=%s", settings.VERSION, settings.LLM_PROVIDER,
              "on" if task else "off")

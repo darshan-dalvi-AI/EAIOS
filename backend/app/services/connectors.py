@@ -209,5 +209,8 @@ def sync(db: Session, connector: Connector, token: str = "") -> int:
         doc.size_bytes = os.path.getsize(dest)
         db.commit()
         pipeline.ingest_document(doc.id, dest)  # synchronous so the count is accurate
+        from app.core import storage
+
+        storage.put(f"{doc.id}.{dtype}", dest)  # mirror to Supabase Storage
         ingested += 1
     return ingested

@@ -118,3 +118,24 @@ consent flow, register an OAuth client in Google Cloud Console (APIs &
 Services → Credentials), add your deployed URL to the authorized redirect
 URIs, request the read-only scopes, and store the refresh token server-side.
 EAIOS never stores the token: it's used only for the single sync request.
+
+
+## Persistent file storage (Supabase Storage)
+
+The database persists via `DATABASE_URL` (Supabase Postgres). Uploaded files
+persist the same way once you point storage at Supabase — otherwise they live
+on the container disk and are lost on redeploy.
+
+1. Supabase dashboard → Project Settings → **API** → copy the **Project URL**
+   (`https://<ref>.supabase.co`) and the **service_role** key (secret).
+2. On Render → Environment add two variables:
+   - `SUPABASE_URL` = the project URL
+   - `SUPABASE_SERVICE_KEY` = the service_role key
+   (Optional `STORAGE_BUCKET`, default `documents`.)
+3. Redeploy. On boot the app creates the private `documents` bucket
+   (idempotent). Every upload is written locally **and** mirrored to Supabase
+   Storage; after a redeploy, files are re-fetched on demand. Remote calls use
+   `trust_env=False` so a host proxy can't break them, and fail soft — a
+   storage hiccup never breaks an upload.
+
+Leave both unset for local/demo: storage transparently uses the disk.
