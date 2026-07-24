@@ -152,6 +152,7 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | **Live RAG eval card** — hit-rate@3 + MRR run live in Analytics | ✅ implemented (`/analytics/rag-eval`) |
 | **"Hey EAIOS" wake word** — hands-free open-the-assistant (Settings toggle) | ✅ implemented (`os/WakeWord.tsx`) |
 | **Supabase Storage** for uploads — files mirrored to cloud object storage, survive redeploys (local-disk fallback, zero-config dev) | ✅ implemented (`core/storage.py`) |
+| **Confidential Computing (TEE) design** — threat model + AMD SEV-SNP attestation architecture for data-in-use protection | 📋 design doc ([docs/CONFIDENTIAL_COMPUTING.md](docs/CONFIDENTIAL_COMPUTING.md)) |
 | MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 
