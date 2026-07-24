@@ -606,6 +606,45 @@ export interface ConnectorRow {
   id: string; provider: string; label: string; status: string; detail: string;
   synced_count: number; last_sync_at: string | null;
 }
+/* ── Admin: user management (hire teammates) ── */
+export interface AdminUser {
+  id: string; email: string; full_name: string;
+  role: "admin" | "manager" | "employee"; avatar_hue: number;
+  is_active: boolean; created_at: string; last_login: string | null;
+}
+let demoAdminUsers: AdminUser[] | null = null;
+const seedDemoAdminUsers = (): AdminUser[] => (demoAdminUsers ??= MOCK_USERS.map((u, i) => ({
+  id: u.id, email: u.email, full_name: u.full_name, role: u.role, avatar_hue: u.avatar_hue,
+  is_active: true, created_at: new Date(Date.now() - i * 864e5).toISOString(), last_login: null,
+})));
+
+export async function apiUsers(): Promise<AdminUser[]> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request("/users"); } catch { /* demo */ } }
+  await delay(150);
+  return seedDemoAdminUsers();
+}
+export async function apiCreateUser(body: { email: string; full_name: string; password: string; role: string }): Promise<AdminUser> {
+  const { live, token } = useOS.getState();
+  if (live && token) { return request("/users", { method: "POST", body: JSON.stringify(body) }); }
+  await delay(300);
+  const list = seedDemoAdminUsers();
+  if (list.some((u) => u.email === body.email.toLowerCase())) throw new Error("A user with that email already exists");
+  const u: AdminUser = { id: `demo-${Date.now()}`, email: body.email.toLowerCase(), full_name: body.full_name,
+    role: body.role as AdminUser["role"], avatar_hue: Math.abs(body.email.length * 37) % 360, is_active: true,
+    created_at: new Date().toISOString(), last_login: null };
+  list.unshift(u);
+  return u;
+}
+export async function apiUpdateUser(id: string, patch: { role?: string; is_active?: boolean; full_name?: string }): Promise<AdminUser> {
+  const { live, token } = useOS.getState();
+  if (live && token) { try { return await request(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }); } catch { /* demo */ } }
+  await delay(150);
+  const list = seedDemoAdminUsers(); const i = list.findIndex((u) => u.id === id);
+  if (i >= 0) list[i] = { ...list[i], ...patch } as AdminUser;
+  return list[i];
+}
+
 /* ── Tasks (kanban) ── */
 export interface TaskRow { id: string; title: string; status: "todo" | "doing" | "done"; source: string; assignee_id: string | null; assignee: string | null; created_at: string }
 let demoTasks: TaskRow[] | null = null;

@@ -42,6 +42,14 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
 
 
+class UserCreate(BaseModel):
+    """Admin 'hire' form — create a manager/employee (or admin) account."""
+    email: EmailStr
+    full_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=8, max_length=200)
+    role: str = "employee"  # admin | manager | employee
+
+
 # ── Documents ────────────────────────────────────────────────────
 class DocumentOut(ORMModel):
     id: str

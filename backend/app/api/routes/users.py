@@ -3,16 +3,42 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
+from app.core.security import hash_password
 from app.models import User
-from app.schemas import UserOut, UserUpdate
+from app.schemas import UserCreate, UserOut, UserUpdate
 from app.services import audit
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+ROLES = {"admin", "manager", "employee"}
 
 
 @router.get("", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     return db.scalars(select(User).order_by(User.created_at)).all()
+
+
+@router.post("", response_model=UserOut, status_code=201)
+def create_user(body: UserCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    """Admin creates a teammate account ('hire'): email + password + role.
+    The admin then sends those credentials to the person's real inbox."""
+    email = body.email.lower().strip()
+    if body.role not in ROLES:
+        raise HTTPException(422, "Role must be admin, manager or employee")
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(409, "A user with that email already exists")
+    user = User(
+        email=email,
+        full_name=body.full_name.strip(),
+        hashed_password=hash_password(body.password),
+        role=body.role,
+        avatar_hue=hash(email) % 360,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    audit.log(db, "user.create", admin.id, f"{email} role={body.role}")
+    return user
 
 
 @router.patch("/{user_id}", response_model=UserOut)
