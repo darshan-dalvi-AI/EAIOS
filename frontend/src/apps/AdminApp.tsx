@@ -19,21 +19,29 @@ const PROVIDERS = [
   { id: "anthropic", name: "Anthropic", detail: "claude-sonnet-4-5 — API key required", ready: false },
 ];
 
-const FEATURES = ["AI Chat", "Knowledge upload", "SQL Studio", "Analytics", "User management", "Model config"];
+// HR gets a scoped "people operations" view — Users + the Access matrix only.
+const HR_TABS = new Set(["users", "access"]);
+
+const FEATURES = ["AI Chat", "Knowledge upload", "SQL Studio", "Analytics", "Hire & manage staff", "Model config / keys"];
 const MATRIX: Record<string, boolean[]> = {
-  admin: [true, true, true, true, true, true],
-  manager: [true, true, true, true, false, false],
+  admin:    [true, true, true, true, true,  true],
+  hr:       [true, true, false, false, true, false],
+  manager:  [true, true, true, true, false, false],
   employee: [true, true, false, false, false, false],
 };
 
 export default function AdminApp() {
   const role = useOS((s) => s.user?.role ?? "employee");
+  const isHR = role === "hr";
+  const visibleTabs = TABS.filter((t) => role === "admin" || HR_TABS.has(t.id));
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("users");
+
   const [provider, setProvider] = useState("mock");
 
-  // RBAC gate: the panel manages users, roles, audit and model keys —
-  // only administrators get past this screen (mirrors the API's require_admin).
-  if (role !== "admin") {
+  // RBAC gate: admins get the full panel; HR gets the people-operations subset
+  // (hire/manage staff + view the permission matrix). Everyone else is blocked,
+  // mirroring the API's require_admin / require_admin_or_hr guards.
+  if (role !== "admin" && role !== "hr") {
     return (
       <div className="app-pane">
         <div className="app-content" style={{ display: "flex" }}>
@@ -50,24 +58,26 @@ export default function AdminApp() {
     );
   }
 
+  const activeTab = visibleTabs.some((t) => t.id === tab) ? tab : "users";
+
   return (
     <div className="app-pane">
       <div className="app-toolbar">
         <div className="tabs">
-          {TABS.map((t) => (
-            <button key={t.id} className={`tab ${tab === t.id ? "on" : ""}`} onClick={() => setTab(t.id)}>
+          {visibleTabs.map((t) => (
+            <button key={t.id} className={`tab ${activeTab === t.id ? "on" : ""}`} onClick={() => setTab(t.id)}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.icon}{t.label}</span>
             </button>
           ))}
         </div>
-        <span className="pill warn" style={{ marginLeft: "auto" }}>admin only</span>
+        <span className="pill warn" style={{ marginLeft: "auto" }}>{isHR ? "HR console" : "admin only"}</span>
       </div>
 
       <div className="app-content" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {tab === "usage" && <UsagePanel />}
-        {tab === "users" && <UsersPanel />}
+        {activeTab === "usage" && <UsagePanel />}
+        {activeTab === "users" && <UsersPanel isHR={isHR} />}
 
-        {tab === "audit" && (
+        {activeTab === "audit" && (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
@@ -87,7 +97,7 @@ export default function AdminApp() {
           </div>
         )}
 
-        {tab === "models" && (
+        {activeTab === "models" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {PROVIDERS.map((p) => (
               <button
@@ -111,17 +121,17 @@ export default function AdminApp() {
           </div>
         )}
 
-        {tab === "access" && (
+        {activeTab === "access" && (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
-                <tr><th>Capability</th><th style={{ textAlign: "center" }}>Admin</th><th style={{ textAlign: "center" }}>Manager</th><th style={{ textAlign: "center" }}>Employee</th></tr>
+                <tr><th>Capability</th><th style={{ textAlign: "center" }}>Admin</th><th style={{ textAlign: "center" }}>HR</th><th style={{ textAlign: "center" }}>Manager</th><th style={{ textAlign: "center" }}>Employee</th></tr>
               </thead>
               <tbody>
                 {FEATURES.map((feature, i) => (
                   <tr key={feature}>
                     <td>{feature}</td>
-                    {(["admin", "manager", "employee"] as const).map((role) => (
+                    {(["admin", "hr", "manager", "employee"] as const).map((role) => (
                       <td key={role} style={{ textAlign: "center" }}>
                         {MATRIX[role][i]
                           ? <Check size={14} style={{ color: "var(--good)" }} aria-label={`${role} allowed`} />
@@ -179,7 +189,12 @@ function genPassword(): string {
   return p;
 }
 
-function UsersPanel() {
+// Admins may assign any role; HR is scoped to line staff (mirrors the API).
+const ROLE_OPTS = ["admin", "hr", "manager", "employee"] as const;
+const HR_ROLE_OPTS = ["manager", "employee"] as const;
+
+function UsersPanel({ isHR = false }: { isHR?: boolean }) {
+  const roleOpts = isHR ? HR_ROLE_OPTS : ROLE_OPTS;
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ full_name: "", email: "", role: "employee", password: genPassword() });
@@ -226,15 +241,13 @@ function UsersPanel() {
       {/* Hire / create teammate */}
       <div className="card">
         <div className="palette-section" style={{ padding: "0 0 10px", display: "flex", gap: 6, alignItems: "center" }}>
-          <UserPlus size={13} /> Add a teammate (manager / employee)
+          <UserPlus size={13} /> Add a teammate {isHR ? "(manager / employee)" : "(any role)"}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 0.9fr", gap: 8 }}>
           <div className="field"><input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Full name" aria-label="Full name" /></div>
           <div className="field"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="work email" aria-label="Email" /></div>
           <select className="plain" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} aria-label="Role">
-            <option value="employee">employee</option>
-            <option value="manager">manager</option>
-            <option value="admin">admin</option>
+            {roleOpts.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -283,13 +296,15 @@ function UsersPanel() {
                 </td>
                 <td className="mono" style={{ fontSize: 11.5 }}>{u.email}</td>
                 <td>
-                  <select className="plain" value={u.role} onChange={(e) => changeRole(u, e.target.value)} aria-label={`Role for ${u.full_name}`}>
-                    <option value="admin">admin</option>
-                    <option value="manager">manager</option>
-                    <option value="employee">employee</option>
-                  </select>
+                  {isHR && (u.role === "admin" || u.role === "hr") ? (
+                    <span className="pill dim">{u.role}</span>
+                  ) : (
+                    <select className="plain" value={u.role} onChange={(e) => changeRole(u, e.target.value)} aria-label={`Role for ${u.full_name}`}>
+                      {roleOpts.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  )}
                 </td>
-                <td><button className={`toggle ${u.is_active ? "on" : ""}`} onClick={() => toggleActive(u)} aria-label={`Toggle ${u.full_name} active`} /></td>
+                <td><button className={`toggle ${u.is_active ? "on" : ""}`} onClick={() => toggleActive(u)} disabled={isHR && (u.role === "admin" || u.role === "hr")} aria-label={`Toggle ${u.full_name} active`} /></td>
               </tr>
             ))}
           </tbody>

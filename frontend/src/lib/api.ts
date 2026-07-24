@@ -609,7 +609,7 @@ export interface ConnectorRow {
 /* ── Admin: user management (hire teammates) ── */
 export interface AdminUser {
   id: string; email: string; full_name: string;
-  role: "admin" | "manager" | "employee"; avatar_hue: number;
+  role: "admin" | "hr" | "manager" | "employee"; avatar_hue: number;
   is_active: boolean; created_at: string; last_login: string | null;
 }
 let demoAdminUsers: AdminUser[] | null = null;

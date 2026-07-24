@@ -23,7 +23,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(120))
     hashed_password: Mapped[str] = mapped_column(String(200))
-    role: Mapped[str] = mapped_column(String(20), default="employee")  # admin | manager | employee
+    role: Mapped[str] = mapped_column(String(20), default="employee")  # admin | hr | manager | employee
     avatar_hue: Mapped[int] = mapped_column(Integer, default=210)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)

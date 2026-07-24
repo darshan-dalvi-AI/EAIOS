@@ -10,6 +10,7 @@ export const MOCK_USERS: (SessionUser & { password: string })[] = [
   { id: "u1", email: "admin@eaios.dev", full_name: "System Administrator", role: "admin", avatar_hue: 265, password: "admin12345" },
   { id: "u2", email: "maya@eaios.dev", full_name: "Maya Iyer", role: "manager", avatar_hue: 180, password: "demo12345" },
   { id: "u3", email: "dev@eaios.dev", full_name: "Darshan Dalvi", role: "employee", avatar_hue: 210, password: "demo12345" },
+  { id: "u4", email: "riya@eaios.dev", full_name: "Riya Kapoor", role: "hr", avatar_hue: 330, password: "demo12345" },
 ];
 
 export const DOCS: Doc[] = [

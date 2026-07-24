@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_db, require_admin_or_hr
 from app.core.security import hash_password
 from app.models import User
 from app.schemas import UserCreate, UserOut, UserUpdate
@@ -10,21 +10,27 @@ from app.services import audit
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-ROLES = {"admin", "manager", "employee"}
+ROLES = {"admin", "hr", "manager", "employee"}
+# Roles HR is allowed to assign / manage. Only an admin can create or touch
+# admin/hr accounts — HR manages line staff, not the org's privileged users.
+HR_ASSIGNABLE = {"manager", "employee"}
 
 
 @router.get("", response_model=list[UserOut])
-def list_users(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+def list_users(db: Session = Depends(get_db), actor: User = Depends(require_admin_or_hr)):
     return db.scalars(select(User).order_by(User.created_at)).all()
 
 
 @router.post("", response_model=UserOut, status_code=201)
-def create_user(body: UserCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
-    """Admin creates a teammate account ('hire'): email + password + role.
-    The admin then sends those credentials to the person's real inbox."""
+def create_user(body: UserCreate, db: Session = Depends(get_db), actor: User = Depends(require_admin_or_hr)):
+    """Create a teammate account ('hire'): email + password + role. Admin can
+    create any role; HR can only create managers/employees. The creator then
+    sends the credentials to the person's real inbox."""
     email = body.email.lower().strip()
     if body.role not in ROLES:
-        raise HTTPException(422, "Role must be admin, manager or employee")
+        raise HTTPException(422, "Role must be admin, hr, manager or employee")
+    if actor.role == "hr" and body.role not in HR_ASSIGNABLE:
+        raise HTTPException(403, "HR can only create managers and employees")
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "A user with that email already exists")
     user = User(
@@ -37,7 +43,7 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), admin: User = D
     db.add(user)
     db.commit()
     db.refresh(user)
-    audit.log(db, "user.create", admin.id, f"{email} role={body.role}")
+    audit.log(db, "user.create", actor.id, f"{email} role={body.role} by={actor.role}")
     return user
 
 
@@ -46,13 +52,20 @@ def update_user(
     user_id: str,
     body: UserUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    actor: User = Depends(require_admin_or_hr),
 ):
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(404, "User not found")
+    # HR guardrails: HR manages line staff only — it can't edit admin/hr
+    # accounts, and can't promote anyone into admin or hr.
+    if actor.role == "hr":
+        if user.role in {"admin", "hr"}:
+            raise HTTPException(403, "HR cannot modify admin or HR accounts")
+        if body.role is not None and body.role not in HR_ASSIGNABLE:
+            raise HTTPException(403, "HR can only assign manager or employee roles")
     if body.role is not None:
-        if body.role not in {"admin", "manager", "employee"}:
+        if body.role not in ROLES:
             raise HTTPException(422, "Invalid role")
         user.role = body.role
     if body.is_active is not None:
@@ -61,5 +74,5 @@ def update_user(
         user.full_name = body.full_name
     db.commit()
     db.refresh(user)
-    audit.log(db, "user.update", admin.id, f"{user.email} → role={user.role} active={user.is_active}")
+    audit.log(db, "user.update", actor.id, f"{user.email} → role={user.role} active={user.is_active} by={actor.role}")
     return user

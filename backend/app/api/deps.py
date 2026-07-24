@@ -42,3 +42,6 @@ def require_role(*roles: str):
 
 
 require_admin = require_role("admin")
+# HR shares the people-management surface (hire/manage staff) but NOT system
+# config (model keys, etc.), which stays admin-only.
+require_admin_or_hr = require_role("admin", "hr")

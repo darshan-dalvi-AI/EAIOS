@@ -68,6 +68,7 @@ def seed() -> None:
         admin = ensure_user("admin@eaios.dev", "System Administrator", "admin", 265, password="admin12345")
         maya = ensure_user("maya@eaios.dev", "Maya Iyer", "manager", 180)
         ensure_user("dev@eaios.dev", "Darshan Dalvi", "employee", 210)
+        ensure_user("riya@eaios.dev", "Riya Kapoor", "hr", 330)  # HR — hires & manages staff
 
         # ── documents through the real pipeline ──────────────────
         for filename, content in DOCS.items():

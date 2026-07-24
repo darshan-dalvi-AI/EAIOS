@@ -153,6 +153,7 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | **"Hey EAIOS" wake word** — hands-free open-the-assistant (Settings toggle) | ✅ implemented (`os/WakeWord.tsx`) |
 | **Supabase Storage** for uploads — files mirrored to cloud object storage, survive redeploys (local-disk fallback, zero-config dev) | ✅ implemented (`core/storage.py`) |
 | **Confidential Computing (TEE) design** — threat model + AMD SEV-SNP attestation architecture for data-in-use protection | 📋 design doc ([docs/CONFIDENTIAL_COMPUTING.md](docs/CONFIDENTIAL_COMPUTING.md)) |
+| **HR role** — people-ops console: hire/manage staff (managers/employees), scoped RBAC (no model keys / can't touch admins) | ✅ implemented (`require_admin_or_hr`) |
 | MIT licensed | ✅ LICENSE |
 | CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 

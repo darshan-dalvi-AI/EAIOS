@@ -38,7 +38,7 @@ export interface SessionUser {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "manager" | "employee";
+  role: "admin" | "hr" | "manager" | "employee";
   avatar_hue: number;
 }
 
