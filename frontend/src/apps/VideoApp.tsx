@@ -342,7 +342,7 @@ export default function VideoApp() {
           {/* participant grid */}
           <div className="vc-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             <div className="vc-tile">
-              <video ref={selfPip} className="vc-tile-vid" muted playsInline />
+              <video ref={selfPip} className="vc-tile-vid vc-selfview" muted playsInline />
               <span className="vc-name">You{sharing ? " · sharing" : ""}</span>
             </div>
             {members.map((p) => (

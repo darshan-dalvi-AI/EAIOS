@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { apiLogin, ping } from "../lib/api";
 import { MOCK_USERS } from "../lib/mock";
 import { useOS } from "../store";
+import InstallButton from "./InstallButton";
 
 export default function LoginScreen() {
   const { login, live, setLive } = useOS();
@@ -81,6 +82,9 @@ export default function LoginScreen() {
         </div>
         <div className="faint" style={{ fontSize: 11, textAlign: "center" }}>
           Demo: admin@eaios.dev / admin12345 · others / demo12345
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 2 }}>
+          <InstallButton className="btn sm" label="Install as app" />
         </div>
       </form>
     </div>

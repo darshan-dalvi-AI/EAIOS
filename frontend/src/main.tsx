@@ -2,8 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ping } from "./lib/api";
+import { initPwa } from "./lib/pwa";
 import { useOS } from "./store";
 import "./styles/system.css";
+
+// Capture the install prompt as early as possible (fires before React mounts).
+initPwa();
 
 /* Crash shield: without this, any uncaught render error blanks the whole
    page (e.g. a window crashing after the backend process is closed).

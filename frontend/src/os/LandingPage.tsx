@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useOS } from "../store";
+import InstallButton from "./InstallButton";
 
 const GITHUB_URL = "https://github.com/darshan-dalvi-AI/EAIOS";
 const DOCS_ANCHOR = "#architecture";
@@ -116,7 +117,7 @@ export default function LandingPage() {
         </p>
         <div className="land-ctas">
           <button className="btn primary" onClick={launch}><PlayCircle size={15} /> Get Started</button>
-          <button className="btn" onClick={launch}><Sparkles size={14} /> Live Demo</button>
+          <InstallButton className="btn" label="Download app" />
           <a className="btn" href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a>
           <a className="btn" href={DOCS_ANCHOR}><BookOpen size={14} /> Documentation</a>
         </div>
