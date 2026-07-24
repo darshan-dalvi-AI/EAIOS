@@ -1,0 +1,29 @@
+name: Keep-alive (prevent Render cold start)
+
+# Render's free tier spins a web service down after ~15 min of inactivity, so
+# the next visitor waits ~30-50s for a cold start. This pings the health
+# endpoint every ~10 minutes so the service never sleeps and the site is
+# always instant. (Free-tier note: one always-on service uses ~730 instance-
+# hours/month, within Render's 750h free allowance.)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes (GitHub may drift a few minutes)
+  workflow_dispatch: {}        # allow manual "Run workflow" from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://eaios.onrender.com/api/health || echo "000")
+            echo "attempt $i → HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          echo "health check did not return 200 after retries (service may be waking)"
