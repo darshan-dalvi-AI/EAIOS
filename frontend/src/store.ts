@@ -50,9 +50,12 @@ interface OSStore {
   /** True when this account is a platform owner (PLATFORM_OWNER_EMAILS on the
    *  server) — unlocks the Workspaces console for managing every tenant. */
   isOwner: boolean;
+  /** Industry profile applied to this workspace ("" = never asked). */
+  industry: string;
+  setIndustry: (i: string) => void;
   live: boolean;
   setLive: (b: boolean) => void;
-  login: (u: SessionUser, token: string | null, orgName?: string | null, isOwner?: boolean) => void;
+  login: (u: SessionUser, token: string | null, orgName?: string | null, isOwner?: boolean, industry?: string) => void;
   logout: () => void;
 
   windows: Win[];
@@ -114,11 +117,13 @@ export const useOS = create<OSStore>((set, get) => ({
   token: null,
   orgName: null,
   isOwner: false,
+  industry: "",
+  setIndustry: (industry) => set({ industry }),
   live: false,
   setLive: (live) => set({ live }),
-  login: (user, token, orgName = null, isOwner = false) =>
-    set({ user, token, orgName, isOwner, phase: "desktop" }),
-  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, windows: [], phase: "login" }),
+  login: (user, token, orgName = null, isOwner = false, industry = "") =>
+    set({ user, token, orgName, isOwner, industry, phase: "desktop" }),
+  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, industry: "", windows: [], phase: "login" }),
 
   windows: [],
   topZ: 100,

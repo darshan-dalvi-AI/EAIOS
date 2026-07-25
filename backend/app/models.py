@@ -26,6 +26,9 @@ class Organization(Base):
     slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     plan: Mapped[str] = mapped_column(String(20), default="free")  # free | pro | enterprise
     status: Mapped[str] = mapped_column(String(20), default="active")  # active | suspended
+    # Which industry profile configured this workspace (see services/industries).
+    # Empty = the onboarding picker has not been answered yet.
+    industry: Mapped[str] = mapped_column(String(40), default="")
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 

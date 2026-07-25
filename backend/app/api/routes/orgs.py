@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db, require_admin
 from app.core.config import settings
 from app.models import Organization, User
-from app.services import audit, tenancy
+from app.services import audit, industries, tenancy
 
 router = APIRouter(prefix="/orgs", tags=["workspaces"])
 
@@ -33,6 +33,10 @@ class ConfirmIn(BaseModel):
     confirm: str  # must equal the workspace name, typed by the user
 
 
+class IndustryIn(BaseModel):
+    industry: str = Field(min_length=2, max_length=40)
+
+
 def require_owner(user: User = Depends(get_current_user)) -> User:
     """Platform-owner guard. Disabled entirely when PLATFORM_OWNER_EMAILS is
     unset, so a leaked demo login can never reach the console."""
@@ -43,7 +47,7 @@ def require_owner(user: User = Depends(get_current_user)) -> User:
 
 def _out(org: Organization, stats: dict | None = None) -> dict:
     d = {"id": org.id, "name": org.name, "slug": org.slug, "plan": org.plan,
-         "status": org.status, "created_at": org.created_at}
+         "status": org.status, "industry": org.industry, "created_at": org.created_at}
     if stats is not None:
         d["stats"] = stats
     return d
@@ -107,3 +111,31 @@ def delete_own_org(body: ConfirmIn, db: Session = Depends(get_db),
     audit.log(db, "org.delete.self", user.id, label)
     deleted = tenancy.delete_org(db, org)
     return {"deleted": label, "rows": deleted}
+
+
+# ── industry personalisation ─────────────────────────────────────────────
+@router.get("/industries")
+def list_industries(_: User = Depends(get_current_user)):
+    """The picker shown once, right after a company signs up."""
+    return industries.catalogue()
+
+
+@router.post("/self/industry")
+def set_industry(body: IndustryIn, db: Session = Depends(get_db),
+                 user: User = Depends(require_admin)):
+    """Configure this workspace for its industry.
+
+    Creates specialist agents and an intake automation the company can edit or
+    delete like anything else. Admin-only: it writes shared workspace objects.
+    """
+    if not user.org_id:
+        raise HTTPException(400, "Your account isn't attached to a workspace")
+    org = db.get(Organization, user.org_id)
+    if org is None:
+        raise HTTPException(404, "Workspace not found")
+    try:
+        result = industries.apply(db, org, body.industry, user)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    audit.log(db, "org.industry", user.id, f"{org.slug} → {body.industry}")
+    return result

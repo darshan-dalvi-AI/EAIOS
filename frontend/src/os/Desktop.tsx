@@ -22,6 +22,7 @@ import { useOS } from "../store";
 import type { AppId } from "../types";
 import CommandPalette from "./CommandPalette";
 import Dock from "./Dock";
+import IndustryWizard from "./IndustryWizard";
 import MobileTabBar from "./MobileTabBar";
 import MenuBar from "./MenuBar";
 import SetupGuide from "./SetupGuide";
@@ -122,6 +123,7 @@ export default function Desktop() {
       {paletteOpen && <CommandPalette />}
       {wake && <WakeWord />}
       {tour && <Tour onDone={() => { localStorage.setItem("eaios-tour-done", "1"); setTour(false); }} />}
+      {!tour && <IndustryWizard />}
       {!tour && <SetupGuide />}
     </>
   );

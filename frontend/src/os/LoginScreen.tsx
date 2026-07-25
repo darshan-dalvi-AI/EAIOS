@@ -28,7 +28,7 @@ export default function LoginScreen() {
         ? await apiSignup(company.trim(), fullName.trim(), email.trim(), password)
         : await apiLogin(email, password);
       setLive(session.live);
-      login(session.user, session.token, session.orgName, session.isOwner);
+      login(session.user, session.token, session.orgName, session.isOwner, session.industry);
     } catch (err) {
       setError(mode === "signup"
         ? (err instanceof Error ? err.message : "Couldn't create workspace")

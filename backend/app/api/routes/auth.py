@@ -18,7 +18,7 @@ def _org_out(org: Organization | None) -> dict | None:
     if not org:
         return None
     return {"id": org.id, "name": org.name, "slug": org.slug,
-            "plan": org.plan, "status": org.status}
+            "plan": org.plan, "status": org.status, "industry": org.industry}
 
 
 @router.post("/signup", status_code=201)

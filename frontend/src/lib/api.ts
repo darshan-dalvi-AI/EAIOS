@@ -92,17 +92,18 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean }
+export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean; industry?: string }
 
 export async function apiLogin(email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
     try {
-      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string }; is_platform_owner?: boolean }>("/auth/login", {
+      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
       return { user: data.user, token: data.token.access_token, live: true,
-               orgName: data.org?.name ?? null, isOwner: !!data.is_platform_owner };
+               orgName: data.org?.name ?? null, isOwner: !!data.is_platform_owner,
+               industry: data.org?.industry ?? "" };
     } catch (err) {
       // fall through to demo credentials so the UI is never a dead end
       const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
@@ -119,12 +120,13 @@ export async function apiLogin(email: string, password: string): Promise<Session
 /** Create a brand-new company workspace + its first admin (multi-tenant SaaS). */
 export async function apiSignup(company_name: string, full_name: string, email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
-    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string }; is_platform_owner?: boolean }>("/auth/signup", {
+    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean }>("/auth/signup", {
       method: "POST",
       body: JSON.stringify({ company_name, full_name, email, password }),
     });
     return { user: data.user, token: data.token.access_token, live: true,
-             orgName: data.org?.name ?? company_name, isOwner: !!data.is_platform_owner };
+             orgName: data.org?.name ?? company_name, isOwner: !!data.is_platform_owner,
+             industry: data.org?.industry ?? "" };
   }
   // demo mode (no backend): simulate an admin session for the new workspace
   await delay(700);
@@ -907,4 +909,23 @@ export async function apiUploadDocument(file: File, onProgress?: (pct: number) =
 export async function apiDeleteDocument(id: string): Promise<void> {
   if (!useOS.getState().live) { await delay(250); return; }
   await request<void>(`/documents/${id}`, { method: "DELETE" });
+}
+
+/* ── Industry personalisation ─────────────────────────────────────────
+   Asked once, right after a company signs up: the answer configures the
+   workspace with specialist agents and an intake automation. */
+export interface Industry {
+  id: string; name: string; tagline: string; icon: string; hue: number; value: string;
+  agents: { name: string; description: string }[];
+  prompts: string[]; workflow: string; analyzer: string;
+}
+
+export async function apiIndustries(): Promise<Industry[]> {
+  return request<Industry[]>("/orgs/industries");
+}
+
+export async function apiSetIndustry(industry: string) {
+  return request<{ industry: string; name: string; agents_created: string[];
+                   workflows_created: string[]; prompts: string[]; analyzer: string }>(
+    "/orgs/self/industry", { method: "POST", body: JSON.stringify({ industry }) });
 }

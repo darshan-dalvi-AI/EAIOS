@@ -183,6 +183,9 @@ def _migrate_add_org_id() -> None:
         # Organizations gained `status` after the first multi-tenant release.
         if "organizations" in existing:
             org_cols = {c["name"] for c in insp.get_columns("organizations")}
+            if "industry" not in org_cols:
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN industry VARCHAR(40) DEFAULT ''"))
             if "status" not in org_cols:
                 conn.execute(text(
                     "ALTER TABLE organizations ADD COLUMN status VARCHAR(20) DEFAULT 'active'"))
