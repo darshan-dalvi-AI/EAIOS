@@ -60,6 +60,18 @@ export default function KnowledgeApp() {
     return () => clearInterval(t);
   }, [live, docs, refresh]);
 
+  /** Open the OS file dialog. showPicker() is the modern API; .click() is the
+   *  universal fallback (and what older Safari/Firefox need). */
+  function openPicker(ref: React.RefObject<HTMLInputElement>) {
+    const el = ref.current;
+    if (!el) return;
+    try {
+      const withPicker = el as HTMLInputElement & { showPicker?: () => void };
+      if (typeof withPicker.showPicker === "function") { withPicker.showPicker(); return; }
+    } catch { /* not allowed in this context — fall through to click() */ }
+    el.click();
+  }
+
   async function uploadFiles(files: FileList | File[]) {
     const list = Array.from(files);
     if (!list.length) return;
@@ -142,20 +154,20 @@ export default function KnowledgeApp() {
           <span className="pill good">{indexedCount}/{docs.length} indexed</span>
           {/* Real file pickers. On phones/tablets the OS sheet offers Files,
               Photo Library and Camera; `capture` opens the camera directly. */}
-          <input ref={fileRef} type="file" multiple accept={UPLOAD_ACCEPT} hidden
-                 data-testid="file-input"
+          <input ref={fileRef} type="file" multiple accept={UPLOAD_ACCEPT}
+                 className="sr-file" tabIndex={-1} aria-hidden data-testid="file-input"
                  onChange={(e) => e.target.files && uploadFiles(e.target.files)} />
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden
-                 data-testid="camera-input"
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment"
+                 className="sr-file" tabIndex={-1} aria-hidden data-testid="camera-input"
                  onChange={(e) => e.target.files && uploadFiles(e.target.files)} />
           <button className="btn sm mobile-only" style={{ marginLeft: "auto" }}
-                  onClick={() => cameraRef.current?.click()} title="Scan a document with the camera">
+                  onClick={() => openPicker(cameraRef)} title="Scan a document with the camera">
             <Camera size={13} /> Scan
           </button>
           <button className="btn primary sm" data-testid="upload-btn"
                   style={{ marginLeft: "auto" }}
                   disabled={!!uploading}
-                  onClick={() => fileRef.current?.click()}>
+                  onClick={() => openPicker(fileRef)}>
             {uploading ? <Loader2 size={13} className="spin" /> : <Upload size={13} />}
             {uploading ? `${uploading.pct}%` : "Upload"}
           </button>
