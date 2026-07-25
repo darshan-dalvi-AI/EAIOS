@@ -2,10 +2,10 @@
    Premium-SaaS look: animated aurora hero, feature grid, tech stack,
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
-  Activity, ArrowRight, BarChart3, Bot, BookOpen, Briefcase, Cloud, Copy, Cpu, Database, FileText,
-  FolderSearch, Github, Image as ImageIcon, Landmark, LayoutDashboard, Mail, Mic, Minus, Moon,
-  PlayCircle, Share2, ShieldCheck, Sparkles, Square, Sun, Table2, TrendingUp, Users, Video, Wand2,
-  Workflow, X,
+  Activity, ArrowRight, BarChart3, Bot, BookOpen, Briefcase, Building2, Cloud, Copy, Cpu, Database,
+  Download, FileText, FolderSearch, Github, Image as ImageIcon, Landmark, LayoutDashboard, Mail, Mic,
+  Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles, Square, Sun, Table2, TrendingUp, UserCog,
+  Users, Video, Wand2, Workflow, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useOS } from "../store";
@@ -16,6 +16,8 @@ const DOCS_ANCHOR = "#architecture";
 const CONTACT_EMAIL = "darshanydalvi2005@gmail.com";
 
 const FEATURES = [
+  { Icon: Building2, hue: 265, title: "Multi-Tenant SaaS", text: "Every company signs up and gets its own isolated workspace — separate users, documents, chats and data. Isolation is enforced in the data layer itself, so one customer can never see another\u2019s information. One deployment serves them all." },
+  { Icon: Download, hue: 200, title: "Installable App", text: "Install EAIOS on Windows, macOS, Android or iOS and it opens like a native app \u2014 no browser tab, straight to sign-in, with an offline shell." },
   { Icon: FolderSearch, hue: 155, title: "Hybrid Multimodal RAG", text: "BM25 + dense vectors fused with RRF. PDFs, Office docs, spreadsheets, images — cited answers with confidence scores." },
   { Icon: Bot, hue: 265, title: "Multi-Agent AI", text: "9 specialist agents behind a graph orchestrator: an LLM router fans independent tasks out in parallel, and checkpointed state lets interrupted runs resume mid-graph." },
   { Icon: Table2, hue: 15, title: "Structured Table → SQL", text: "Complex, nested tables in PDFs, Word files and spreadsheets become real SQL tables at ingest — the SQL agent queries structured data directly, bypassing text chunking." },
@@ -47,13 +49,14 @@ const VERTICALS = [
 const ROLES = [
   { Icon: Bot, hue: 200, title: "Employees", text: "Ask cited questions instead of pinging seniors — by text or voice — and export any answer as PDF or DOCX." },
   { Icon: BarChart3, hue: 260, title: "Managers", text: "Pin live dashboards, run meetings with automatic minutes, review analytics, and approve high-stakes workflow steps." },
-  { Icon: ShieldCheck, hue: 350, title: "Admins", text: "Control users and roles, watch the append-only audit log, switch AI models live, and connect Gmail or Drive." },
+  { Icon: UserCog, hue: 330, title: "HR", text: "Hire and manage staff from a scoped people-operations console \u2014 create accounts and set roles, without access to model keys or system configuration." },
+  { Icon: ShieldCheck, hue: 350, title: "Admins", text: "Control users and roles, watch the append-only audit log, switch AI models live, connect Gmail or Drive, and manage the workspace itself." },
 ];
 
 const TECH = [
   "React 18", "TypeScript", "Vite", "Zustand", "FastAPI", "Python 3.12", "SQLAlchemy 2",
-  "StateGraph", "PostgreSQL", "SQLite WAL", "Qdrant", "Redis", "Ollama", "OpenRouter · 7 families",
-  "Llama 3.3", "OpenAI", "Anthropic", "WebSockets", "OpenTelemetry", "Docker", "Kubernetes · Helm", "GitHub Actions", "MCP",
+  "StateGraph", "Supabase Postgres", "Supabase Storage", "SQLite WAL", "Qdrant", "Redis", "Ollama", "OpenRouter · 7 families",
+  "Llama 3.3", "OpenAI", "Anthropic", "WebSockets", "OpenTelemetry", "Docker", "Kubernetes · Helm", "GitHub Actions", "MCP", "PWA", "Multi-tenant RLS",
 ];
 
 export default function LandingPage() {
@@ -106,14 +109,15 @@ export default function LandingPage() {
 
       {/* ── hero ── */}
       <header className="land-hero">
-        <div className="land-badge"><span className="dot pulse" style={{ background: "var(--good)" }} /> v0.3 — parallel agents · table→SQL · PII audit · checkpointed runs · OpenRouter</div>
+        <div className="land-badge"><span className="dot pulse" style={{ background: "var(--good)" }} /> v0.4 — multi-tenant workspaces · installable app · parallel agents · table→SQL · audited</div>
         <h1>
           The AI <span className="land-grad">Operating System</span><br />for your enterprise
         </h1>
         <p>
           Hybrid multimodal RAG, nine parallel AI agents, structured table-to-SQL extraction, enterprise
           search, automations and observability — running inside a full desktop OS in your browser.
-          Grounded. Cited. Audited. Resumable.
+          Create a workspace for your company in seconds; your data stays yours.
+          Grounded. Cited. Audited. Isolated.
         </p>
         <div className="land-ctas">
           <button className="btn primary" onClick={launch}><PlayCircle size={15} /> Get Started</button>
@@ -146,7 +150,7 @@ export default function LandingPage() {
       {/* ── features ── */}
       <section className="land-section" id="features">
         <h2>Everything an enterprise brain needs</h2>
-        <p className="land-sub">One OS, thirteen subsystems — every card below is a working feature, not a mockup.</p>
+        <p className="land-sub">One OS, nineteen subsystems — every card below is a working feature, not a mockup.</p>
         <div className="feature-grid">
           {FEATURES.map(({ Icon, hue, title, text }) => (
             <div key={title} className="feature-card" style={{ "--hue": hue } as React.CSSProperties}>
@@ -201,6 +205,16 @@ export default function LandingPage() {
         <h2>How the enterprise AI operating system works</h2>
         <p className="land-sub">Three loops — add knowledge, ask anything, automate the rest — all grounded, cited and auditable.</p>
         <div className="land-prose">
+          <p>
+            <b>Create your workspace.</b> A company signs up from the login screen with its name and an
+            administrator, and EAIOS provisions an isolated tenant on the spot — its own users, documents,
+            conversations, tasks and dashboards. Isolation is not a filter developers must remember to
+            write: every read is automatically scoped to the caller’s workspace and every write is stamped
+            with it inside the data layer, so one customer’s data is structurally unreachable from another’s.
+            The new administrator lands on a setup checklist — invite the team, add knowledge, connect
+            Gmail or Drive, ask the first question, install the app — and can hire managers, HR and
+            employees with a role each. One deployment serves every customer.
+          </p>
           <p>
             <b>Add knowledge.</b> Upload PDFs, Word documents, spreadsheets, presentations or images into the
             Knowledge app. The hybrid multimodal RAG pipeline parses every file (with OCR and vision captioning
@@ -291,6 +305,25 @@ export default function LandingPage() {
               spreadsheets. They have enterprise knowledge problems but not enterprise budgets: EAIOS gives
               them a private, cited company AI with no per-seat licensing that runs on a single server or
               fully offline.
+            </p>
+          </details>
+          <details open>
+            <summary>Can several companies use the same EAIOS deployment?</summary>
+            <p>
+              Yes — EAIOS is multi-tenant. Any company can create its own workspace from the login screen
+              and gets an isolated tenant with its own administrator, staff, documents and dashboards, all
+              served by a single deployment. The administrator can then hire managers, HR and employees,
+              suspend or close the workspace, and export or delete the company’s data at any time.
+            </p>
+          </details>
+          <details>
+            <summary>Is my company’s data separated from other companies?</summary>
+            <p>
+              Yes. Every record carries the workspace that owns it, and the data layer automatically scopes
+              each query to the signed-in user’s workspace and stamps each new record with it, so isolation
+              cannot be forgotten in a single query. The natural-language SQL agent has its own fail-closed
+              guard that refuses any statement it cannot prove stays inside one workspace, and the database
+              is closed to public API access. Cross-tenant isolation is covered by an automated test suite.
             </p>
           </details>
           <details open>

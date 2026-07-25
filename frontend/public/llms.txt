@@ -1,11 +1,15 @@
 # EAIOS — Enterprise AI Operating System
 
-> EAIOS is an enterprise AI operating system that runs in the browser. It combines a hybrid
+> EAIOS is a MULTI-TENANT enterprise AI operating system that runs in the browser: any company can
+> create its own isolated workspace (own admin, staff, documents, chats and dashboards) from a single
+> deployment, with isolation enforced in the data layer. It combines a hybrid
 > multimodal RAG engine (BM25 + vector search fused with Reciprocal Rank Fusion, cited answers,
 > confidence scores), nine cooperating AI agents behind a graph orchestrator, a self-building
 > knowledge graph, enterprise search, a natural-language SQL assistant, visual workflow
 > automations, voice input/output, and observability with span traces — presented as a desktop
-> operating system with windows, a taskbar and a command palette.
+> operating system with windows, a taskbar and a command palette. Four roles (admin, HR, manager,
+> employee), a first-run setup guide for new company admins, workspace suspend/delete controls, and
+> installable as a native-feeling app (PWA) on Windows, macOS, Android and iOS.
 
 Live demo: https://eaios.onrender.com (demo logins on the login screen; runs in demo mode with
 no backend as well). Source: https://github.com/darshan-dalvi-AI/EAIOS
