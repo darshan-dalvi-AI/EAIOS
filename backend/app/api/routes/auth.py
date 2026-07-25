@@ -150,6 +150,21 @@ def me(user: User = Depends(get_current_user)):
     return user
 
 
+@router.get("/config")
+def auth_config():
+    """What the sign-in screen needs before anyone has signed in.
+
+    Deliberately unauthenticated: the client id is public by design (it ships
+    in every Google button on the web) and the screen that needs it is the one
+    you see when you have no token. Reading it from /connectors/config, which
+    requires a bearer token, meant the Google button could never appear.
+    """
+    return {
+        "google_client_id": settings.GOOGLE_CLIENT_ID,
+        "email_verification": bool(settings.REQUIRE_EMAIL_VERIFICATION),
+    }
+
+
 # ── Sign in with Google ──────────────────────────────────────────────────
 @router.post("/google")
 def google_auth(body: GoogleIn, request: Request, db: Session = Depends(get_db)):

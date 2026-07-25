@@ -87,6 +87,20 @@ def _code_for(email: str) -> str:
 
 
 # ── signup is no longer proof of anything on its own ─────────────────────
+@pytest.mark.parametrize("method,path,body", [
+    ("get", "/api/auth/config", None),
+    ("post", "/api/auth/verify", {"email": "a@b.dev", "code": "123456"}),
+    ("post", "/api/auth/verify/resend", {"email": "a@b.dev"}),
+])
+def test_the_sign_in_screen_works_before_anyone_has_a_token(method, path, body):
+    """These three run when the caller has no session — by definition. Putting
+    the Google client id behind a bearer token meant the button that starts a
+    Google sign-in could only render for someone already signed in."""
+    with client() as c:
+        r = c.request(method.upper(), path, json=body)
+        assert r.status_code != 401, f"{path} demands a token it cannot have yet"
+
+
 def test_signup_creates_an_unverified_account_and_says_so():
     with client() as c:
         r = _signup(c, "Unverified Co", "owner@unverified.dev")

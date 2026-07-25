@@ -1040,7 +1040,9 @@ export async function apiResendCode(email: string) {
 /** Is Google sign-in configured on this deployment? */
 export async function apiAuthConfig(): Promise<{ google_client_id: string }> {
   try {
-    return await request<{ google_client_id: string }>("/connectors/config");
+    // /auth/config, not /connectors/config — the latter needs a bearer token,
+    // and this runs on the screen you see before you have one.
+    return await request<{ google_client_id: string }>("/auth/config");
   } catch {
     return { google_client_id: "" };
   }
