@@ -166,6 +166,22 @@ def harden_public_schema(only_table: str | None = None) -> None:
         log.warning("Public schema hardening skipped: %s", exc)
 
 
+# Columns added to `users` when email verification shipped.
+#
+# The literals matter: SQLite accepts 0/1 for a BOOLEAN, PostgreSQL does not
+# ("column is of type boolean but default expression is of type integer"), and
+# it raises inside the migration transaction — which fails startup and takes
+# the whole service down. The suite runs on SQLite, so it happily accepted a
+# statement production rejected. `TRUE`/`FALSE` are valid on both.
+USER_VERIFY_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("email_verified", "email_verified BOOLEAN DEFAULT FALSE"),
+    ("auth_provider", "auth_provider VARCHAR(20) DEFAULT 'password'"),
+    ("verify_code_hash", "verify_code_hash VARCHAR(200)"),
+    ("verify_expires_at", "verify_expires_at TIMESTAMP"),
+    ("verify_attempts", "verify_attempts INTEGER DEFAULT 0"),
+)
+
+
 def _migrate_add_org_id() -> None:
     """Add the ``org_id`` column to any existing tenant table that predates
     multi-tenancy (create_all only creates missing tables, not columns).
@@ -186,20 +202,14 @@ def _migrate_add_org_id() -> None:
         # Users gained email-verification columns after the first release.
         if "users" in existing:
             ucols = {c["name"] for c in insp.get_columns("users")}
-            for col, ddl in (
-                ("email_verified", "email_verified BOOLEAN DEFAULT 0"),
-                ("auth_provider", "auth_provider VARCHAR(20) DEFAULT 'password'"),
-                ("verify_code_hash", "verify_code_hash VARCHAR(200)"),
-                ("verify_expires_at", "verify_expires_at TIMESTAMP"),
-                ("verify_attempts", "verify_attempts INTEGER DEFAULT 0"),
-            ):
+            for col, ddl in USER_VERIFY_COLUMNS:
                 if col not in ucols:
                     conn.execute(text(f"ALTER TABLE users ADD COLUMN {ddl}"))
             # Accounts that existed before verification was introduced keep
             # working — retro-locking real customers out would be worse than
             # the gap it closes. New signups are gated from here on.
             if "email_verified" not in ucols:
-                conn.execute(text("UPDATE users SET email_verified = 1"))
+                conn.execute(text("UPDATE users SET email_verified = TRUE"))
 
         # Organizations gained `status` after the first multi-tenant release.
         if "organizations" in existing:
