@@ -50,6 +50,50 @@ export function demoteToDemo(): void {
   startRecoveryLoop();
 }
 
+/** An API failure that keeps the per-field detail the server sent, so a form
+ *  can say "Company name is too short" instead of a blanket "Invalid input". */
+export class ApiError extends Error {
+  status: number;
+  fields: { field: string; problem: string }[];
+  constructor(message: string, status: number, fields: { field: string; problem: string }[] = []) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.fields = fields;
+  }
+}
+
+/** Turn a server field name + rule into something a person can act on. */
+const FIELD_LABELS: Record<string, string> = {
+  company_name: "Company name",
+  full_name: "Your name",
+  email: "Email",
+  password: "Password",
+  message: "Message",
+  role: "Role",
+  confirm: "Confirmation",
+  industry: "Industry",
+};
+
+export function friendlyFieldError(field: string, problem: string): string {
+  const label = FIELD_LABELS[field] ?? field.replace(/_/g, " ");
+  const p = problem.toLowerCase();
+  if (p.includes("at least") && p.includes("character")) {
+    const n = problem.match(/\d+/)?.[0];
+    return `${label} must be at least ${n ?? "a few"} characters.`;
+  }
+  if (p.includes("at most") && p.includes("character")) {
+    const n = problem.match(/\d+/)?.[0];
+    return `${label} must be ${n ?? "shorter"} characters or fewer.`;
+  }
+  if (p.includes("valid email") || p.includes("email address")) {
+    return "That doesn't look like a valid email address.";
+  }
+  if (p.includes("field required") || p.includes("missing")) return `${label} is required.`;
+  if (p.includes("input should be")) return `${label} isn't one of the allowed values.`;
+  return `${label}: ${problem}`;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { token } = useOS.getState();
   let res: Response;
@@ -68,14 +112,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error("Backend unreachable — switched to demo mode. Try that again.");
   }
   if (!res.ok) {
-    // FastAPI errors arrive as {"detail": "..."} — surface the human message, never raw JSON
+    // FastAPI errors arrive as {"detail": "..."} and, for validation failures,
+    // {"errors": [{field, problem}]}. Keep the field detail — throwing it away
+    // is what reduced a fixable mistake to a blank "Invalid input".
     const raw = (await res.text().catch(() => "")) || "";
     let msg = raw;
+    let fields: { field: string; problem: string }[] = [];
     try {
-      const j = JSON.parse(raw) as { detail?: unknown };
-      if (j && j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+      const j = JSON.parse(raw) as { detail?: unknown; errors?: { field: string; problem: string }[] };
+      if (Array.isArray(j?.errors) && j.errors.length) {
+        fields = j.errors;
+        msg = j.errors.map((e) => friendlyFieldError(e.field, e.problem)).join(" ");
+      } else if (j && j.detail) {
+        msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+      }
     } catch { /* plain-text body */ }
-    throw new Error(msg || `HTTP ${res.status}`);
+    throw new ApiError(msg || `HTTP ${res.status}`, res.status, fields);
   }
   return res.json() as Promise<T>;
 }
