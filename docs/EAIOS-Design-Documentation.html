@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en" data-doc="prd">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>EAIOS — Design Documentation · PRD · TRD · UI/UX · Flow · Schema · Plan</title>
+<meta name="description" content="Complete design documentation for EAIOS, a multi-tenant enterprise AI operating system: product requirements, technical requirements, UI/UX, application flow, backend schema and implementation plan." />
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   EAIOS Design Documentation — "Living Blueprint"
+   A technical-drawing aesthetic where every diagram draws itself.
+   Self-contained: no external fonts, scripts or stylesheets, so it opens
+   from a USB stick in an exam hall with no internet.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  --ink:#e8edf7; --ink-dim:#9fb0c8; --ink-faint:#68788f;
+  --bg:#070a12; --bg-2:#0b1020; --panel:#0e1424; --line:rgba(148,163,184,.16);
+  --line-2:rgba(148,163,184,.28);
+  --cyan:#22d3ee; --violet:#8b5cf6; --green:#34d399; --amber:#fbbf24; --rose:#fb7185;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  --rail:264px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),
+    radial-gradient(1100px 600px at 78% -8%,rgba(139,92,246,.16),transparent 65%),
+    radial-gradient(900px 500px at 12% 0%,rgba(34,211,238,.12),transparent 60%);
+  background-size:44px 44px,44px 44px,auto,auto;
+}
+/* ── layout ─────────────────────────────────────────────────────── */
+.wrap{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh}
+.rail{
+  position:sticky;top:0;height:100vh;overflow-y:auto;padding:22px 16px 30px;
+  border-right:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(14px);
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:750;letter-spacing:.16em;font-size:14px;margin-bottom:4px}
+.brand .orb{width:15px;height:15px;border-radius:50%;flex:none;
+  background:conic-gradient(from 0deg,var(--cyan),var(--violet),var(--cyan));
+  animation:spin 7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.brand-sub{font-size:10.5px;color:var(--ink-faint);letter-spacing:.04em;margin:0 0 20px 25px}
+.nav-label{font-size:9.5px;letter-spacing:.19em;color:var(--ink-faint);margin:18px 0 8px;text-transform:uppercase}
+.nav-item{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 11px;margin-bottom:3px;
+  border:1px solid transparent;border-radius:10px;background:none;color:var(--ink-dim);
+  font:inherit;font-size:13px;cursor:pointer;transition:background .18s,color .18s,border-color .18s;
+}
+.nav-item:hover{background:rgba(148,163,184,.07);color:var(--ink)}
+.nav-item.on{background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(139,92,246,.1));
+  border-color:rgba(34,211,238,.34);color:#fff}
+.nav-num{font-family:var(--mono);font-size:10px;width:19px;height:19px;flex:none;display:grid;place-items:center;
+  border-radius:6px;background:rgba(148,163,184,.14);color:var(--ink-faint)}
+.nav-item.on .nav-num{background:var(--cyan);color:#04121a}
+.rail-foot{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:10.5px;color:var(--ink-faint);line-height:1.7}
+.rail-foot a{color:var(--cyan);text-decoration:none}
+
+.main{min-width:0;padding:0 0 90px}
+.doc{display:none;animation:fade .4s ease}
+.doc.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ── document header ────────────────────────────────────────────── */
+.dochead{padding:54px 46px 30px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.dochead::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,var(--cyan),var(--violet),transparent);animation:sweep 2.4s ease-out}
+@keyframes sweep{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1)}}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase}
+.dochead h1{margin:10px 0 8px;font-size:36px;line-height:1.12;letter-spacing:-.02em;font-weight:730}
+.dochead p{margin:0;max-width:760px;color:var(--ink-dim);font-size:15.5px}
+.meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.chip{font-family:var(--mono);font-size:10.5px;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line-2);color:var(--ink-dim);background:rgba(148,163,184,.05)}
+.chip.hot{border-color:rgba(34,211,238,.4);color:var(--cyan);background:rgba(34,211,238,.08)}
+
+section{padding:38px 46px;border-bottom:1px solid var(--line);scroll-margin-top:12px}
+section:last-child{border-bottom:0}
+h2{font-size:22px;margin:0 0 6px;letter-spacing:-.01em;display:flex;align-items:center;gap:11px}
+h2 .hn{font-family:var(--mono);font-size:11px;color:var(--cyan);opacity:.85}
+h3{font-size:15.5px;margin:26px 0 8px;color:#fff}
+h4{font-size:13px;margin:18px 0 6px;color:var(--ink);letter-spacing:.02em}
+p{margin:0 0 12px;color:var(--ink-dim);max-width:900px}
+strong{color:var(--ink);font-weight:640}
+ul,ol{margin:0 0 14px;padding-left:20px;color:var(--ink-dim);max-width:900px}
+li{margin-bottom:6px}
+code{font-family:var(--mono);font-size:12.4px;background:rgba(148,163,184,.13);padding:1.5px 6px;border-radius:5px;color:#bfe9f5}
+.lead{font-size:16px;color:var(--ink);max-width:860px}
+
+/* ── cards / tables ─────────────────────────────────────────────── */
+.grid{display:grid;gap:14px;margin:16px 0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(212px,1fr))}
+.card{border:1px solid var(--line);border-radius:14px;padding:16px 17px;background:linear-gradient(160deg,rgba(255,255,255,.032),transparent)}
+.card h4{margin:0 0 6px;font-size:13.5px;color:#fff}
+.card p{margin:0;font-size:13px}
+.card .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.2px;display:block;overflow-x:auto}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap}
+td{color:var(--ink-dim)}
+td strong{color:var(--ink)}
+tbody tr:hover{background:rgba(148,163,184,.045)}
+.pill{display:inline-block;font-family:var(--mono);font-size:9.5px;padding:2.5px 8px;border-radius:999px;white-space:nowrap}
+.p-done{background:rgba(52,211,153,.16);color:var(--green)}
+.p-must{background:rgba(251,113,133,.16);color:var(--rose)}
+.p-should{background:rgba(251,191,36,.16);color:var(--amber)}
+.p-could{background:rgba(148,163,184,.16);color:var(--ink-faint)}
+.note{border-left:2px solid var(--cyan);background:rgba(34,211,238,.055);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+.note.warn{border-color:var(--amber);background:rgba(251,191,36,.055)}
+.note p{margin:0;font-size:13.4px}
+.note b{color:#fff}
+
+/* ── figures + animation ────────────────────────────────────────── */
+figure{margin:22px 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(6,9,16,.55)}
+figcaption{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+figcaption .fig-n{color:var(--cyan)}
+.replay{margin-left:auto;font:inherit;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  padding:5px 11px;border-radius:999px;border:1px solid var(--line-2);background:none;color:var(--ink-dim);cursor:pointer;
+  transition:.18s;text-transform:uppercase}
+.replay:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,.08)}
+.stage{padding:18px 14px;display:block;width:100%}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.lbl{font-family:var(--mono);font-size:9.5px;fill:var(--ink-dim);letter-spacing:.04em}
+.lbl-s{font-family:var(--mono);font-size:8px;fill:var(--ink-faint)}
+.lbl-b{font-family:var(--sans);font-size:11.5px;fill:#fff;font-weight:600}
+.wire{stroke:var(--line-2);stroke-width:1.4;fill:none}
+.box{fill:rgba(148,163,184,.07);stroke:var(--line-2);stroke-width:1.2}
+
+/* draw-on: dash offset animates to 0 when .run is added */
+.draw{stroke-dasharray:var(--len,600);stroke-dashoffset:var(--len,600)}
+.run .draw{animation:draw 1.15s cubic-bezier(.6,.05,.25,1) forwards;animation-delay:var(--d,0s)}
+@keyframes draw{to{stroke-dashoffset:0}}
+/* pop-in for nodes */
+.pop{opacity:0;transform-box:fill-box;transform-origin:center;transform:scale(.82)}
+.run .pop{animation:pop .5s cubic-bezier(.2,.9,.25,1.2) forwards;animation-delay:var(--d,0s)}
+@keyframes pop{to{opacity:1;transform:scale(1)}}
+.fadein{opacity:0}
+.run .fadein{animation:fi .55s ease forwards;animation-delay:var(--d,0s)}
+@keyframes fi{to{opacity:1}}
+/* a packet that travels a path */
+.run .packet{animation:travel var(--dur,3s) linear infinite;animation-delay:var(--d,0s)}
+@keyframes travel{from{offset-distance:0%}to{offset-distance:100%}}
+.pulse{animation:pl 2s ease-in-out infinite}
+@keyframes pl{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* ── responsive ─────────────────────────────────────────────────── */
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);
+    padding:16px 14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .brand{width:100%;margin-bottom:2px} .brand-sub,.nav-label,.rail-foot{display:none}
+  .nav-item{width:auto;flex:1 1 auto;justify-content:center;padding:8px 10px;font-size:12px;margin:0}
+  .dochead{padding:32px 20px 22px} .dochead h1{font-size:26px} section{padding:26px 20px}
+  h2{font-size:19px}
+}
+@media print{
+  .rail,.replay{display:none} .wrap{display:block} .doc{display:block!important}
+  body{background:#fff;color:#111} section{page-break-inside:avoid}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important}
+  .draw{stroke-dashoffset:0} .pop,.fadein{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══ navigation rail ══ -->
+  <aside class="rail">
+    <div class="brand"><span class="orb"></span> EAIOS</div>
+    <div class="brand-sub">Design Documentation · v1.0</div>
+
+    <div class="nav-label">Documents</div>
+    <button class="nav-item on" data-go="prd"><span class="nav-num">1</span> Product Requirements</button>
+    <button class="nav-item" data-go="trd"><span class="nav-num">2</span> Technical Requirements</button>
+    <button class="nav-item" data-go="uiux"><span class="nav-num">3</span> UI / UX Design</button>
+    <button class="nav-item" data-go="flow"><span class="nav-num">4</span> Application Flow</button>
+    <button class="nav-item" data-go="schema"><span class="nav-num">5</span> Backend Schema</button>
+    <button class="nav-item" data-go="plan"><span class="nav-num">6</span> Implementation Plan</button>
+
+    <div class="rail-foot">
+      <b style="color:var(--ink-dim)">EAIOS</b><br>
+      Enterprise AI Operating System<br>
+      B.E. Computer Engineering capstone<br>
+      Darshan Dalvi<br><br>
+      <a href="https://eaios.onrender.com">eaios.onrender.com</a><br>
+      <a href="https://github.com/darshan-dalvi-AI/EAIOS">github.com/darshan-dalvi-AI/EAIOS</a>
+    </div>
+  </aside>
+
+  <main class="main">
+
+  <!-- ═══════════════════ 1 · PRD ═══════════════════ -->
+  <article class="doc on" id="prd">
+    <header class="dochead">
+      <div class="kicker">Document 01</div>
+      <h1>Product Requirements</h1>
+      <p class="lead">What EAIOS is, who it serves, the problem it removes, and the measurable bar it must clear to be considered done.</p>
+      <div class="meta-row">
+        <span class="chip hot">Status · Shipped v0.4</span>
+        <span class="chip">Multi-tenant SaaS</span>
+        <span class="chip">18 applications</span>
+        <span class="chip">9 AI agents</span>
+        <span class="chip">94 automated tests</span>
+      </div>
+    </header>
+
+    <section>
+      <h2><span class="hn">1.1</span> Problem statement</h2>
+      <p>Mid-sized organisations of 50–500 people accumulate their operating knowledge in files: HR policies in PDFs, contracts in Word, financials in spreadsheets, runbooks in slide decks. Finding an answer means knowing which file holds it and who has it. New joiners interrupt seniors; seniors repeat themselves; decisions get made on stale documents.</p>
+      <p>Public AI assistants cannot solve this — they have never seen the company's files, and pasting confidential documents into a consumer chatbot is unacceptable. Enterprise AI platforms that <em>can</em> solve it are priced and scoped for organisations ten times larger.</p>
+      <div class="note"><p><b>The gap:</b> companies with enterprise knowledge problems but without enterprise budgets. They need a private assistant that has genuinely read their own documents, cites its sources, and can be run on a single server or entirely offline.</p></div>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.2</span> Product vision</h2>
+      <p class="lead">EAIOS is an <strong>enterprise AI operating system</strong>: a company's private, cited, auditable AI, presented as a full desktop operating system inside the browser. Any company creates its own isolated workspace in seconds; one deployment serves them all.</p>
+      <div class="grid g3">
+        <div class="card"><div class="tag">Grounded</div><h4>Answers from your files</h4><p>Hybrid retrieval over the company's own documents, never the open internet unless asked.</p></div>
+        <div class="card"><div class="tag">Cited</div><h4>Every claim traceable</h4><p>Each answer carries source chips, a relevance meter and a confidence score.</p></div>
+        <div class="card"><div class="tag">Isolated</div><h4>One workspace per company</h4><p>Tenant separation enforced in the data layer, not left to individual queries.</p></div>
+        <div class="card"><div class="tag">Audited</div><h4>Append-only trail</h4><p>Logins, uploads, deletions and every access to personal data are recorded.</p></div>
+        <div class="card"><div class="tag">Resilient</div><h4>Never a dead end</h4><p>If the backend or the model provider fails, the interface degrades instead of breaking.</p></div>
+        <div class="card"><div class="tag">Portable</div><h4>Cloud or fully offline</h4><p>Hosted deployment, Docker, Kubernetes, or local models with no API keys at all.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.3</span> Target users &amp; personas</h2>
+      <table>
+        <thead><tr><th>Persona</th><th>Goal</th><th>Pain today</th><th>What EAIOS gives them</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Employee</strong><br><span class="lbl">Ravi, support engineer</span></td><td>Answer a customer question correctly, fast</td><td>Searches five folders, then messages a senior and waits</td><td>Asks in plain language or by voice; gets a cited answer in seconds; exports it as PDF</td></tr>
+          <tr><td><strong>Manager</strong><br><span class="lbl">Maya, delivery lead</span></td><td>See status without chasing people</td><td>Builds the same spreadsheet report every week</td><td>Describes a chart in English and pins it; meetings end with automatic minutes and tasks</td></tr>
+          <tr><td><strong>HR</strong><br><span class="lbl">Riya, people operations</span></td><td>Onboard staff and answer policy questions</td><td>Same leave-policy question a hundred times a year</td><td>Hires staff from a scoped console; policy questions answer themselves with citations</td></tr>
+          <tr><td><strong>Company admin</strong><br><span class="lbl">Darshan, founder</span></td><td>Stand up the platform and control it</td><td>Enterprise tools need a project to deploy</td><td>Signs up, gets a workspace, invites the team, switches AI models live, closes the workspace whenever they want</td></tr>
+          <tr><td><strong>Platform owner</strong><br><span class="lbl">the vendor</span></td><td>Serve many companies from one deployment</td><td>Per-customer deployments do not scale</td><td>A console listing every workspace with usage counts, suspend and delete</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.4</span> The core journey</h2>
+      <p>The product succeeds or fails on one loop: a company arrives with files and a question, and leaves with a trustworthy answer. Everything else exists to serve this path.</p>
+
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 1.1</span> Company onboarding → first cited answer
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 260" role="img" aria-label="Animated journey from signup to a cited answer">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0 L10 5 L0 10 z" fill="#22d3ee"/></marker>
+            <linearGradient id="jg" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+          </defs>
+          <path id="jpath" d="M92 132 H228 M320 132 H456 M548 132 H684 M776 132 H872" class="wire draw" style="--len:560" stroke="url(#jg)" stroke-width="2" marker-end="url(#ar)"/>
+
+          <g class="pop" style="--d:.05s"><rect x="14" y="90" width="156" height="84" rx="14" class="box"/>
+            <circle cx="46" cy="122" r="13" fill="rgba(34,211,238,.18)" stroke="#22d3ee"/>
+            <text x="46" y="127" text-anchor="middle" class="lbl" fill="#22d3ee">1</text>
+            <text x="70" y="118" class="lbl-b">Sign up</text>
+            <text x="70" y="134" class="lbl">Company name +</text>
+            <text x="70" y="147" class="lbl">admin details</text></g>
+
+          <g class="pop" style="--d:.5s"><rect x="242" y="90" width="156" height="84" rx="14" class="box"/>
+            <circle cx="274" cy="122" r="13" fill="rgba(34,211,238,.18)" stroke="#22d3ee"/>
+            <text x="274" y="127" text-anchor="middle" class="lbl" fill="#22d3ee">2</text>
+            <text x="298" y="118" class="lbl-b">Workspace</text>
+            <text x="298" y="134" class="lbl">Isolated tenant</text>
+            <text x="298" y="147" class="lbl">created instantly</text></g>
+
+          <g class="pop" style="--d:.95s"><rect x="470" y="90" width="156" height="84" rx="14" class="box"/>
+            <circle cx="502" cy="122" r="13" fill="rgba(139,92,246,.2)" stroke="#8b5cf6"/>
+            <text x="502" y="127" text-anchor="middle" class="lbl" fill="#8b5cf6">3</text>
+            <text x="526" y="118" class="lbl-b">Add knowledge</text>
+            <text x="526" y="134" class="lbl">Upload · Drive ·</text>
+            <text x="526" y="147" class="lbl">Gmail · website</text></g>
+
+          <g class="pop" style="--d:1.4s"><rect x="698" y="90" width="156" height="84" rx="14" class="box"/>
+            <circle cx="730" cy="122" r="13" fill="rgba(139,92,246,.2)" stroke="#8b5cf6"/>
+            <text x="730" y="127" text-anchor="middle" class="lbl" fill="#8b5cf6">4</text>
+            <text x="754" y="118" class="lbl-b">Ask</text>
+            <text x="754" y="134" class="lbl">Text or voice,</text>
+            <text x="754" y="147" class="lbl">any language</text></g>
+
+          <g class="pop" style="--d:1.85s"><rect x="876" y="82" width="98" height="100" rx="14" fill="rgba(52,211,153,.09)" stroke="rgba(52,211,153,.45)"/>
+            <text x="925" y="112" text-anchor="middle" class="lbl-b" fill="#34d399">Answer</text>
+            <text x="925" y="130" text-anchor="middle" class="lbl-s">with citations</text>
+            <text x="925" y="144" text-anchor="middle" class="lbl-s">+ confidence</text>
+            <text x="925" y="160" text-anchor="middle" class="lbl-s">+ agent plan</text></g>
+
+          <circle r="4.5" fill="#22d3ee" class="packet" style="offset-path:path('M92 132 H872');--dur:4s;--d:2.2s"/>
+          <text x="14" y="216" class="lbl-s">Target: under 4 minutes from landing page to first cited answer, with no setup call, no installation and no credit card.</text>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.5</span> Functional requirements</h2>
+      <p>Prioritised with MoSCoW. Every <span class="pill p-done">shipped</span> item is live and covered by automated tests.</p>
+      <table>
+        <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td>FR-01</td><td>A company can self-register and receive an isolated workspace with an admin account</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-02</td><td>No workspace can read, search or infer another workspace's data by any route</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-03</td><td>Upload PDF, Word, PowerPoint, Excel, CSV, text and images; parse, index and make searchable</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-04</td><td>Answer natural-language questions from indexed content with citations and a confidence score</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-05</td><td>Route compound requests across specialist agents, running independent work in parallel</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-06</td><td>Four roles — admin, HR, manager, employee — with server-enforced permissions</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-07</td><td>Append-only audit log of authentication, uploads, deletions and personal-data access</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-08</td><td>Natural language to safe, read-only SQL, scoped to the caller's workspace</td><td><span class="pill p-should">Should</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-09</td><td>Extract tables inside documents into real SQL tables the agent can query directly</td><td><span class="pill p-should">Should</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-10</td><td>Knowledge graph of entities and relationships built automatically at ingest</td><td><span class="pill p-should">Should</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-11</td><td>Visual workflow automation with human-in-the-loop approval steps</td><td><span class="pill p-should">Should</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-12</td><td>Connectors for Gmail, Google Drive and whole websites into the same pipeline</td><td><span class="pill p-should">Should</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-13</td><td>Video calls with live captions and automatic minutes that become tasks</td><td><span class="pill p-could">Could</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-14</td><td>Installable as an app on Windows, macOS, Android and iOS</td><td><span class="pill p-could">Could</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-15</td><td>Platform owner can list, suspend and permanently delete any workspace</td><td><span class="pill p-should">Should</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-16</td><td>Company admin can export or permanently delete all of their company's data</td><td><span class="pill p-must">Must</span></td><td><span class="pill p-done">Shipped</span></td></tr>
+          <tr><td>FR-17</td><td>Confidential computing: run inference inside a hardware-attested enclave</td><td><span class="pill p-could">Could</span></td><td><span class="pill p-could">Designed</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.6</span> Non-functional requirements</h2>
+      <div class="grid g2">
+        <div class="card"><div class="tag">Performance</div><h4>98 requests/second, 0 errors</h4><p>Measured at 100 concurrent users on a single worker: p50 754 ms, p95 2.1 s. Load testing exposed a real connection-pool exhaustion at ~60 users, which was fixed rather than tuned away.</p></div>
+        <div class="card"><div class="tag">Security</div><h4>Isolation that cannot be forgotten</h4><p>PBKDF2 password hashing, HS256 tokens, role guards, per-user and per-IP rate limits, SELECT-only SQL, and tenant scoping enforced by the data layer itself.</p></div>
+        <div class="card"><div class="tag">Reliability</div><h4>Degrade, never break</h4><p>If the backend dies mid-session the interface switches to demo data and polls for recovery. If the model provider fails, a deterministic engine answers instead.</p></div>
+        <div class="card"><div class="tag">Portability</div><h4>Zero mandatory dependencies</h4><p>Runs with SQLite, an in-memory vector store and a local extractive engine — no Docker, no GPU, no API key. Each of those swaps to Postgres, Qdrant and a hosted model by changing one variable.</p></div>
+        <div class="card"><div class="tag">Accessibility</div><h4>Reachable by keyboard and touch</h4><p>Labelled controls, visible focus, a command palette for keyboard users, 40 px touch targets and a reduced-motion mode that disables every animation.</p></div>
+        <div class="card"><div class="tag">Observability</div><h4>Nothing is a mystery</h4><p>Every request records a span waterfall with per-agent timings, viewable in the Traces app; usage and estimated cost are attributed per user and per model.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.7</span> Success metrics</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Target</th><th>Measured</th></tr></thead>
+        <tbody>
+          <tr><td>Time from landing page to first cited answer</td><td>&lt; 4 min</td><td>≈ 2 min (signup → upload → ask)</td></tr>
+          <tr><td>Retrieval hit-rate @3 on the evaluation set</td><td>≥ 0.75</td><td>Enforced as a CI gate; build fails below it</td></tr>
+          <tr><td>Mean reciprocal rank</td><td>≥ 0.55</td><td>Enforced as a CI gate</td></tr>
+          <tr><td>Cross-tenant data leaks</td><td>0</td><td>0 — covered by a dedicated isolation test suite</td></tr>
+          <tr><td>Automated test coverage of critical paths</td><td>All</td><td>94 backend tests + browser suites per feature</td></tr>
+          <tr><td>Answers carrying at least one citation</td><td>100%</td><td>100% when the knowledge base is non-empty</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">1.8</span> Scope boundaries</h2>
+      <div class="grid g2">
+        <div class="card"><div class="tag">In scope</div><h4>What this product does</h4>
+          <ul style="margin:8px 0 0"><li>Private, cited question answering over company files</li><li>Multi-company isolation from one deployment</li><li>Document lifecycle: ingest, index, cite, delete</li><li>Role-based team management</li><li>Workflow automation and observability</li></ul></div>
+        <div class="card"><div class="tag">Out of scope</div><h4>Deliberately not built</h4>
+          <ul style="margin:8px 0 0"><li>Training or fine-tuning foundation models</li><li>Being a general-purpose chatbot about the open web</li><li>Replacing a document management system or CRM</li><li>Mobile applications written natively per platform</li><li>Billing and subscription management</li></ul></div>
+      </div>
+      <div class="note warn"><p><b>Known limitation, stated honestly:</b> tables extracted from spreadsheets are materialised as physical database tables without a tenant column. They are protected by name validation and an org-scoped schema listing, so their names are not discoverable across workspaces, but a guessed name is not filtered at row level. Adding a tenant column to those tables is the first item of the next phase.</p></div>
+    </section>
+  </article>
+
+  <!-- ═══════════════════ 2 · TRD ═══════════════════ -->
+  <article class="doc" id="trd">
+    <header class="dochead">
+      <div class="kicker">Document 02</div>
+      <h1>Technical Requirements</h1>
+      <p class="lead">The architecture, the constraints that shaped it, and the engineering decisions that are load-bearing — with the reasoning, not just the result.</p>
+      <div class="meta-row">
+        <span class="chip hot">FastAPI · React · Postgres</span>
+        <span class="chip">Graph orchestrator</span>
+        <span class="chip">Hybrid RAG</span>
+        <span class="chip">Zero mandatory dependencies</span>
+      </div>
+    </header>
+
+    <section>
+      <h2><span class="hn">2.1</span> Guiding constraints</h2>
+      <p>Three constraints drove almost every technical decision:</p>
+      <div class="grid g3">
+        <div class="card"><div class="tag">C1</div><h4>It must run anywhere</h4><p>An examiner may run it on a laptop with no internet. Every external service therefore sits behind an interface with a working local fallback.</p></div>
+        <div class="card"><div class="tag">C2</div><h4>Isolation must be structural</h4><p>With many companies on one deployment, "remember to filter by company" is not a security model. Isolation belongs in a layer that cannot be bypassed by forgetting.</p></div>
+        <div class="card"><div class="tag">C3</div><h4>It must degrade, not fail</h4><p>A demo that crashes when the backend or model provider hiccups is worthless. Every failure path has a defined, non-fatal behaviour.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="hn">2.2</span> System architecture</h2>
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 2.1</span> Layered architecture, drawn from the outside in
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 430" role="img" aria-label="Animated layered system architecture">
+          <g class="fadein" style="--d:.05s">
+            <rect x="20" y="14" width="940" height="76" rx="13" fill="rgba(34,211,238,.06)" stroke="rgba(34,211,238,.3)"/>
+            <text x="34" y="34" class="lbl" fill="#22d3ee">CLIENT · React 18 + TypeScript · OS-metaphor interface</text>
+            <g class="pop" style="--d:.3s"><rect x="34" y="44" width="132" height="34" rx="9" class="box"/><text x="100" y="65" text-anchor="middle" class="lbl">Window manager</text></g>
+            <g class="pop" style="--d:.38s"><rect x="176" y="44" width="132" height="34" rx="9" class="box"/><text x="242" y="65" text-anchor="middle" class="lbl">18 applications</text></g>
+            <g class="pop" style="--d:.46s"><rect x="318" y="44" width="132" height="34" rx="9" class="box"/><text x="384" y="65" text-anchor="middle" class="lbl">Zustand store</text></g>
+            <g class="pop" style="--d:.54s"><rect x="460" y="44" width="132" height="34" rx="9" class="box"/><text x="526" y="65" text-anchor="middle" class="lbl">API client + fallback</text></g>
+            <g class="pop" style="--d:.62s"><rect x="602" y="44" width="132" height="34" rx="9" class="box"/><text x="668" y="65" text-anchor="middle" class="lbl">WebSocket client</text></g>
+            <g class="pop" style="--d:.7s"><rect x="744" y="44" width="200" height="34" rx="9" class="box"/><text x="844" y="65" text-anchor="middle" class="lbl">Service worker · PWA shell</text></g>
+          </g>
+
+          <path class="wire draw" style="--len:40;--d:.8s" d="M490 92 V116" marker-end="url(#ar)"/>
+
+          <g class="fadein" style="--d:.9s">
+            <rect x="20" y="118" width="940" height="92" rx="13" fill="rgba(139,92,246,.06)" stroke="rgba(139,92,246,.3)"/>
+            <text x="34" y="138" class="lbl" fill="#8b5cf6">API · FastAPI · request pipeline in order</text>
+            <g class="pop" style="--d:1.05s"><rect x="34" y="148" width="118" height="46" rx="9" class="box"/><text x="93" y="167" text-anchor="middle" class="lbl">Rate limiter</text><text x="93" y="181" text-anchor="middle" class="lbl-s">token bucket</text></g>
+            <g class="pop" style="--d:1.13s"><rect x="162" y="148" width="118" height="46" rx="9" class="box"/><text x="221" y="167" text-anchor="middle" class="lbl">CORS</text><text x="221" y="181" text-anchor="middle" class="lbl-s">origin policy</text></g>
+            <g class="pop" style="--d:1.21s"><rect x="290" y="148" width="118" height="46" rx="9" class="box"/><text x="349" y="167" text-anchor="middle" class="lbl">JWT auth</text><text x="349" y="181" text-anchor="middle" class="lbl-s">HS256, stdlib</text></g>
+            <g class="pop" style="--d:1.29s"><rect x="418" y="148" width="150" height="46" rx="9" fill="rgba(52,211,153,.1)" stroke="rgba(52,211,153,.5)"/><text x="493" y="167" text-anchor="middle" class="lbl" fill="#34d399">Tenant scope</text><text x="493" y="181" text-anchor="middle" class="lbl-s">org_id → session</text></g>
+            <g class="pop" style="--d:1.37s"><rect x="578" y="148" width="118" height="46" rx="9" class="box"/><text x="637" y="167" text-anchor="middle" class="lbl">Role guard</text><text x="637" y="181" text-anchor="middle" class="lbl-s">RBAC</text></g>
+            <g class="pop" style="--d:1.45s"><rect x="706" y="148" width="238" height="46" rx="9" class="box"/><text x="825" y="167" text-anchor="middle" class="lbl">Routers · 19 modules</text><text x="825" y="181" text-anchor="middle" class="lbl-s">auth · documents · chat · agents · orgs · ws</text></g>
+          </g>
+
+          <path class="wire draw" style="--len:40;--d:1.5s" d="M490 212 V236" marker-end="url(#ar)"/>
+
+          <g class="fadein" style="--d:1.6s">
+            <rect x="20" y="238" width="620" height="86" rx="13" fill="rgba(251,191,36,.05)" stroke="rgba(251,191,36,.28)"/>
+            <text x="34" y="258" class="lbl" fill="#fbbf24">INTELLIGENCE · graph orchestrator</text>
+            <g class="pop" style="--d:1.75s"><rect x="34" y="268" width="110" height="44" rx="9" class="box"/><text x="89" y="286" text-anchor="middle" class="lbl">Semantic</text><text x="89" y="300" text-anchor="middle" class="lbl">router</text></g>
+            <g class="pop" style="--d:1.85s"><rect x="154" y="268" width="150" height="44" rx="9" class="box"/><text x="229" y="286" text-anchor="middle" class="lbl">9 agents, parallel</text><text x="229" y="300" text-anchor="middle" class="lbl-s">doc·sql·research·report…</text></g>
+            <g class="pop" style="--d:1.95s"><rect x="314" y="268" width="150" height="44" rx="9" class="box"/><text x="389" y="286" text-anchor="middle" class="lbl">Hybrid retrieval</text><text x="389" y="300" text-anchor="middle" class="lbl-s">BM25 + vector → RRF</text></g>
+            <g class="pop" style="--d:2.05s"><rect x="474" y="268" width="150" height="44" rx="9" class="box"/><text x="549" y="286" text-anchor="middle" class="lbl">Checkpointer</text><text x="549" y="300" text-anchor="middle" class="lbl-s">resume mid-graph</text></g>
+          </g>
+
+          <g class="fadein" style="--d:1.6s">
+            <rect x="656" y="238" width="304" height="86" rx="13" fill="rgba(251,113,133,.05)" stroke="rgba(251,113,133,.28)"/>
+            <text x="670" y="258" class="lbl" fill="#fb7185">MODELS · one interface, many providers</text>
+            <g class="pop" style="--d:2.15s"><rect x="670" y="268" width="132" height="44" rx="9" class="box"/><text x="736" y="286" text-anchor="middle" class="lbl">OpenRouter</text><text x="736" y="300" text-anchor="middle" class="lbl-s">GPT·Claude·Gemini…</text></g>
+            <g class="pop" style="--d:2.25s"><rect x="812" y="268" width="132" height="44" rx="9" class="box"/><text x="878" y="286" text-anchor="middle" class="lbl">Ollama / mock</text><text x="878" y="300" text-anchor="middle" class="lbl-s">offline fallback</text></g>
+          </g>
+
+          <path class="wire draw" style="--len:40;--d:2.3s" d="M490 326 V350" marker-end="url(#ar)"/>
+
+          <g class="fadein" style="--d:2.4s">
+            <rect x="20" y="352" width="940" height="66" rx="13" fill="rgba(148,163,184,.05)" stroke="var(--line-2)"/>
+            <text x="34" y="372" class="lbl" fill="#9fb0c8">PERSISTENCE</text>
+            <g class="pop" style="--d:2.55s"><rect x="34" y="380" width="176" height="30" rx="9" class="box"/><text x="122" y="399" text-anchor="middle" class="lbl">Supabase Postgres</text></g>
+            <g class="pop" style="--d:2.63s"><rect x="220" y="380" width="176" height="30" rx="9" class="box"/><text x="308" y="399" text-anchor="middle" class="lbl">Supabase Storage</text></g>
+            <g class="pop" style="--d:2.71s"><rect x="406" y="380" width="176" height="30" rx="9" class="box"/><text x="494" y="399" text-anchor="middle" class="lbl">Vector index · Qdrant</text></g>
+            <g class="pop" style="--d:2.79s"><rect x="592" y="380" width="176" height="30" rx="9" class="box"/><text x="680" y="399" text-anchor="middle" class="lbl">BM25 keyword index</text></g>
+            <g class="pop" style="--d:2.87s"><rect x="778" y="380" width="166" height="30" rx="9" class="box"/><text x="861" y="399" text-anchor="middle" class="lbl">Audit log</text></g>
+          </g>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">2.3</span> The life of a request</h2>
+      <p>This is the path a single question takes. The green segment is the part most multi-tenant systems get wrong: it is applied once, centrally, rather than remembered at each query site.</p>
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 2.2</span> Request lifecycle — watch the packet travel
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 300" role="img" aria-label="Animated request lifecycle from browser to answer">
+          <path id="lifepath" d="M60 80 H210 V150 H360 V80 H510 V150 H660 V80 H810 V150 H930"
+                class="wire draw" style="--len:1000" stroke="url(#jg)" stroke-width="2"/>
+          <circle r="5" fill="#22d3ee" class="packet"
+                  style="offset-path:path('M60 80 H210 V150 H360 V80 H510 V150 H660 V80 H810 V150 H930');--dur:5s;--d:1.2s">
+            <animate attributeName="opacity" values="0;1;1;0" dur="5s" repeatCount="indefinite" begin="1.2s"/>
+          </circle>
+
+          <g class="pop" style="--d:.1s"><rect x="14" y="56" width="92" height="48" rx="10" class="box"/><text x="60" y="76" text-anchor="middle" class="lbl-b">Browser</text><text x="60" y="92" text-anchor="middle" class="lbl-s">ask a question</text></g>
+          <g class="pop" style="--d:.35s"><rect x="164" y="126" width="92" height="48" rx="10" class="box"/><text x="210" y="146" text-anchor="middle" class="lbl">Rate limit</text><text x="210" y="162" text-anchor="middle" class="lbl-s">60/min/user</text></g>
+          <g class="pop" style="--d:.5s"><rect x="314" y="56" width="92" height="48" rx="10" class="box"/><text x="360" y="76" text-anchor="middle" class="lbl">Verify JWT</text><text x="360" y="92" text-anchor="middle" class="lbl-s">load user</text></g>
+          <g class="pop" style="--d:.65s"><rect x="464" y="126" width="92" height="48" rx="10" fill="rgba(52,211,153,.12)" stroke="rgba(52,211,153,.55)"/><text x="510" y="146" text-anchor="middle" class="lbl" fill="#34d399">Set org scope</text><text x="510" y="162" text-anchor="middle" class="lbl-s">once, centrally</text></g>
+          <g class="pop" style="--d:.8s"><rect x="614" y="56" width="92" height="48" rx="10" class="box"/><text x="660" y="76" text-anchor="middle" class="lbl">Router</text><text x="660" y="92" text-anchor="middle" class="lbl-s">plan agents</text></g>
+          <g class="pop" style="--d:.95s"><rect x="764" y="126" width="92" height="48" rx="10" class="box"/><text x="810" y="146" text-anchor="middle" class="lbl">Agents ∥</text><text x="810" y="162" text-anchor="middle" class="lbl-s">retrieve + reason</text></g>
+          <g class="pop" style="--d:1.1s"><rect x="884" y="56" width="92" height="48" rx="10" fill="rgba(52,211,153,.1)" stroke="rgba(52,211,153,.45)"/><text x="930" y="76" text-anchor="middle" class="lbl-b" fill="#34d399">Stream</text><text x="930" y="92" text-anchor="middle" class="lbl-s">tokens + cites</text></g>
+
+          <g class="fadein" style="--d:2.4s">
+            <rect x="14" y="206" width="952" height="76" rx="12" fill="rgba(52,211,153,.05)" stroke="rgba(52,211,153,.25)"/>
+            <text x="30" y="228" class="lbl" fill="#34d399">EVERY database read on this request is now automatically rewritten</text>
+            <text x="30" y="250" class="lbl-s" font-size="11">SELECT * FROM documents          →          SELECT * FROM documents WHERE org_id = &lt;caller's workspace&gt;</text>
+            <text x="30" y="270" class="lbl-s">Applied by a session-level hook, so a developer who forgets the filter still cannot leak another company's rows.</text>
+          </g>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">2.4</span> Technology choices and why</h2>
+      <table>
+        <thead><tr><th>Layer</th><th>Chosen</th><th>Reasoning</th><th>Fallback</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend</td><td>React 18 + TypeScript + Vite</td><td>Type safety across 18 apps; Vite keeps the dev loop under a second</td><td>—</td></tr>
+          <tr><td>State</td><td>Zustand</td><td>A window manager needs shared state without provider nesting; ~1 kB</td><td>—</td></tr>
+          <tr><td>Styling</td><td>Hand-written CSS design system</td><td>An OS metaphor needs bespoke primitives; utility classes would fight it</td><td>—</td></tr>
+          <tr><td>API</td><td>FastAPI (Python 3.12)</td><td>Typed request models, generated OpenAPI, async, native streaming</td><td>—</td></tr>
+          <tr><td>ORM</td><td>SQLAlchemy 2</td><td>Its session event hooks are what make tenant isolation structural</td><td>—</td></tr>
+          <tr><td>Database</td><td>Supabase Postgres</td><td>Managed, survives redeploys, IPv4 session pooler</td><td>SQLite + WAL</td></tr>
+          <tr><td>Files</td><td>Supabase Storage</td><td>Container disks are ephemeral; uploads must outlive a deploy</td><td>Local disk</td></tr>
+          <tr><td>Vectors</td><td>Qdrant</td><td>Purpose-built ANN index with metadata filtering</td><td>In-memory store</td></tr>
+          <tr><td>Models</td><td>OpenRouter</td><td>One key reaches seven model families; switchable at runtime</td><td>Ollama, then a deterministic extractive engine</td></tr>
+          <tr><td>Auth</td><td>Standard-library JWT + PBKDF2</td><td>No dependency for something this security-critical and this small</td><td>—</td></tr>
+          <tr><td>Realtime</td><td>FastAPI WebSockets</td><td>Presence and live agent activity without polling</td><td>REST replay endpoint</td></tr>
+          <tr><td>Deployment</td><td>Docker → Render; Helm chart for Kubernetes</td><td>One container serves API and static frontend</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">2.5</span> Load-bearing decisions</h2>
+
+      <h3>Isolation as a session hook, not a query filter</h3>
+      <p>There are 37 query sites. Adding <code>.where(org_id == …)</code> to each one means 37 chances to forget, and every future query is a 38th. Instead, two SQLAlchemy event hooks do it centrally: one rewrites every SELECT to include the caller's workspace, the other stamps every INSERT with it. The request layer sets the workspace once after authentication.</p>
+      <div class="note"><p><b>Consequence:</b> features written later inherit isolation automatically. The test suite proves two companies cannot see each other's users, documents, tasks, conversations, search results or graph entities.</p></div>
+
+      <h3>A fail-closed guard for raw SQL</h3>
+      <p>The SQL agent executes generated SQL as raw text, which the ORM hook cannot see. It therefore has its own guard: every tenant table is rewritten into an org-scoped subquery, the tenant registry is denied outright, and any statement whose shape cannot be proven safe — aliases, comma joins — is <em>rejected rather than executed</em>. Refusing a valid query is an inconvenience; running an unsafe one is a breach.</p>
+
+      <h3>Graceful degradation at three levels</h3>
+      <ul>
+        <li><strong>Model fails</strong> → a deterministic extractive engine answers, so a demo never stalls on someone else's outage.</li>
+        <li><strong>Backend dies mid-session</strong> → the client detects the network-level failure, switches to demo data, and polls health until it can restore live mode.</li>
+        <li><strong>Render crashes</strong> → an error boundary pings health and self-heals into demo mode rather than showing a blank page.</li>
+      </ul>
+
+      <h3>Parallel agents, each with their own database session</h3>
+      <p>The router may dispatch several agents at once. A SQLAlchemy session is not thread-safe, so each parallel agent opens its own session and re-fetches the user, and the active trace context is copied into the thread so the span waterfall stays intact.</p>
+    </section>
+
+    <section>
+      <h2><span class="hn">2.6</span> Security requirements</h2>
+      <table>
+        <thead><tr><th>Control</th><th>Implementation</th></tr></thead>
+        <tbody>
+          <tr><td>Credential storage</td><td>PBKDF2-HMAC-SHA256 with per-user salt; passwords never logged or returned</td></tr>
+          <tr><td>Session</td><td>HS256 JWT with expiry; secret generated per deployment, never committed</td></tr>
+          <tr><td>Authorisation</td><td>Route-level role guards; admin, HR, manager, employee — enforced server-side, never by hiding buttons</td></tr>
+          <tr><td>Tenant isolation</td><td>ORM session hooks + a fail-closed raw-SQL guard + org-scoped schema listing</td></tr>
+          <tr><td>Database surface</td><td>Row Level Security enabled with no policies on all 21 tables; API-role grants revoked, including for future tables</td></tr>
+          <tr><td>Abuse</td><td>Token-bucket limits per user and per IP: 20 logins/min, 60 chats/min, 60 uploads/hour</td></tr>
+          <tr><td>Injection</td><td>Parameterised queries throughout; generated SQL is single-statement, SELECT-only, comment-free and row-capped</td></tr>
+          <tr><td>Server-side request forgery</td><td>The website connector blocks private address ranges and limits crawl depth and page count</td></tr>
+          <tr><td>Privacy</td><td>People, emails and phone numbers classified at ingest; every access writes a <code>pii.access</code> audit entry and raises a live security event</td></tr>
+          <tr><td>Data rights</td><td>Full export as JSON; erase-my-data endpoint; configurable conversation retention; permanent workspace deletion</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </article>
+
+  <!-- ═══════════════════ 3 · UI/UX ═══════════════════ -->
+  <article class="doc" id="uiux">
+    <header class="dochead">
+      <div class="kicker">Document 03</div>
+      <h1>UI / UX Design</h1>
+      <p class="lead">The design thesis, the system that expresses it, and how the same product becomes a desktop operating system on a laptop and a native-feeling app on a phone.</p>
+      <div class="meta-row">
+        <span class="chip hot">OS metaphor</span>
+        <span class="chip">Aurora design system</span>
+        <span class="chip">Dark + light</span>
+        <span class="chip">WCAG-checked contrast</span>
+        <span class="chip">Reduced-motion safe</span>
+      </div>
+    </header>
+
+    <section>
+      <h2><span class="hn">3.1</span> Design thesis</h2>
+      <p class="lead">Enterprise AI tools look like a chat box with a sidebar. That framing quietly tells the user "this is one feature". EAIOS is a <strong>platform</strong> — eighteen cooperating capabilities — so it borrows the one interface metaphor every user already knows for "many capabilities at once": an operating system.</p>
+      <div class="grid g3">
+        <div class="card"><div class="tag">Principle 01</div><h4>Familiar, not novel-for-its-own-sake</h4><p>Windows, a taskbar and a command palette need no explanation. The novelty is that an AI platform is shaped this way, not that the controls are unusual.</p></div>
+        <div class="card"><div class="tag">Principle 02</div><h4>Show the reasoning</h4><p>Answers carry citation chips, a confidence score and the plan of agents that ran. Trust comes from visible working, not from a confident tone.</p></div>
+        <div class="card"><div class="tag">Principle 03</div><h4>Never a dead end</h4><p>Every empty state offers the next action; every failure explains itself and keeps the app usable in demo mode.</p></div>
+        <div class="card"><div class="tag">Principle 04</div><h4>Motion that means something</h4><p>Animation communicates state — indexing, streaming, an agent working. Decorative motion is limited to the boot sequence and the landing page.</p></div>
+        <div class="card"><div class="tag">Principle 05</div><h4>Density with air</h4><p>Enterprise data is dense. Generous line-height, restrained borders and one accent colour keep it readable rather than cramped.</p></div>
+        <div class="card"><div class="tag">Principle 06</div><h4>Respect the device</h4><p>A phone is not a small desktop. Below 740 px the metaphor changes shape rather than shrinking.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="hn">3.2</span> Design system — "Aurora"</h2>
+      <h3>Colour</h3>
+      <table>
+        <thead><tr><th>Token</th><th>Dark</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>--bg</code></td><td>#070a12</td><td>Canvas. Near-black with a blue cast; true black looks harsh on OLED for long sessions</td></tr>
+          <tr><td><code>--surface</code></td><td>rgba white 3%</td><td>Windows and cards, translucent over the wallpaper</td></tr>
+          <tr><td><code>--accent</code></td><td>#22d3ee</td><td>Cyan. Interactive, focused, live</td></tr>
+          <tr><td><code>--accent-2</code></td><td>#8b5cf6</td><td>Violet. AI activity, gradients</td></tr>
+          <tr><td><code>--good / --warn / --bad</code></td><td>#34d399 / #fbbf24 / #fb7185</td><td>Indexed · processing · failed</td></tr>
+          <tr><td><code>--text / --text-dim / --text-faint</code></td><td>#e8edf7 / #9fb0c8 / #64748b</td><td>Three levels only — more becomes noise</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><p><b>Contrast was audited, not assumed.</b> A headless walker measured the WCAG ratio of every element against its alpha-blended ancestor in both themes. It found real light-mode failures — a 1.02:1 primary button, an invisible menu bar — that reading the code would not have caught. Transitions must be disabled during such an audit, or animated mid-states produce phantom results.</p></div>
+
+      <h3>Typography &amp; spacing</h3>
+      <ul>
+        <li><strong>Display</strong> — Space Grotesk for headings and the boot logo; geometric, slightly technical.</li>
+        <li><strong>Body</strong> — Inter at 13–15 px; optimised for small dense UI.</li>
+        <li><strong>Mono</strong> — JetBrains Mono for SQL, traces, IDs and the terminal.</li>
+        <li><strong>Scale</strong> — 4 px base unit; radii 8 / 12 / 16 px; one elevation shadow plus one glow for focus.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2><span class="hn">3.3</span> Responsive strategy</h2>
+      <p>The interface does not merely reflow. Below 740 px the desktop metaphor is <em>replaced</em>: a taskbar of eighteen icons becomes a five-destination tab bar with labels, window chrome disappears because every app is already full-screen, and detail panes become sheets.</p>
+
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 3.1</span> The same product at two shapes
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 340" role="img" aria-label="Animated comparison of desktop and phone layouts">
+          <!-- desktop -->
+          <g class="fadein" style="--d:.1s">
+            <text x="20" y="20" class="lbl" fill="#22d3ee">DESKTOP · ≥ 1025 px — window manager</text>
+            <rect x="20" y="30" width="520" height="280" rx="12" class="box"/>
+            <rect x="20" y="30" width="520" height="22" rx="12" fill="rgba(34,211,238,.1)"/>
+            <text x="32" y="45" class="lbl-s">EAIOS · workspace · File View Agents Help · presence · Live · clock · avatar</text>
+            <g class="pop" style="--d:.5s"><rect x="44" y="72" width="230" height="150" rx="9" fill="rgba(148,163,184,.1)" stroke="var(--line-2)"/><rect x="44" y="72" width="230" height="20" rx="9" fill="rgba(148,163,184,.14)"/><text x="56" y="86" class="lbl-s">AI Chat</text><text x="500" y="86" class="lbl-s" text-anchor="end">— □ ✕</text></g>
+            <g class="pop" style="--d:.68s"><rect x="200" y="112" width="230" height="150" rx="9" fill="rgba(148,163,184,.13)" stroke="var(--line-2)"/><rect x="200" y="112" width="230" height="20" rx="9" fill="rgba(148,163,184,.18)"/><text x="212" y="126" class="lbl-s">Knowledge</text></g>
+            <g class="pop" style="--d:.86s"><rect x="300" y="152" width="216" height="130" rx="9" fill="rgba(148,163,184,.16)" stroke="var(--line-2)"/><rect x="300" y="152" width="216" height="20" rx="9" fill="rgba(148,163,184,.22)"/><text x="312" y="166" class="lbl-s">Dashboards</text></g>
+            <g class="pop" style="--d:1.05s"><rect x="120" y="288" width="320" height="16" rx="8" fill="rgba(34,211,238,.14)" stroke="rgba(34,211,238,.3)"/>
+              <text x="280" y="300" text-anchor="middle" class="lbl-s" fill="#22d3ee">taskbar · 18 app icons · overlapping windows · drag · resize</text></g>
+          </g>
+
+          <path class="wire draw" style="--len:120;--d:1.2s" d="M556 170 H636" marker-end="url(#ar)"/>
+          <text x="596" y="160" text-anchor="middle" class="lbl-s" fill="#8b5cf6">≤ 740 px</text>
+
+          <!-- phone -->
+          <g class="fadein" style="--d:1.4s">
+            <text x="660" y="20" class="lbl" fill="#8b5cf6">PHONE · ≤ 740 px — app shell</text>
+            <rect x="700" y="30" width="180" height="280" rx="20" class="box"/>
+            <rect x="700" y="30" width="180" height="26" rx="20" fill="rgba(139,92,246,.12)"/>
+            <text x="712" y="47" class="lbl-s">EAIOS · Acme… 🔍 🔔 ☀ ⬤</text>
+            <g class="pop" style="--d:1.7s"><rect x="708" y="64" width="164" height="18" rx="6" fill="rgba(148,163,184,.14)"/><text x="716" y="77" class="lbl-s">AI Chat                         ✕</text></g>
+            <g class="pop" style="--d:1.85s"><rect x="708" y="88" width="164" height="150" rx="8" fill="rgba(148,163,184,.07)" stroke="var(--line)"/>
+              <text x="790" y="150" text-anchor="middle" class="lbl-s">one app, full screen</text>
+              <text x="790" y="166" text-anchor="middle" class="lbl-s">no window chrome</text></g>
+            <g class="pop" style="--d:2.05s"><rect x="700" y="266" width="180" height="44" rx="14" fill="rgba(34,211,238,.13)" stroke="rgba(34,211,238,.34)"/>
+              <text x="722" y="284" text-anchor="middle" class="lbl-s" fill="#22d3ee">Chat</text>
+              <text x="758" y="284" text-anchor="middle" class="lbl-s">Know</text>
+              <text x="794" y="284" text-anchor="middle" class="lbl-s">Tasks</text>
+              <text x="830" y="284" text-anchor="middle" class="lbl-s">Search</text>
+              <text x="864" y="284" text-anchor="middle" class="lbl-s">Apps</text>
+              <text x="790" y="300" text-anchor="middle" class="lbl-s" fill="#22d3ee">labelled bottom tab bar</text></g>
+          </g>
+
+          <g class="fadein" style="--d:2.3s">
+            <rect x="20" y="322" width="940" height="0.6" fill="var(--line)"/>
+            <text x="20" y="338" class="lbl-s">Breakpoints — ≤400 px: tighter menu bar · ≤740 px: app shell · ≤1024 px: tablet menu bar · pointer:coarse: 34–44 px targets, 16 px inputs so iOS never zooms</text>
+          </g>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">3.4</span> Motion design</h2>
+      <p>Every animation has a stated job. Durations stay between 120 ms and 400 ms except deliberate set-pieces; anything longer is a state indicator, not a transition.</p>
+      <table>
+        <thead><tr><th>Moment</th><th>Motion</th><th>Duration / easing</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Boot sequence</td><td>Logo draw + staged status lines</td><td>~2 s, ease-out</td><td>Sets the operating-system frame before anything else</td></tr>
+          <tr><td>Window open</td><td>Scale 0.96 → 1 with fade</td><td>180 ms, cubic-bezier(.2,.9,.25,1)</td><td>Establishes where the window came from</td></tr>
+          <tr><td>Dock hover</td><td>Icon lifts and magnifies</td><td>150 ms</td><td>Affordance; disabled on touch, where hover misfires</td></tr>
+          <tr><td>Answer streaming</td><td>Tokens append; agent chips light in sequence</td><td>live</td><td>Progress made visible instead of a spinner</td></tr>
+          <tr><td>Agent working</td><td>Menu-bar orb pulses</td><td>2 s loop</td><td>Ambient system state, glanceable</td></tr>
+          <tr><td>Document indexing</td><td>Progress bar + status pill queued → processing → indexed</td><td>polled 2.5 s</td><td>Long operation with an honest end</td></tr>
+          <tr><td>Setup guide</td><td>Slides up, progress bar fills per step</td><td>340 ms</td><td>Momentum for a new admin</td></tr>
+          <tr><td>Phone app sheet</td><td>Rises 16 px with fade</td><td>220 ms</td><td>Matches the platform convention users expect</td></tr>
+          <tr><td>Destructive confirm</td><td>Red-bordered panel; button stays disabled until the name is typed</td><td>—</td><td>Friction proportional to consequence</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><p><b>Accessibility:</b> the entire motion layer sits behind <code>@media (prefers-reduced-motion: reduce)</code>, which collapses every animation to 0.001 ms. Nothing depends on motion to be understood — this document behaves the same way.</p></div>
+    </section>
+
+    <section>
+      <h2><span class="hn">3.5</span> Key screens</h2>
+      <div class="grid g2">
+        <div class="card"><div class="tag">Entry</div><h4>Landing → boot → login</h4><p>A marketing page that states the product in one line, an operating-system boot sequence, then sign-in or "create your workspace". Demo credentials are visible so an examiner never gets stuck.</p></div>
+        <div class="card"><div class="tag">First run</div><h4>Setup guide</h4><p>A new admin lands on a five-step checklist — invite the team, add knowledge, connect tools, ask a question, install the app — with progress saved per workspace.</p></div>
+        <div class="card"><div class="tag">Core</div><h4>AI Chat</h4><p>Streaming answers with citation chips, confidence, the agent plan, a route picker including custom agents, voice in and out, and export to PDF or Word.</p></div>
+        <div class="card"><div class="tag">Core</div><h4>Knowledge</h4><p>Upload by button, drag-and-drop or phone camera; a visible pipeline strip; per-document analysis scorecards; delete that removes the file everywhere.</p></div>
+        <div class="card"><div class="tag">Governance</div><h4>Admin</h4><p>Hire teammates with generated credentials, audit log, live model switching, a permission matrix, and a danger zone for closing the workspace.</p></div>
+        <div class="card"><div class="tag">Vendor</div><h4>Workspaces console</h4><p>Visible only to the platform owner: every company with row counts, suspend and permanent delete behind a typed confirmation.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="hn">3.6</span> Accessibility checklist</h2>
+      <ul>
+        <li>Contrast measured programmatically in both themes; failures fixed, not waived.</li>
+        <li>Every icon-only control carries an <code>aria-label</code>; dialogs use <code>role="dialog"</code> with labels.</li>
+        <li>Full keyboard path: tab order, visible focus, Escape closes overlays, Ctrl+K opens the palette.</li>
+        <li>Touch targets 34–44 px; hover-only affordances removed on coarse pointers.</li>
+        <li>Inputs at 16 px on touch so iOS does not zoom on focus.</li>
+        <li>Live regions for streaming answers; status conveyed by text as well as colour.</li>
+        <li>Reduced-motion honoured globally.</li>
+      </ul>
+    </section>
+  </article>
+
+  <!-- ═══════════════════ 4 · APP FLOW ═══════════════════ -->
+  <article class="doc" id="flow">
+    <header class="dochead">
+      <div class="kicker">Document 04</div>
+      <h1>Application Flow</h1>
+      <p class="lead">Every path a person can take through the product — entry, the four roles, the document lifecycle, and what happens when things go wrong.</p>
+      <div class="meta-row">
+        <span class="chip hot">5 entry states</span>
+        <span class="chip">4 roles</span>
+        <span class="chip">18 destinations</span>
+        <span class="chip">Failure paths included</span>
+      </div>
+    </header>
+
+    <section>
+      <h2><span class="hn">4.1</span> Entry and session states</h2>
+      <p>The application is a small state machine before it is a desktop. Each transition below is a real guard in the code, including the ones that only fire when something breaks.</p>
+
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 4.1</span> Session state machine
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 340" role="img" aria-label="Animated session state machine">
+          <path class="wire draw" style="--len:120;--d:.3s" d="M136 70 H208" marker-end="url(#ar)"/>
+          <path class="wire draw" style="--len:120;--d:.6s" d="M326 70 H398" marker-end="url(#ar)"/>
+          <path class="wire draw" style="--len:120;--d:1.5s" d="M516 70 H588" marker-end="url(#ar)"/>
+          <path class="wire draw" style="--len:200;--d:.9s" d="M457 92 V150 H240 V186" marker-end="url(#ar)"/>
+          <path class="wire draw" style="--len:200;--d:1.2s" d="M240 226 V262 H660 V92" marker-end="url(#ar)"/>
+          <path class="wire draw" style="--len:160;--d:2.1s" d="M700 92 V150 H830 V186" marker-end="url(#ar)"/>
+          <path class="wire draw" style="--len:160;--d:2.4s" d="M830 226 V262 H746 V92" marker-end="url(#ar)"/>
+
+          <g class="pop" style="--d:.1s"><rect x="20" y="48" width="116" height="44" rx="11" class="box"/><text x="78" y="66" text-anchor="middle" class="lbl-b">Landing</text><text x="78" y="82" text-anchor="middle" class="lbl-s">marketing page</text></g>
+          <g class="pop" style="--d:.45s"><rect x="208" y="48" width="118" height="44" rx="11" class="box"/><text x="267" y="66" text-anchor="middle" class="lbl-b">Boot</text><text x="267" y="82" text-anchor="middle" class="lbl-s">~2 s sequence</text></g>
+          <g class="pop" style="--d:.75s"><rect x="398" y="48" width="118" height="44" rx="11" class="box"/><text x="457" y="66" text-anchor="middle" class="lbl-b">Auth</text><text x="457" y="82" text-anchor="middle" class="lbl-s">sign in / sign up</text></g>
+          <g class="pop" style="--d:1.7s"><rect x="588" y="48" width="222" height="44" rx="11" fill="rgba(52,211,153,.09)" stroke="rgba(52,211,153,.45)"/><text x="699" y="66" text-anchor="middle" class="lbl-b" fill="#34d399">Desktop — authenticated</text><text x="699" y="82" text-anchor="middle" class="lbl-s">18 apps · role-filtered</text></g>
+
+          <g class="pop" style="--d:1.05s"><rect x="176" y="186" width="128" height="40" rx="11" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.4)"/><text x="240" y="204" text-anchor="middle" class="lbl">New company</text><text x="240" y="218" text-anchor="middle" class="lbl-s">workspace created</text></g>
+          <g class="pop" style="--d:2.25s"><rect x="766" y="186" width="128" height="40" rx="11" fill="rgba(251,191,36,.09)" stroke="rgba(251,191,36,.4)"/><text x="830" y="204" text-anchor="middle" class="lbl">Demo mode</text><text x="830" y="218" text-anchor="middle" class="lbl-s">backend unreachable</text></g>
+
+          <text x="150" y="62" class="lbl-s fadein" style="--d:1.9s">Get&nbsp;Started</text>
+          <text x="342" y="62" class="lbl-s fadein" style="--d:1.9s">ready</text>
+          <text x="532" y="62" class="lbl-s fadein" style="--d:1.9s">token</text>
+          <text x="352" y="146" class="lbl-s fadein" style="--d:1.9s">create workspace</text>
+          <text x="470" y="276" class="lbl-s fadein" style="--d:1.9s">admin of a fresh, empty tenant</text>
+          <text x="742" y="146" class="lbl-s fadein" style="--d:2.6s">network failure</text>
+          <text x="700" y="276" class="lbl-s fadein" style="--d:2.6s">health poll succeeds → live restored</text>
+
+          <g class="fadein" style="--d:2.8s">
+            <text x="20" y="316" class="lbl-s">Guards — suspended workspace: sign-in refused with an explanation · deleted workspace: credentials no longer exist · expired token: prompted to sign in again</text>
+            <text x="20" y="330" class="lbl-s">Demo mode is never a dead end: every app keeps working on representative data while the client polls for the backend to return.</text>
+          </g>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">4.2</span> Role-based paths</h2>
+      <p>All four roles share one interface; the surface differs. Permissions are enforced on the server — hiding a button is presentation, not security.</p>
+      <table>
+        <thead><tr><th>Capability</th><th>Admin</th><th>HR</th><th>Manager</th><th>Employee</th></tr></thead>
+        <tbody>
+          <tr><td>Ask questions, search, export answers</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Upload and delete own documents</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Dashboards, analytics, SQL Studio</td><td>✓</td><td>—</td><td>✓</td><td>—</td></tr>
+          <tr><td>Approve human-in-the-loop workflow steps</td><td>✓</td><td>—</td><td>✓</td><td>—</td></tr>
+          <tr><td>Hire and manage staff</td><td>✓</td><td>✓ <span class="lbl-s">(manager/employee only)</span></td><td>—</td><td>—</td></tr>
+          <tr><td>Audit log, model configuration, connectors</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>Delete the workspace</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>Manage <em>other companies'</em> workspaces</td><td colspan="4">Platform owner only — configured by environment, disabled by default</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">4.3</span> Document lifecycle</h2>
+      <p>From a file on a laptop to a citation in an answer, and back out again when it is deleted.</p>
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 4.2</span> Ingestion pipeline
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 250" role="img" aria-label="Animated document ingestion pipeline">
+          <path class="wire draw" style="--len:840;--d:.2s" d="M104 60 H176 M280 60 H352 M456 60 H528 M632 60 H704 M808 60 H864" stroke="url(#jg)" stroke-width="2" marker-end="url(#ar)"/>
+          <g class="pop" style="--d:.1s"><rect x="14" y="38" width="90" height="44" rx="10" class="box"/><text x="59" y="56" text-anchor="middle" class="lbl">Upload</text><text x="59" y="72" text-anchor="middle" class="lbl-s">10 formats</text></g>
+          <g class="pop" style="--d:.4s"><rect x="176" y="38" width="104" height="44" rx="10" class="box"/><text x="228" y="56" text-anchor="middle" class="lbl">Parse</text><text x="228" y="72" text-anchor="middle" class="lbl-s">OCR · vision</text></g>
+          <g class="pop" style="--d:.7s"><rect x="352" y="38" width="104" height="44" rx="10" class="box"/><text x="404" y="56" text-anchor="middle" class="lbl">Chunk</text><text x="404" y="72" text-anchor="middle" class="lbl-s">semantic split</text></g>
+          <g class="pop" style="--d:1s"><rect x="528" y="38" width="104" height="44" rx="10" class="box"/><text x="580" y="56" text-anchor="middle" class="lbl">Embed</text><text x="580" y="72" text-anchor="middle" class="lbl-s">vector + BM25</text></g>
+          <g class="pop" style="--d:1.3s"><rect x="704" y="38" width="104" height="44" rx="10" class="box"/><text x="756" y="56" text-anchor="middle" class="lbl">Enrich</text><text x="756" y="72" text-anchor="middle" class="lbl-s">entities · PII</text></g>
+          <g class="pop" style="--d:1.6s"><rect x="864" y="30" width="102" height="60" rx="10" fill="rgba(52,211,153,.09)" stroke="rgba(52,211,153,.45)"/><text x="915" y="54" text-anchor="middle" class="lbl-b" fill="#34d399">Indexed</text><text x="915" y="70" text-anchor="middle" class="lbl-s">citable</text><text x="915" y="82" text-anchor="middle" class="lbl-s">answerable</text></g>
+
+          <path class="wire draw" style="--len:200;--d:1.75s" d="M404 84 V126 H236 V150" marker-end="url(#ar)"/>
+          <g class="pop" style="--d:2s"><rect x="140" y="150" width="192" height="46" rx="10" fill="rgba(251,191,36,.07)" stroke="rgba(251,191,36,.35)"/><text x="236" y="169" text-anchor="middle" class="lbl" fill="#fbbf24">Tables → real SQL tables</text><text x="236" y="185" text-anchor="middle" class="lbl-s">queried directly, not retrieved as prose</text></g>
+          <path class="wire draw" style="--len:200;--d:1.9s" d="M756 84 V126 H700 V150" marker-end="url(#ar)"/>
+          <g class="pop" style="--d:2.15s"><rect x="586" y="150" width="228" height="46" rx="10" fill="rgba(251,113,133,.07)" stroke="rgba(251,113,133,.35)"/><text x="700" y="169" text-anchor="middle" class="lbl" fill="#fb7185">Sensitive entities flagged</text><text x="700" y="185" text-anchor="middle" class="lbl-s">people · emails · phones → audit on access</text></g>
+
+          <g class="fadein" style="--d:2.4s">
+            <text x="14" y="224" class="lbl-s">Every row created here is stamped with the uploading workspace. Deleting the document removes the chunks, the vectors, the extracted tables and the stored file.</text>
+            <text x="14" y="240" class="lbl-s">Status is polled every 2.5 s while anything is queued or processing, so the interface never claims completion early.</text>
+          </g>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">4.4</span> Question-answering flow</h2>
+      <ol>
+        <li><strong>Ask</strong> — typed, spoken, or triggered by the wake word.</li>
+        <li><strong>Route</strong> — a semantic router reads the request and selects agents; independent subtasks are marked for parallel execution.</li>
+        <li><strong>Retrieve</strong> — keyword and vector searches run and are fused with reciprocal rank fusion, scoped to the workspace.</li>
+        <li><strong>Augment</strong> — relational questions add knowledge-graph paths; questions naming an extracted table go to the SQL agent instead.</li>
+        <li><strong>Generate</strong> — the model answers strictly from retrieved context, streaming tokens as they arrive.</li>
+        <li><strong>Attribute</strong> — citations, a relevance meter, a confidence score and the agent plan are attached.</li>
+        <li><strong>Record</strong> — a span waterfall, a usage event and any personal-data access are written.</li>
+      </ol>
+      <div class="note"><p><b>Failure behaviour at each step:</b> router fails → deterministic keyword routing. Retrieval empty → the answer says so rather than inventing. Model fails → extractive engine. SQL fails → the agent reads the error and rewrites its own query, up to twice. Interrupted mid-run → state is checkpointed per conversation and resumes at the failed node.</p></div>
+    </section>
+
+    <section>
+      <h2><span class="hn">4.5</span> Workspace lifecycle</h2>
+      <table>
+        <thead><tr><th>Event</th><th>Trigger</th><th>Effect</th><th>Reversible</th></tr></thead>
+        <tbody>
+          <tr><td>Created</td><td>Company signs up</td><td>Organisation row + first admin; workspace is empty</td><td>—</td></tr>
+          <tr><td>Populated</td><td>Admin invites staff, uploads, connects tools</td><td>All rows stamped with the workspace</td><td>—</td></tr>
+          <tr><td>Suspended</td><td>Platform owner</td><td>Every member blocked at sign-in with a clear message; all data retained</td><td>Yes — reactivate</td></tr>
+          <tr><td>Self-closed</td><td>Company admin types the workspace name</td><td>Full cascade delete; the admin is returned to the sign-in screen</td><td>No</td></tr>
+          <tr><td>Deleted by owner</td><td>Platform owner types the workspace name</td><td>Same cascade; audit entry written before the rows disappear</td><td>No</td></tr>
+        </tbody>
+      </table>
+      <p>The cascade removes nineteen tables in child-to-parent order, drops the physical tables extracted from that workspace's spreadsheets, and deletes its uploaded files from storage. Neighbouring workspaces are provably untouched — that is asserted in the test suite, not assumed.</p>
+    </section>
+  </article>
+
+  <!-- ═══════════════════ 5 · SCHEMA ═══════════════════ -->
+  <article class="doc" id="schema">
+    <header class="dochead">
+      <div class="kicker">Document 05</div>
+      <h1>Backend Schema</h1>
+      <p class="lead">Twenty-one tables, one tenant column, and the mechanism that makes that column impossible to forget.</p>
+      <div class="meta-row">
+        <span class="chip hot">21 tables</span>
+        <span class="chip">20 tenant-scoped</span>
+        <span class="chip">PostgreSQL / SQLite</span>
+        <span class="chip">RLS closed</span>
+      </div>
+    </header>
+
+    <section>
+      <h2><span class="hn">5.1</span> The organising idea</h2>
+      <p class="lead">Every domain table carries <code>org_id</code>. That single column is the entire multi-tenancy model — and the reason it is safe is that no application code is trusted to apply it.</p>
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 5.1</span> One column, enforced centrally
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 300" role="img" aria-label="Animated diagram of tenant isolation by org_id">
+          <g class="pop" style="--d:.1s">
+            <rect x="392" y="14" width="196" height="60" rx="12" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.55)"/>
+            <text x="490" y="38" text-anchor="middle" class="lbl-b" fill="#c4b5fd">organizations</text>
+            <text x="490" y="55" text-anchor="middle" class="lbl-s">id · name · slug · plan · status</text>
+            <text x="490" y="68" text-anchor="middle" class="lbl-s">the tenant registry</text>
+          </g>
+
+          <path class="wire draw" style="--len:520;--d:.5s" d="M490 76 V104 M150 104 H830 M150 104 V132 M320 104 V132 M490 104 V132 M660 104 V132 M830 104 V132" stroke="rgba(139,92,246,.5)"/>
+
+          <g class="fadein" style="--d:.9s">
+            <rect x="76" y="132" width="148" height="52" rx="10" class="box"/><text x="150" y="152" text-anchor="middle" class="lbl">users</text><text x="150" y="168" text-anchor="middle" class="lbl-s" fill="#34d399">org_id ✓</text>
+            <rect x="246" y="132" width="148" height="52" rx="10" class="box"/><text x="320" y="152" text-anchor="middle" class="lbl">documents</text><text x="320" y="168" text-anchor="middle" class="lbl-s" fill="#34d399">org_id ✓</text>
+            <rect x="416" y="132" width="148" height="52" rx="10" class="box"/><text x="490" y="152" text-anchor="middle" class="lbl">conversations</text><text x="490" y="168" text-anchor="middle" class="lbl-s" fill="#34d399">org_id ✓</text>
+            <rect x="586" y="132" width="148" height="52" rx="10" class="box"/><text x="660" y="152" text-anchor="middle" class="lbl">tasks</text><text x="660" y="168" text-anchor="middle" class="lbl-s" fill="#34d399">org_id ✓</text>
+            <rect x="756" y="132" width="148" height="52" rx="10" class="box"/><text x="830" y="152" text-anchor="middle" class="lbl">+ 16 more</text><text x="830" y="168" text-anchor="middle" class="lbl-s" fill="#34d399">org_id ✓</text>
+          </g>
+
+          <g class="fadein" style="--d:1.6s">
+            <rect x="76" y="212" width="828" height="76" rx="12" fill="rgba(52,211,153,.06)" stroke="rgba(52,211,153,.35)"/>
+            <text x="96" y="234" class="lbl" fill="#34d399">TWO SESSION HOOKS — the whole isolation model</text>
+            <text x="96" y="256" class="lbl-s" font-size="10.5">on every SELECT   →   add “WHERE org_id = &lt;caller's workspace&gt;” to any tenant table in the statement</text>
+            <text x="96" y="274" class="lbl-s" font-size="10.5">before every INSERT →   stamp the new row with the caller's workspace</text>
+          </g>
+          <circle cx="906" cy="250" r="16" fill="rgba(52,211,153,.16)" stroke="#34d399" class="pulse"/>
+          <text x="906" y="255" text-anchor="middle" class="lbl" fill="#34d399">✓</text>
+        </svg>
+        </div>
+      </figure>
+      <div class="note"><p><b>Why nullable:</b> <code>org_id</code> permits NULL deliberately, so an unscoped system insert produces a row that belongs to nobody rather than raising an error. A boot-time migration then adopts any legacy NULL rows into the default workspace — because a <em>user</em> with no workspace would receive no filter at all, which is precisely the leak this design exists to prevent.</p></div>
+    </section>
+
+    <section>
+      <h2><span class="hn">5.2</span> Core entities</h2>
+      <table>
+        <thead><tr><th>Table</th><th>Purpose</th><th>Key columns</th><th>Relationships</th></tr></thead>
+        <tbody>
+          <tr><td><strong>organizations</strong></td><td>The tenant itself</td><td>id, name, slug (unique), plan, status, created_at</td><td>Parent of all 20 tables below</td></tr>
+          <tr><td><strong>users</strong></td><td>People in a workspace</td><td>id, email (unique), hashed_password, role, is_active, last_login</td><td>→ organizations</td></tr>
+          <tr><td><strong>documents</strong></td><td>Uploaded/synced source files</td><td>id, filename, title, doc_type, status, chunk_count, size_bytes</td><td>→ users (owner), → organizations</td></tr>
+          <tr><td><strong>chunks</strong></td><td>Retrievable passages + embeddings</td><td>id, document_id, text, section, page, embedding</td><td>→ documents (cascade delete)</td></tr>
+          <tr><td><strong>conversations / messages</strong></td><td>Chat history</td><td>conversation_id, role, content, citations, confidence</td><td>→ users, → organizations</td></tr>
+          <tr><td><strong>agent_runs</strong></td><td>Telemetry for every agent execution</td><td>agent, status, input, output, duration_ms</td><td>→ users</td></tr>
+          <tr><td><strong>entities / entity_edges / entity_mentions</strong></td><td>The knowledge graph</td><td>key, etype, weight, source_id, target_id</td><td>Self-referential + → documents</td></tr>
+          <tr><td><strong>data_tables</strong></td><td>Registry of tables extracted from files</td><td>table_name, doc_title, columns, row_count</td><td>→ documents</td></tr>
+          <tr><td><strong>workflows / workflow_runs</strong></td><td>Automation definitions and executions</td><td>nodes, edges, trigger, status, pending (checkpoint)</td><td>→ users</td></tr>
+          <tr><td><strong>audit_logs</strong></td><td>Append-only trail</td><td>action, user_id, detail, ip, created_at</td><td>→ users</td></tr>
+          <tr><td><strong>usage_events</strong></td><td>AI metering and cost attribution</td><td>model, tokens_in, tokens_out, feature</td><td>→ users</td></tr>
+          <tr><td><strong>custom_agents · connectors · saved_charts · memory_entries · graph_checkpoints</strong></td><td>Studio agents, external syncs, pinned charts, long-term memory, resumable graph state</td><td>—</td><td>All → organizations</td></tr>
+        </tbody>
+      </table>
+      <div class="note warn"><p><b>Uniqueness is per-workspace, not global.</b> Entity keys and custom-agent slugs originally carried global unique constraints. Under multi-tenancy that would let one company's data block another's — two customers cannot both have an entity called "Acme". The constraints were reduced to indexes; identity is the pair (workspace, key).</p></div>
+    </section>
+
+    <section>
+      <h2><span class="hn">5.3</span> Indexing and integrity</h2>
+      <ul>
+        <li><code>org_id</code> is indexed on all twenty tenant tables — it appears in the WHERE clause of virtually every query.</li>
+        <li>Foreign keys mirror the deletion order: chunks → documents, messages → conversations, mentions → entities.</li>
+        <li>Connection pool sized from load testing: 25 connections with 60 overflow. The default 5+10 exhausted at roughly 60 concurrent users — found by measurement, not guesswork.</li>
+        <li>SQLite development mode enables write-ahead logging and a busy timeout so readers never block behind the single writer.</li>
+      </ul>
+
+      <h3>Database surface hardening</h3>
+      <p>The managed Postgres provider publishes every table in the public schema through an automatic REST API. EAIOS never uses that API, so the surface is closed rather than policed: row-level security is enabled with <strong>no policies</strong> (deny by default), and the API roles' grants are revoked — including through default privileges, so tables created later, such as the dynamic extracted-table set, are never exposed either.</p>
+      <p>This does not affect the application: it connects as the table owner, which is exempt from row-level security. Isolation <em>between companies</em> remains an application-layer guarantee; the database policy exists purely to shut an unused door.</p>
+    </section>
+
+    <section>
+      <h2><span class="hn">5.4</span> Principal API surface</h2>
+      <table>
+        <thead><tr><th>Method &amp; path</th><th>Purpose</th><th>Guard</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /auth/signup</code></td><td>Create a company workspace and its first admin</td><td>Public</td></tr>
+          <tr><td><code>POST /auth/login</code></td><td>Authenticate; returns token, user, workspace</td><td>Public · rate limited · refuses suspended workspaces</td></tr>
+          <tr><td><code>POST /documents/upload</code></td><td>Ingest a file into the pipeline</td><td>Authenticated</td></tr>
+          <tr><td><code>GET /documents</code> · <code>DELETE /documents/{id}</code></td><td>List / remove, with full cleanup</td><td>Authenticated · owner or admin</td></tr>
+          <tr><td><code>POST /chat</code> · <code>POST /chat/stream</code></td><td>Ask a question; streamed variant emits tokens</td><td>Authenticated</td></tr>
+          <tr><td><code>POST /agents/sql</code></td><td>Natural language → guarded, workspace-scoped SQL</td><td>Authenticated · fail-closed guard</td></tr>
+          <tr><td><code>GET /search</code></td><td>Federated search across documents, passages, entities, tables, messages</td><td>Authenticated</td></tr>
+          <tr><td><code>POST /users</code></td><td>Hire a teammate with a generated password</td><td>Admin or HR, with role limits</td></tr>
+          <tr><td><code>GET /orgs</code> · <code>PATCH /orgs/{id}</code> · <code>DELETE /orgs/{id}</code></td><td>List, suspend, delete any workspace</td><td>Platform owner · disabled unless configured</td></tr>
+          <tr><td><code>DELETE /orgs/self/workspace</code></td><td>A company closes its own workspace</td><td>Admin · typed-name confirmation</td></tr>
+          <tr><td><code>GET /me/export</code> · <code>DELETE /me/data</code></td><td>Data portability and erasure</td><td>Authenticated</td></tr>
+          <tr><td><code>WS /ws?token=</code></td><td>Presence, live agent activity, call signalling</td><td>Token in query</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </article>
+
+  <!-- ═══════════════════ 6 · PLAN ═══════════════════ -->
+  <article class="doc" id="plan">
+    <header class="dochead">
+      <div class="kicker">Document 06</div>
+      <h1>Implementation Plan</h1>
+      <p class="lead">How this was built in phases, what each phase proved, and what happens next.</p>
+      <div class="meta-row">
+        <span class="chip hot">8 phases delivered</span>
+        <span class="chip">94 backend tests</span>
+        <span class="chip">Browser suite per feature</span>
+        <span class="chip">Live at eaios.onrender.com</span>
+      </div>
+    </header>
+
+    <section>
+      <h2><span class="hn">6.1</span> Delivery timeline</h2>
+      <figure data-anim>
+        <figcaption><span class="fig-n">Fig 6.1</span> Phases — each bar fills as it completes
+          <button class="replay" data-replay>▷ Replay</button></figcaption>
+        <div class="stage">
+        <svg viewBox="0 0 980 350" role="img" aria-label="Animated delivery timeline">
+          <g class="lbl-s" fill="#68788f">
+            <line x1="150" y1="24" x2="150" y2="326" stroke="rgba(148,163,184,.14)"/>
+            <line x1="360" y1="24" x2="360" y2="326" stroke="rgba(148,163,184,.14)"/>
+            <line x1="570" y1="24" x2="570" y2="326" stroke="rgba(148,163,184,.14)"/>
+            <line x1="780" y1="24" x2="780" y2="326" stroke="rgba(148,163,184,.14)"/>
+            <text x="150" y="18">Weeks 1–4</text><text x="360" y="18">5–8</text><text x="570" y="18">9–12</text><text x="780" y="18">13–16</text>
+          </g>
+          <g class="lbl" fill="#9fb0c8">
+            <text x="10" y="52">Foundation</text><text x="10" y="88">Real models</text><text x="10" y="124">Multimodality</text>
+            <text x="10" y="160">Graph + traces</text><text x="10" y="196">Realtime</text><text x="10" y="232">Automation + KG</text>
+            <text x="10" y="268">Hardening</text><text x="10" y="304">Multi-tenant SaaS</text>
+          </g>
+          <g>
+            <rect x="150" y="40" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="200" dur=".7s" begin="0.1s" fill="freeze"/></rect>
+            <rect x="150" y="76" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="270" dur=".7s" begin="0.35s" fill="freeze"/></rect>
+            <rect x="255" y="112" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="260" dur=".7s" begin="0.6s" fill="freeze"/></rect>
+            <rect x="465" y="148" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="210" dur=".7s" begin="0.85s" fill="freeze"/></rect>
+            <rect x="570" y="184" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="160" dur=".7s" begin="1.1s" fill="freeze"/></rect>
+            <rect x="620" y="220" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="215" dur=".7s" begin="1.35s" fill="freeze"/></rect>
+            <rect x="730" y="256" width="0" height="18" rx="9" fill="url(#jg)"><animate attributeName="width" from="0" to="180" dur=".7s" begin="1.6s" fill="freeze"/></rect>
+            <rect x="800" y="292" width="0" height="18" rx="9" fill="rgba(52,211,153,.85)"><animate attributeName="width" from="0" to="160" dur=".7s" begin="1.85s" fill="freeze"/></rect>
+          </g>
+          <g class="fadein lbl-s" style="--d:2.6s" fill="#68788f">
+            <text x="360" y="54">auth · RBAC · hybrid RAG · 8 agents · OS shell</text>
+            <text x="430" y="90">Ollama · OpenRouter · embeddings</text>
+            <text x="525" y="126">OCR · vision · tables → SQL</text>
+            <text x="685" y="162">StateGraph · span traces</text>
+            <text x="740" y="198">WebSocket presence</text>
+            <text x="845" y="234">workflows · KG</text>
+            <text x="800" y="270">k8s · load test</text>
+            <text x="800" y="322" fill="#34d399">isolation · signup · workspace lifecycle · mobile shell</text>
+          </g>
+        </svg>
+        </div>
+      </figure>
+    </section>
+
+    <section>
+      <h2><span class="hn">6.2</span> Phase detail</h2>
+      <table>
+        <thead><tr><th>Phase</th><th>Delivered</th><th>Proof it worked</th></tr></thead>
+        <tbody>
+          <tr><td><strong>0 · Foundation</strong></td><td>JWT auth, RBAC, audit, SQLAlchemy schema, hybrid RAG, agent orchestrator, OS-metaphor frontend, Docker, CI</td><td>Cited answer from a seeded corpus; smoke tests green</td></tr>
+          <tr><td><strong>1 · Real models</strong></td><td>Ollama auto-detection, OpenRouter provider, runtime model switching, temperature control</td><td>Live Llama answered a policy question with six citations at 93% confidence</td></tr>
+          <tr><td><strong>2 · Multimodality</strong></td><td>OCR, vision captioning, nested-table extraction into physical SQL tables</td><td>A spreadsheet became a queryable table; the SQL agent aggregated over it</td></tr>
+          <tr><td><strong>3 · Graph &amp; observability</strong></td><td>StateGraph orchestrator, parallel fan-out, span waterfall, checkpointed resume</td><td>Traces app shows per-agent timings; an interrupted run resumed mid-graph</td></tr>
+          <tr><td><strong>4 · Realtime</strong></td><td>WebSocket hub, presence avatars, live agent feed, notification centre</td><td>Two browsers see each other; events stream between them</td></tr>
+          <tr><td><strong>5 · Automation &amp; knowledge graph</strong></td><td>Drag-and-drop workflow canvas, approval nodes, entity extraction, graph explorer</td><td>An upload-triggered workflow ran end to end; relational questions answered with paths</td></tr>
+          <tr><td><strong>6 · Production hardening</strong></td><td>Rate limiting, load testing, Helm chart, CI/CD, cloud persistence, PWA</td><td>100 concurrent users at 98 req/s with zero errors; a real pool-exhaustion bug found and fixed</td></tr>
+          <tr><td><strong>7 · Multi-tenant SaaS</strong></td><td>Organisations, ORM-level isolation, company signup, setup guide, workspace suspend/delete, database hardening, mobile shell</td><td>Isolation suite proves two companies cannot see each other; verified on the live deployment</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">6.3</span> Testing strategy</h2>
+      <div class="grid g2">
+        <div class="card"><div class="tag">Layer 1</div><h4>Backend unit &amp; integration — 94 tests</h4><p>Every route, guard and service. Includes a dedicated isolation suite, a fail-closed SQL-guard suite and database-hardening tests.</p></div>
+        <div class="card"><div class="tag">Layer 2</div><h4>Retrieval quality gate</h4><p>An evaluation set runs in CI with thresholds on hit-rate and mean reciprocal rank. Retrieval regressions fail the build like any other bug.</p></div>
+        <div class="card"><div class="tag">Layer 3</div><h4>Headless browser suites</h4><p>Real user journeys per feature: signup, upload through the file dialog, workspace deletion, two-user video calls, and every app opening without a crash.</p></div>
+        <div class="card"><div class="tag">Layer 4</div><h4>Device matrix</h4><p>iPhone SE, iPhone 14 Pro, iPad mini, iPad Pro and desktop — asserting no horizontal scroll, reachable controls and an unchanged desktop layout.</p></div>
+        <div class="card"><div class="tag">Layer 5</div><h4>Load testing</h4><p>100 concurrent users against the real API. This is what exposed the connection-pool ceiling.</p></div>
+        <div class="card"><div class="tag">Layer 6</div><h4>Visual verification</h4><p>Screenshots are rendered and inspected. Twice, assertions passed while the interface was visibly wrong — only looking caught it.</p></div>
+      </div>
+      <div class="note"><p><b>Practice that repeatedly paid off:</b> when a bug is found, first write the assertion that reproduces it. Every entry in the isolation suite exists because a specific leak was imagined, tested, and closed.</p></div>
+    </section>
+
+    <section>
+      <h2><span class="hn">6.4</span> Risks and mitigations</h2>
+      <table>
+        <thead><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Cross-tenant data leak</td><td>Critical — would end commercial viability</td><td>Isolation at the ORM layer, a fail-closed raw-SQL guard, and a test suite that attempts the leak from six directions</td></tr>
+          <tr><td>Model provider outage or quota</td><td>High — demo stalls</td><td>Three-tier fallback ending in a deterministic local engine; the interface never blocks on an external call</td></tr>
+          <tr><td>Free-tier cold start</td><td>Medium — 50 s first load</td><td>Scheduled health pings keep the instance warm</td></tr>
+          <tr><td>Ephemeral container storage</td><td>High — uploads lost on redeploy</td><td>Database and files moved to managed services; files re-fetched on demand</td></tr>
+          <tr><td>Stale cached frontend after deploy</td><td>Medium — mixed bundles crash the app</td><td>Network-first service worker, cache versioning, single reload on controller change, self-healing error boundary</td></tr>
+          <tr><td>Extracted tables lack a tenant column</td><td>Medium — theoretical guess-the-name access</td><td>Name validation against the caller's own tables plus an org-scoped schema listing; a tenant column is the next phase's first task</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2><span class="hn">6.5</span> What comes next</h2>
+      <ol>
+        <li><strong>Tenant column on extracted tables</strong> — closes the one honest gap in the isolation model.</li>
+        <li><strong>Billing and plan limits</strong> — the schema already carries a plan field; metering already records usage per workspace.</li>
+        <li><strong>Confidential computing</strong> — the design document exists; execution inside a hardware-attested enclave with remote attestation is the natural next security step.</li>
+        <li><strong>Fine-tuning from feedback</strong> — export approved answers, train an adapter, serve it locally.</li>
+        <li><strong>Collaborative editing</strong> — a shared notes surface using conflict-free replicated data types.</li>
+      </ol>
+      <div class="note"><p><b>Current status:</b> deployed and live, serving isolated workspaces, with the full test suite green. Every requirement marked <span class="pill p-done">Shipped</span> in Document 01 was verified on the running system, not only in development.</p></div>
+    </section>
+  </article>
+
+  </main>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   Animation engine
+   1. Document switching (six documents, one page).
+   2. Figures animate when scrolled into view, and can be replayed.
+   Every path measures its own length so the draw-on timing is correct
+   regardless of geometry — no hardcoded dash arrays to drift.
+   ══════════════════════════════════════════════════════════════════ */
+(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── measure every drawable path so --len matches reality ── */
+  function measure(root) {
+    root.querySelectorAll('.draw').forEach(function (p) {
+      try {
+        var len = p.getTotalLength();
+        if (len && isFinite(len)) p.style.setProperty('--len', Math.ceil(len));
+      } catch (e) { /* non-path element: keep the authored fallback */ }
+    });
+  }
+
+  /* ── play a figure ── */
+  function play(fig) {
+    var stage = fig.querySelector('.stage') || fig;
+    measure(fig);
+    stage.classList.remove('run');
+    void stage.offsetWidth;              // force reflow so animations restart
+    stage.classList.add('run');
+    fig.querySelectorAll('animate').forEach(function (a) {
+      if (typeof a.beginElement === 'function') { try { a.beginElement(); } catch (e) {} }
+    });
+  }
+
+  /* ── run figures as they enter the viewport ── */
+  var seen = new WeakSet();
+  var io = 'IntersectionObserver' in window ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting && !seen.has(en.target)) { seen.add(en.target); play(en.target); }
+    });
+  }, { threshold: 0.25 }) : null;
+
+  function arm(scope) {
+    scope.querySelectorAll('figure[data-anim]').forEach(function (fig) {
+      if (reduce) { (fig.querySelector('.stage') || fig).classList.add('run'); return; }
+      if (io) io.observe(fig); else play(fig);
+    });
+  }
+
+  /* replay buttons */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-replay]');
+    if (!b) return;
+    var fig = b.closest('figure');
+    seen.delete(fig);
+    play(fig);
+  });
+
+  /* ── document switching ── */
+  var docs = Array.prototype.slice.call(document.querySelectorAll('.doc'));
+  var navs = Array.prototype.slice.call(document.querySelectorAll('.nav-item'));
+
+  function show(id, push) {
+    docs.forEach(function (d) { d.classList.toggle('on', d.id === id); });
+    navs.forEach(function (n) { n.classList.toggle('on', n.dataset.go === id); });
+    document.documentElement.dataset.doc = id;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    var active = document.getElementById(id);
+    if (active) {
+      // figures in a hidden document have zero size, so arm them on reveal
+      active.querySelectorAll('figure[data-anim]').forEach(function (f) { seen.delete(f); });
+      arm(active);
+    }
+    if (push) history.replaceState(null, '', '#' + id);
+  }
+
+  navs.forEach(function (n) {
+    n.addEventListener('click', function () { show(n.dataset.go, true); });
+  });
+
+  /* keyboard: ← → move between documents */
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    var order = navs.map(function (n) { return n.dataset.go; });
+    var i = order.indexOf(document.documentElement.dataset.doc);
+    var next = e.key === 'ArrowRight' ? i + 1 : i - 1;
+    if (next >= 0 && next < order.length) show(order[next], true);
+  });
+
+  /* deep link on load, e.g. …/EAIOS-Design-Documentation.html#schema */
+  var initial = (location.hash || '').replace('#', '');
+  if (initial && document.getElementById(initial)) show(initial, false);
+  else arm(document);
+})();
+</script>
+</body>
+</html>
