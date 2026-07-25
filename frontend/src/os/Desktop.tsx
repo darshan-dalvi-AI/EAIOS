@@ -22,6 +22,7 @@ import { useOS } from "../store";
 import type { AppId } from "../types";
 import CommandPalette from "./CommandPalette";
 import Dock from "./Dock";
+import MobileTabBar from "./MobileTabBar";
 import MenuBar from "./MenuBar";
 import SetupGuide from "./SetupGuide";
 import Toasts from "./Toasts";
@@ -96,9 +97,10 @@ export default function Desktop() {
       {(windows.length === 0 || allMinimized) && (
         <div className="empty" style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
           <div className="boot-logo" style={{ fontSize: 26, opacity: 0.7 }}>EAIOS</div>
-          <div>
-            Press <span className="kbd">Ctrl</span> + <span className="kbd">K</span> or pick an app from the dock
+          <div className="hide-on-phone">
+            Press <span className="kbd">Ctrl</span> + <span className="kbd">K</span> or pick an app from the taskbar
           </div>
+          <div className="show-on-phone">Tap an app below to get started</div>
         </div>
       )}
       <div style={{ position: "fixed", inset: 0, zIndex: "var(--z-window)" as unknown as number }}>
@@ -115,6 +117,7 @@ export default function Desktop() {
         })}
       </div>
       <Dock />
+      <MobileTabBar />
       <Toasts />
       {paletteOpen && <CommandPalette />}
       {wake && <WakeWord />}

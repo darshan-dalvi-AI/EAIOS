@@ -109,7 +109,7 @@ export default function AdminApp() {
         )}
 
         {activeTab === "models" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="rgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {PROVIDERS.map((p) => (
               <button
                 key={p.id}
@@ -254,7 +254,7 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
         <div className="palette-section" style={{ padding: "0 0 10px", display: "flex", gap: 6, alignItems: "center" }}>
           <UserPlus size={13} /> Add a teammate {isHR ? "(manager / employee)" : "(any role)"}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 0.9fr", gap: 8 }}>
+        <div className="rgrid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 0.9fr", gap: 8 }}>
           <div className="field"><input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Full name" aria-label="Full name" /></div>
           <div className="field"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="work email" aria-label="Email" /></div>
           <select className="plain" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} aria-label="Role">

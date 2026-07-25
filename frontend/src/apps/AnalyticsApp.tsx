@@ -74,7 +74,7 @@ export default function AnalyticsApp() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="rgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div className="card">
             <h3 className="h-display" style={{ fontSize: 13.5, marginBottom: 10 }}>Documents by type</h3>
             <div style={{ height: 185 }}>

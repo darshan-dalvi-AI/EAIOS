@@ -200,7 +200,7 @@ export default function ChatApp() {
       </div>
 
       <form
-        className="app-toolbar"
+        className="app-toolbar chat-composer"
         style={{ borderTop: "1px solid var(--hairline)", borderBottom: "none" }}
         onSubmit={(e) => { e.preventDefault(); void send(input); }}
       >
@@ -224,11 +224,11 @@ export default function ChatApp() {
         </button>
         {busy ? (
           <button type="button" className="btn" onClick={stop} aria-label="Stop generation" title="Stop generation">
-            <Square size={13} /> Stop
+            <Square size={13} /> <span className="btn-label">Stop</span>
           </button>
         ) : (
           <button className="btn primary" disabled={!input.trim()} aria-label="Send message">
-            <Send size={14} /> Send
+            <Send size={14} /> <span className="btn-label">Send</span>
           </button>
         )}
       </form>

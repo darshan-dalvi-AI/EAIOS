@@ -796,8 +796,12 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   .menubar > .mb-item { display: none; }        /* File · View · Agents · Help */
   .mb-right span.mb-item { display: none; }     /* decorative wifi glyph */
 
+  /* One source of truth for the bottom nav height — the window reserves
+     exactly what the tab bar occupies, so no content hides underneath it. */
+  .tabbar { min-height: var(--botnav-h); }
   .window { top: calc(44px + env(safe-area-inset-top, 0px)) !important;
-    height: calc(100dvh - 44px - env(safe-area-inset-top, 0px) - 62px - env(safe-area-inset-bottom, 0px)) !important; }
+    height: calc(100dvh - 44px - env(safe-area-inset-top, 0px)
+                 - var(--botnav-h) - env(safe-area-inset-bottom, 0px)) !important; }
 
   /* ── Dock: comfortable touch targets + room for the home indicator ── */
   .dock { padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
@@ -822,6 +826,87 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 
   /* Setup guide sits above the dock, never under it. */
   .setup-guide { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+}
+
+.show-on-phone { display: none; }
+@media (max-width: 740px) { .hide-on-phone { display: none; } .show-on-phone { display: block; } }
+
+/* ── Phone navigation: bottom tab bar + all-apps sheet ───────────────────
+   Hidden on desktop, where the taskbar dock is the right idiom. */
+.tabbar, .app-sheet { display: none; }
+
+@media (max-width: 740px) {
+  :root { --botnav-h: 66px; }                 /* tab bar height, shared below */
+  .dock-zone { display: none; }               /* the 18-icon scrolling dock */
+
+  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0;
+    z-index: var(--z-dock, 700); align-items: stretch; justify-content: space-around;
+    padding: 4px 2px calc(4px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--surface-solid, #0a0e19) 92%, transparent);
+    backdrop-filter: blur(18px); border-top: 1px solid var(--hairline-strong); }
+  .tabbar-item { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px; padding: 6px 2px;
+    border: 0; background: none; border-radius: 12px; color: var(--text-faint);
+    font-size: 10px; font-weight: 550; cursor: pointer; min-height: 52px; }
+  .tabbar-item span:last-child { max-width: 100%; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .tabbar-item .app-icon { width: 26px; height: 26px; border-radius: 8px; }
+  .tabbar-item.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .tab-more { display: grid; place-items: center; width: 26px; height: 26px;
+    border-radius: 8px; background: var(--surface-2); color: inherit; }
+
+  .app-sheet { display: flex; flex-direction: column; position: fixed; inset: 0;
+    z-index: 1200; background: var(--surface-solid, #0a0e19);
+    padding-top: env(safe-area-inset-top, 0px);
+    animation: sheet-up .22s cubic-bezier(.2,.9,.25,1); }
+  @keyframes sheet-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  .app-sheet-head { display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 10px; font-size: 15px; }
+  .app-sheet-grid { flex: 1; overflow-y: auto; display: grid;
+    grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px 12px 28px; align-content: start; }
+  .app-sheet-item { display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 12px 4px; border: 0; background: none; border-radius: 14px; cursor: pointer;
+    color: var(--text-dim); font-size: 10.5px; line-height: 1.25; text-align: center; }
+  .app-sheet-item .app-icon { width: 42px; height: 42px; border-radius: 13px; }
+  .app-sheet-item.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+
+  /* Window chrome is meaningless when every app is full-screen: drop the
+     minimize/maximize buttons and slim the header to a title + close. */
+  /* A full-screen window has no edges to draw: side/bottom borders only ate
+     4px of the row and pushed the close button past the right edge. */
+  .window { border-left: 0; border-right: 0; border-bottom: 0; }
+  .titlebar { height: 38px; padding: 0 0 0 12px; cursor: default; }
+  .cap-btn.hide-mobile { display: none; }
+  /* The desktop bleeds the caption controls 12px into the title bar padding;
+     with no right padding on a phone that pushed Close off the screen. */
+  .caption-controls { margin-right: 0; }
+  .caption-controls .cap-btn { width: 44px; height: 38px; }
+
+  /* Toolbars: tabs scroll sideways instead of wrapping into a tall stack. */
+  .app-toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+  .app-toolbar::-webkit-scrollbar { display: none; }
+  .app-toolbar > * { flex: none; }
+  .app-pane { position: relative; }   /* anchor for the detail sheet below */
+
+  /* The chat composer is the one toolbar that must NOT scroll: the field
+     takes the space and the buttons shrink to icons. */
+  .chat-composer { overflow: visible; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .chat-composer .field { flex: 1 1 auto !important; min-width: 0; }
+  .chat-composer .btn { padding: 0 11px; min-width: 44px; justify-content: center; }
+  .btn-label { display: none; }
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; }
+
+  /* Forms stop being two-column grids that run off the edge. */
+  .rgrid { grid-template-columns: 1fr !important; }
+  .app-content > .card { padding: 12px; }
+
+  /* Detail panes (document details, inspectors) slide over the list as a
+     sheet instead of squeezing it to a sliver of a 390px screen. */
+  .app-pane > .app-sidebar { position: absolute; inset: 0; width: 100% !important;
+    z-index: 30; border-left: 0 !important;
+    background: var(--surface-solid, #0a0e19); overflow-y: auto; }
 }
 
 /* Tablets and small laptops (≤1024px): the menu bar carries presence chips,

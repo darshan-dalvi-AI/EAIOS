@@ -200,7 +200,7 @@ export default function KnowledgeApp() {
         </div>
 
         <div className="app-content">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
+          <div className="rgrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 12 }}>
             {filtered.map((doc) => {
               const t = TYPE_ICON[doc.doc_type] ?? TYPE_ICON.txt;
               return (

@@ -125,7 +125,7 @@ export default function DashboardsApp() {
         {pins.length > 0 && (
           <>
             <div className="palette-section">Pinned dashboard</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+            <div className="rgrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
               {pins.map((c) => (
                 <div key={c.id} className="card">
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>

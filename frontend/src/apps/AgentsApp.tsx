@@ -58,7 +58,7 @@ export default function AgentsApp() {
         </div>
 
         <div className="app-content">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
+          <div className="rgrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 }}>
             {agents.map((agent) => (
               <div key={agent.id} className="card hover" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

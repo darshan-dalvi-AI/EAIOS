@@ -99,10 +99,10 @@ export default function Window({ win, children }: { win: Win; children: ReactNod
               {APP_META[win.id].name}
             </div>
             <div className="caption-controls">
-              <button className="cap-btn" onClick={() => minimize(win.id)} aria-label="Minimize window">
+              <button className="cap-btn hide-mobile" onClick={() => minimize(win.id)} aria-label="Minimize window">
                 <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.1"><path d="M0 5h10" /></svg>
               </button>
-              <button className="cap-btn" onClick={() => toggleMax(win.id)} aria-label="Maximize window">
+              <button className="cap-btn hide-mobile" onClick={() => toggleMax(win.id)} aria-label="Maximize window">
                 {win.maximized
                   ? <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1"><rect x="0.5" y="2.5" width="7" height="7" /><path d="M2.5 2.5v-2h7v7h-2" /></svg>
                   : <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1"><rect x="0.5" y="0.5" width="9" height="9" /></svg>}
