@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import errors
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
 from app.models import Connector, User
@@ -55,11 +56,18 @@ def sync_connector(body: SyncIn, db: Session = Depends(get_db), user: User = Dep
     db.commit()
     try:
         count = connectors.sync(db, connector, body.token)
-    except Exception as exc:  # noqa: BLE001 — surface provider/token errors to the UI
+    except HTTPException:
         connector.status = "error"
-        connector.detail = str(exc)[:500]
         db.commit()
-        raise HTTPException(400, f"Sync failed: {exc}") from exc
+        raise
+    except Exception as exc:  # noqa: BLE001 — provider/token failures
+        # The raw text can contain the request URL, and therefore the access
+        # token, so it is logged (redacted) rather than returned.
+        message, _ref = errors.public_message(exc, f"connector sync ({connector.provider})")
+        connector.status = "error"
+        connector.detail = message[:500]
+        db.commit()
+        raise HTTPException(400, message) from exc
 
     from datetime import datetime, timezone
 

@@ -40,7 +40,11 @@ def test_middleware_returns_429(monkeypatch):
         r3 = c.post("/api/auth/login", json=body)
         assert r3.status_code == 429
         assert "Retry-After" in r3.headers
-        assert "Rate limit" in r3.json()["detail"]
+        # The refusal is deliberately generic: the old message echoed the exact
+        # policy ("20/60s"), which tells an attacker precisely how to pace itself.
+        detail = r3.json()["detail"]
+        assert "Too many requests" in detail
+        assert "/60s" not in detail and "capacity" not in detail.lower()
 
 
 def test_disabled_flag_bypasses(monkeypatch):

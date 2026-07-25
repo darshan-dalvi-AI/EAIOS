@@ -1,6 +1,8 @@
 """Pydantic request/response contracts."""
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -11,13 +13,13 @@ class ORMModel(BaseModel):
 # ── Auth ─────────────────────────────────────────────────────────
 class LoginIn(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=200)
 
 
 class RegisterIn(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=120)
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=200)
 
 
 class SignupIn(BaseModel):
@@ -46,9 +48,9 @@ class UserOut(ORMModel):
 
 
 class UserUpdate(BaseModel):
-    role: str | None = None
+    role: Literal["admin", "hr", "manager", "employee"] | None = None
     is_active: bool | None = None
-    full_name: str | None = None
+    full_name: str | None = Field(default=None, min_length=2, max_length=120)
 
 
 class UserCreate(BaseModel):
@@ -56,7 +58,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=120)
     password: str = Field(min_length=8, max_length=200)
-    role: str = "employee"  # admin | manager | employee
+    role: Literal["admin", "hr", "manager", "employee"] = "employee"
 
 
 # ── Documents ────────────────────────────────────────────────────
@@ -83,9 +85,9 @@ class ChunkOut(ORMModel):
 
 # ── Chat ─────────────────────────────────────────────────────────
 class ChatIn(BaseModel):
-    message: str
-    conversation_id: str | None = None
-    agent: str | None = None  # force a specific agent; default → planner routes
+    message: str = Field(min_length=1, max_length=8000)
+    conversation_id: str | None = Field(default=None, max_length=64)
+    agent: str | None = Field(default=None, max_length=64)  # force a specific agent; default → planner routes
 
 
 class Citation(BaseModel):
@@ -139,7 +141,7 @@ class AgentRunOut(ORMModel):
 
 # ── SQL assistant ────────────────────────────────────────────────
 class SQLIn(BaseModel):
-    question: str
+    question: str = Field(min_length=1, max_length=2000)
 
 
 class SQLOut(BaseModel):

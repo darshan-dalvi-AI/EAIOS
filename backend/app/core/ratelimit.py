@@ -28,17 +28,57 @@ class Rule:
     capacity: int          # tokens per window
     per_seconds: int       # window length
     by_user: bool = True   # key on bearer token when present (else IP)
+    # Authentication routes additionally key on the *account* being targeted,
+    # so a distributed attack on one account is limited even when every
+    # request arrives from a different address.
+    by_account: bool = False
+    # Repeated abuse of an auth route backs off exponentially instead of
+    # locking the account, which would itself be a denial-of-service vector.
+    backoff: bool = False
 
 
-# method, path-prefix → rule
-RULES: list[tuple[str, str, Rule]] = [
-    ("POST", "/api/auth/login",     Rule("login",    20, 60, by_user=False)),
-    ("POST", "/api/auth/register",  Rule("register", 10, 60, by_user=False)),
-    ("POST", "/api/chat",           Rule("chat",     60, 60)),
-    ("POST", "/api/documents",      Rule("upload",   60, 3600)),
-    ("POST", "/api/workflows",      Rule("wf-run",   30, 60)),
-    ("POST", "/api/agents/sql",     Rule("sql",      60, 60)),
-]
+def _r(name: str, cap_default: int, per_default: int, **kw) -> Rule:
+    """Build a rule, letting deployment override both numbers.
+
+    Thresholds are read from settings so they can be tuned per environment
+    (a public demo wants different numbers from an internal deployment)
+    without editing code. Env names follow RL_<NAME>_CAPACITY / _WINDOW.
+    """
+    cap = getattr(settings, f"RL_{name.upper().replace('-', '_')}_CAPACITY", 0) or cap_default
+    per = getattr(settings, f"RL_{name.upper().replace('-', '_')}_WINDOW", 0) or per_default
+    return Rule(name, int(cap), int(per), **kw)
+
+
+def build_rules() -> list[tuple[str, str, Rule]]:
+    """Method, path-prefix → rule. Tiered by how sensitive the endpoint is:
+    strict on authentication, moderate on public/expensive routes, generous
+    on ordinary authenticated actions."""
+    return [
+        # ── tier 1: authentication — strictest, per-IP AND per-account ──
+        ("POST", "/api/auth/login",    _r("login",    10, 60, by_user=False, by_account=True, backoff=True)),
+        ("POST", "/api/auth/signup",   _r("signup",    5, 3600, by_user=False, backoff=True)),
+        ("POST", "/api/auth/register", _r("register",  5, 3600, by_user=False, backoff=True)),
+        # ── tier 2: expensive or externally-reaching authenticated work ──
+        ("POST", "/api/documents",     _r("upload",   40, 3600)),
+        ("POST", "/api/connectors",    _r("connector", 20, 3600)),
+        ("POST", "/api/agents/sql",    _r("sql",      60, 60)),
+        ("POST", "/api/workflows",     _r("wf-run",   30, 60)),
+        ("POST", "/api/reports",       _r("report",   30, 60)),
+        # ── tier 3: ordinary authenticated interaction — generous ──
+        ("POST", "/api/chat",          _r("chat",     60, 60)),
+        ("GET",  "/api/search",        _r("search",  120, 60)),
+        # ── destructive administration ──
+        ("DELETE", "/api/orgs",        _r("org-del",   5, 3600)),
+    ]
+
+
+RULES: list[tuple[str, str, Rule]] = build_rules()
+
+
+def reload_rules() -> None:
+    """Re-read thresholds from settings (used by tests and after config change)."""
+    global RULES
+    RULES = build_rules()
 
 
 class _MemoryBuckets:
@@ -102,17 +142,60 @@ def get_backend():
     return _backend
 
 
+def _client_ip(request: Request) -> str:
+    ip = request.client.host if request.client else "unknown"
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        ip = fwd.split(",")[0].strip()
+    return ip
+
+
 def _client_key(request: Request, rule: Rule) -> str:
     if rule.by_user:
         auth = request.headers.get("authorization", "")
         if auth.startswith("Bearer "):
             digest = hashlib.sha256(auth.encode()).hexdigest()[:16]
             return f"{rule.name}:u:{digest}"
-    ip = request.client.host if request.client else "unknown"
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        ip = fwd.split(",")[0].strip()
-    return f"{rule.name}:ip:{ip}"
+    return f"{rule.name}:ip:{_client_ip(request)}"
+
+
+# ── exponential backoff for authentication routes ────────────────────────
+# A hard lockout is itself an attack: anyone who knows an email can lock the
+# owner out. Instead each additional rejection doubles the wait for that
+# key, capped, and the penalty decays once the caller behaves.
+_penalties: dict[str, tuple[int, float]] = {}   # key → (strikes, expires_at)
+_pen_lock = threading.Lock()
+_BACKOFF_BASE = 2          # seconds
+_BACKOFF_MAX = 15 * 60     # never wait longer than 15 minutes
+
+
+def _backoff_check(key: str) -> int:
+    """Return seconds still to wait, or 0 if the caller may proceed."""
+    now = time.monotonic()
+    with _pen_lock:
+        strikes, expires = _penalties.get(key, (0, 0.0))
+        if strikes and now >= expires and now - expires > _BACKOFF_MAX:
+            _penalties.pop(key, None)          # long-quiet caller forgiven
+            return 0
+        return max(0, int(expires - now))
+
+
+def _backoff_strike(key: str) -> int:
+    """Record a rejection and return the new wait in seconds."""
+    now = time.monotonic()
+    with _pen_lock:
+        strikes, _ = _penalties.get(key, (0, 0.0))
+        strikes += 1
+        wait = min(_BACKOFF_BASE * (2 ** (strikes - 1)), _BACKOFF_MAX)
+        _penalties[key] = (strikes, now + wait)
+        return wait
+
+
+def clear_backoff(key_prefix: str = "") -> None:
+    """Forget penalties — called on a *successful* login, and by tests."""
+    with _pen_lock:
+        for k in [k for k in _penalties if not key_prefix or k.startswith(key_prefix)]:
+            _penalties.pop(k, None)
 
 
 def _match(method: str, path: str) -> Rule | None:
@@ -122,6 +205,32 @@ def _match(method: str, path: str) -> Rule | None:
     return None
 
 
+def _too_many(rule: Rule, retry_after: int) -> JSONResponse:
+    """One shape of refusal for every limiter, with no internal detail."""
+    return JSONResponse(
+        status_code=429,
+        content={"detail": f"Too many requests. Please try again in {retry_after}s."},
+        headers={"Retry-After": str(max(1, retry_after))},
+    )
+
+
+async def _target_account(request: Request) -> str | None:
+    """Read the email an auth request is aimed at, without consuming the body.
+
+    Starlette caches the body on the request, so the route handler still
+    receives it after we peek."""
+    try:
+        body = await request.body()
+        if not body or len(body) > 8192:
+            return None
+        import json
+        data = json.loads(body)
+        email = data.get("email")
+        return email.strip().lower()[:255] if isinstance(email, str) else None
+    except Exception:  # noqa: BLE001 — malformed body is the route's problem, not ours
+        return None
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not settings.RATE_LIMIT_ENABLED:
@@ -129,13 +238,38 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         rule = _match(request.method, request.url.path)
         if rule is None:
             return await call_next(request)
-        allowed, retry_after = get_backend().allow(_client_key(request, rule), rule)
-        if allowed:
-            return await call_next(request)
-        log.warning("429 %s %s (%s)", request.method, request.url.path, rule.name)
-        return JSONResponse(
-            status_code=429,
-            content={"detail": f"Rate limit exceeded ({rule.capacity}/{rule.per_seconds}s). "
-                               f"Try again in {retry_after}s."},
-            headers={"Retry-After": str(retry_after)},
-        )
+
+        backend = get_backend()
+        keys = [_client_key(request, rule)]
+
+        # Authentication routes are additionally limited per targeted account,
+        # so rotating source addresses does not buy extra attempts.
+        if rule.by_account:
+            account = await _target_account(request)
+            if account:
+                digest = hashlib.sha256(account.encode()).hexdigest()[:16]
+                keys.append(f"{rule.name}:acct:{digest}")
+
+        # Serving a penalty from earlier abuse?
+        if rule.backoff:
+            for k in keys:
+                wait = _backoff_check(k)
+                if wait:
+                    log.warning("429 (backoff %ss) %s %s", wait, request.method, request.url.path)
+                    return _too_many(rule, wait)
+
+        for k in keys:
+            allowed, retry_after = backend.allow(k, rule)
+            if not allowed:
+                if rule.backoff:
+                    retry_after = max(retry_after, _backoff_strike(k))
+                log.warning("429 %s %s (%s)", request.method, request.url.path, rule.name)
+                return _too_many(rule, retry_after)
+
+        response = await call_next(request)
+
+        # A successful sign-in clears the penalty for that account and address.
+        if rule.backoff and response.status_code < 400:
+            for k in keys:
+                clear_backoff(k)
+        return response

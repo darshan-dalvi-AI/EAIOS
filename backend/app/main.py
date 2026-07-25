@@ -1,10 +1,14 @@
 """EAIOS backend — FastAPI application entry point."""
 import asyncio
 import logging
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes import (
     admin, agents, analytics, auth, chat, connectors, dashboards, documents,
@@ -111,7 +115,60 @@ async def lifespan(app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title=settings.APP_NAME, version=settings.VERSION, lifespan=lifespan)
+# Refuse to start a production deployment that is signing tokens with the
+# public default secret — failing loudly beats running insecurely in silence.
+from app.core.config import verify_production_secrets  # noqa: E402
+
+_problems = verify_production_secrets(settings)
+if _problems:
+    raise RuntimeError("Refusing to start in production:\n  - " + "\n  - ".join(_problems))
+
+# Interactive API docs are useful in development and an information map in
+# production, so they are switched off there.
+app = FastAPI(
+    title=settings.APP_NAME, version=settings.VERSION, lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
+)
+
+
+# ── error handling ───────────────────────────────────────────────────────
+# Clients get a generic message and a correlation id; the server keeps the
+# stack trace. Without this, an unhandled database error can echo table names,
+# file paths or connection strings straight back to the caller.
+@app.exception_handler(Exception)
+async def _unhandled(request: Request, exc: Exception):
+    ref = uuid.uuid4().hex[:12]
+    log.exception("unhandled error ref=%s %s %s", ref, request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong on our side. "
+                           f"Quote reference {ref} if you contact support.", "ref": ref},
+    )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def _db_error(request: Request, exc: SQLAlchemyError):
+    ref = uuid.uuid4().hex[:12]
+    log.exception("database error ref=%s %s %s", ref, request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "A database error occurred. "
+                           f"Quote reference {ref} if you contact support.", "ref": ref},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(request: Request, exc: RequestValidationError):
+    """Report which field failed and why, without echoing the submitted value
+    back (it may contain a password or other sensitive input)."""
+    fields = []
+    for err in exc.errors()[:8]:
+        loc = ".".join(str(p) for p in err.get("loc", []) if p not in ("body", "query"))
+        fields.append({"field": loc or "body", "problem": err.get("msg", "invalid")})
+    return JSONResponse(status_code=422, content={"detail": "Invalid input.", "errors": fields})
+
 
 # Rate limiting first, CORS last → CORS is outermost, so even 429s carry CORS headers.
 from app.core.ratelimit import RateLimitMiddleware  # noqa: E402

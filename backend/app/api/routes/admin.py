@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core import errors
 from app.api.deps import get_db, require_admin
 from app.core.config import settings
 from app.models import AgentRun, AuditLog, Chunk, Conversation, Document, Message, User
@@ -122,8 +123,9 @@ def compare_models(body: CompareIn, db: Session = Depends(get_db), admin: User =
             return {"model": model.strip(), "ms": int((time.perf_counter() - t0) * 1000),
                     "answer": answer[:6000], "error": None}
         except Exception as exc:  # noqa: BLE001 — report per-model, don't fail the whole arena
+            message, _ref = errors.public_message(exc, f"model compare ({model.strip()})")
             return {"model": model.strip(), "ms": int((time.perf_counter() - t0) * 1000),
-                    "answer": "", "error": str(exc)[:300]}
+                    "answer": "", "error": message}
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(run, body.models))

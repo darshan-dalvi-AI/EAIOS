@@ -2,10 +2,12 @@
 
 Defense in depth: single-statement check, SELECT-only allowlist, keyword
 blocklist, forced LIMIT, and execution inside the request's own session."""
+import logging
 import re
 
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.agents.base import AgentResult, BaseAgent
 from app.core.database import Base
 from app.llm.provider import safe_complete
@@ -14,6 +16,8 @@ from app.schemas import SQLOut
 FORBIDDEN = re.compile(
     r"\b(insert|update|delete|drop|alter|create|truncate|attach|pragma|grant|revoke|replace|vacuum)\b", re.I
 )
+log = logging.getLogger("eaios.sql")
+
 MAX_ROWS = 50
 MAX_SQL_RETRIES = 2  # reflection loop: error → LLM rewrite → retry
 
@@ -93,7 +97,13 @@ class SQLAgent(BaseAgent):
                     break
                 sql = fixed
 
-        return SQLOut(sql=sql, explanation="Execution failed (after self-correction attempts).", warning=last_error)
+        # The raw database error can expose schema details, so the caller sees
+        # a generic note while the full text stays in the server log.
+        from app.core import errors
+        safe = errors.redact(last_error)[:180] if settings.SQL_SHOW_DB_ERRORS else \
+            "The query could not be executed. Try rephrasing the question."
+        log.warning("sql agent failed after retries: %s", errors.redact(last_error)[:400])
+        return SQLOut(sql=sql, explanation="Execution failed (after self-correction attempts).", warning=safe)
 
     def _reflect(self, question: str, failed_sql: str, error: str) -> str | None:
         """Reflection loop: ask the LLM to repair its own query. No-op on mock."""

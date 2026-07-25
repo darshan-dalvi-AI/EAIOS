@@ -42,3 +42,7 @@ services:
       # Leave blank to disable that console entirely.
       - key: PLATFORM_OWNER_EMAILS
         sync: false
+      # Enables fail-closed checks: refuses to boot with the default
+      # SECRET_KEY and hides the API docs.
+      - key: ENVIRONMENT
+        value: production

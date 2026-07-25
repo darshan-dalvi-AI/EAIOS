@@ -32,7 +32,51 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
     UPLOAD_DIR: str = "./uploads"
 
+    # Deployment environment. Set ENVIRONMENT=production to enable fail-closed
+    # checks (a weak SECRET_KEY refuses to boot, API docs are hidden).
+    ENVIRONMENT: str = "development"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod")
+
     RATE_LIMIT_ENABLED: bool = True  # token buckets on auth/chat/upload (see core/ratelimit.py)
+
+    # ── Rate-limit thresholds ────────────────────────────────────────────
+    # Every limit is tunable per deployment: 0 keeps the built-in default.
+    # Names map to rules in core/ratelimit.py as RL_<NAME>_CAPACITY/_WINDOW.
+    RL_LOGIN_CAPACITY: int = 0
+    RL_LOGIN_WINDOW: int = 0
+    RL_SIGNUP_CAPACITY: int = 0
+    RL_SIGNUP_WINDOW: int = 0
+    RL_REGISTER_CAPACITY: int = 0
+    RL_REGISTER_WINDOW: int = 0
+    RL_UPLOAD_CAPACITY: int = 0
+    RL_UPLOAD_WINDOW: int = 0
+    RL_CONNECTOR_CAPACITY: int = 0
+    RL_CONNECTOR_WINDOW: int = 0
+    RL_CHAT_CAPACITY: int = 0
+    RL_CHAT_WINDOW: int = 0
+    RL_SQL_CAPACITY: int = 0
+    RL_SQL_WINDOW: int = 0
+    RL_SEARCH_CAPACITY: int = 0
+    RL_SEARCH_WINDOW: int = 0
+    RL_WF_RUN_CAPACITY: int = 0
+    RL_WF_RUN_WINDOW: int = 0
+    RL_REPORT_CAPACITY: int = 0
+    RL_REPORT_WINDOW: int = 0
+    RL_ORG_DEL_CAPACITY: int = 0
+    RL_ORG_DEL_WINDOW: int = 0
+
+    # ── Upload limits ────────────────────────────────────────────────────
+    # Without a cap, one request can fill the disk. Enforced while streaming,
+    # so an oversized body is refused before it is written.
+    # SQL Studio is a developer-facing tool, so a deployment may choose to
+    # show database errors there. Off by default: they describe the schema.
+    SQL_SHOW_DB_ERRORS: bool = False
+
+    MAX_UPLOAD_MB: int = 25
+    MAX_UPLOAD_FILENAME: int = 255
 
     # Agent routing: auto = LLM semantic router when a real model is available,
     # regex otherwise · llm = always try the LLM router · regex = never use it
@@ -81,6 +125,28 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+
+DEV_SECRET = "dev-secret-change-in-production"
+
+
+def verify_production_secrets(s: "Settings") -> list[str]:
+    """Return blocking misconfigurations for a production deployment.
+
+    Signing tokens with a public default means anyone who has read this
+    repository can mint an admin session, so production refuses to start
+    rather than running in a state that only *looks* secure."""
+    problems: list[str] = []
+    if not s.is_production:
+        return problems
+    if s.SECRET_KEY == DEV_SECRET or len(s.SECRET_KEY) < 32:
+        problems.append(
+            "SECRET_KEY is the shipped default or too short — set a random value "
+            "of at least 32 characters (e.g. `python -c \"import secrets;print(secrets.token_urlsafe(48))\"`)."
+        )
+    if s.CORS_ORIGINS.strip() == "*":
+        problems.append("CORS_ORIGINS must not be '*' in production.")
+    return problems
 
 
 @lru_cache

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.core import storage
+from app.core import storage, uploads
 from app.core.config import settings
 from app.models import Chunk, Document, User
 from app.rag import pipeline
@@ -29,14 +29,16 @@ def upload(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in EXT_MAP:
-        raise HTTPException(415, f"Unsupported type '{ext}'. Allowed: {', '.join(sorted(EXT_MAP))}")
+    # The caller's filename is a claim: sanitise it, check the extension is
+    # one we accept, then verify the *content* matches while streaming under
+    # a hard size cap (see core/uploads.py).
+    safe_name = uploads.safe_filename(file.filename)
+    ext, doc_type = uploads.check_extension(safe_name)
 
     doc = Document(
-        filename=file.filename or "upload",
-        title=os.path.splitext(file.filename or "upload")[0].replace("_", " ").replace("-", " ").title(),
-        doc_type=EXT_MAP[ext],
+        filename=safe_name,
+        title=os.path.splitext(safe_name)[0].replace("_", " ").replace("-", " ").title()[:255],
+        doc_type=doc_type,
         owner_id=user.id,
         status="queued",
     )
@@ -44,11 +46,15 @@ def upload(
     db.commit()
     db.refresh(doc)
 
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    dest = os.path.join(settings.UPLOAD_DIR, f"{doc.id}{ext}")
-    with open(dest, "wb") as out:
-        shutil.copyfileobj(file.file, out)
-    doc.size_bytes = os.path.getsize(dest)
+    upload_dir = uploads.ensure_upload_dir()
+    dest = os.path.join(upload_dir, f"{doc.id}{ext}")
+    try:
+        doc.size_bytes = uploads.stream_to_disk(file.file, dest, ext)
+    except Exception:
+        # Never leave an orphan row behind for a file we refused to store.
+        db.delete(doc)
+        db.commit()
+        raise
     db.commit()
 
     tasks.add_task(pipeline.ingest_document, doc.id, dest)

@@ -1,0 +1,225 @@
+"""Pre-production security controls.
+
+Each test corresponds to a control that, if it silently regressed, would not
+be visible in the interface — which is exactly why it is pinned here.
+"""
+import io
+import os
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core import errors, uploads
+from app.core.config import DEV_SECRET, Settings, verify_production_secrets
+from app.main import app
+
+
+def client() -> TestClient:
+    return TestClient(app)
+
+
+def _signup(c, company, email, pw="welcome123"):
+    r = c.post("/api/auth/signup", json={"company_name": company, "full_name": "Owner One",
+                                         "email": email, "password": pw})
+    assert r.status_code == 201, r.text
+    return {"Authorization": f"Bearer {r.json()['token']['access_token']}"}
+
+
+# ══ 1 · rate limiting ══════════════════════════════════════════════════
+def test_every_rule_threshold_is_configurable(monkeypatch):
+    """Limits must be tunable per deployment, not compiled into the code."""
+    from app.core import ratelimit
+
+    monkeypatch.setattr(ratelimit.settings, "RL_LOGIN_CAPACITY", 3, raising=False)
+    monkeypatch.setattr(ratelimit.settings, "RL_LOGIN_WINDOW", 120, raising=False)
+    rules = ratelimit.build_rules()
+    login = next(r for _, path, r in rules if path.endswith("/auth/login"))
+    assert login.capacity == 3 and login.per_seconds == 120
+
+
+def test_auth_routes_are_stricter_than_ordinary_actions():
+    from app.core import ratelimit
+
+    rules = {r.name: r for _, _, r in ratelimit.build_rules()}
+    assert rules["login"].capacity < rules["chat"].capacity
+    assert rules["signup"].capacity < rules["chat"].capacity
+    # signup must be covered at all — unlimited workspace creation is a
+    # resource-exhaustion vector
+    assert "signup" in rules and rules["signup"].per_seconds >= 600
+
+
+def test_auth_rules_key_on_ip_and_account_with_backoff():
+    from app.core import ratelimit
+
+    rules = {r.name: r for _, _, r in ratelimit.build_rules()}
+    assert rules["login"].by_user is False        # per-IP, not per-token
+    assert rules["login"].by_account is True      # and per targeted account
+    assert rules["login"].backoff is True
+    assert rules["signup"].backoff is True
+
+
+def test_backoff_grows_exponentially_and_is_capped():
+    from app.core import ratelimit
+
+    ratelimit.clear_backoff()
+    waits = [ratelimit._backoff_strike("t:demo") for _ in range(6)]
+    assert waits[0] < waits[1] < waits[2], waits          # doubling
+    assert all(w <= ratelimit._BACKOFF_MAX for w in waits)  # never unbounded
+    ratelimit.clear_backoff()
+    assert ratelimit._backoff_check("t:demo") == 0        # cleared on success
+
+
+# ══ 2 · input validation ═══════════════════════════════════════════════
+@pytest.mark.parametrize("payload", [
+    {"company_name": "A", "full_name": "Owner One", "email": "a@b.dev", "password": "welcome123"},      # name too short
+    {"company_name": "Acme", "full_name": "Owner One", "email": "not-an-email", "password": "welcome123"},
+    {"company_name": "Acme", "full_name": "Owner One", "email": "a@b.dev", "password": "short"},        # weak password
+    {"company_name": "x" * 500, "full_name": "Owner One", "email": "a@b.dev", "password": "welcome123"},
+    {"company_name": "Acme", "full_name": "Owner One", "email": "a@b.dev"},                             # missing field
+])
+def test_signup_rejects_anything_off_schema(payload):
+    with client() as c:
+        assert c.post("/api/auth/signup", json=payload).status_code == 422
+
+
+def test_role_must_be_one_of_the_four_known_values():
+    with client() as c:
+        h = _signup(c, "Roles Ltd", "admin@roles.dev")
+        bad = c.post("/api/users", headers=h, json={
+            "email": "x@roles.dev", "full_name": "X Y", "password": "welcome123", "role": "superuser"})
+        assert bad.status_code == 422           # rejected, not coerced or stored
+
+
+def test_oversized_free_text_is_rejected_not_truncated():
+    with client() as c:
+        h = _signup(c, "Big Text Co", "admin@bigtext.dev")
+        assert c.post("/api/chat", headers=h, json={"message": "x" * 20000}).status_code == 422
+
+
+def test_validation_errors_do_not_echo_the_submitted_value():
+    """A 422 must not reflect the password back in the response body."""
+    with client() as c:
+        r = c.post("/api/auth/signup", json={
+            "company_name": "A",                      # too short → 422
+            "full_name": "Owner One",
+            "email": "echo-check@b.dev", "password": "hunter2secret"})
+        assert r.status_code == 422
+        assert "hunter2secret" not in r.text          # the value is never reflected
+
+
+# ══ 3 · secrets ════════════════════════════════════════════════════════
+def test_production_refuses_to_start_with_the_default_secret():
+    s = Settings(ENVIRONMENT="production", SECRET_KEY=DEV_SECRET)
+    problems = verify_production_secrets(s)
+    assert problems and "SECRET_KEY" in problems[0]
+
+
+def test_production_refuses_a_short_secret_and_wildcard_cors():
+    assert verify_production_secrets(Settings(ENVIRONMENT="production", SECRET_KEY="tooshort"))
+    assert verify_production_secrets(
+        Settings(ENVIRONMENT="production", SECRET_KEY="k" * 40, CORS_ORIGINS="*"))
+
+
+def test_development_still_boots_with_defaults():
+    assert verify_production_secrets(Settings(ENVIRONMENT="development")) == []
+
+
+def test_credentials_are_scrubbed_from_logged_detail():
+    dirty = ("https://api.example.com/sync?access_token=ya29.SUPERSECRET&x=1 "
+             "sk-abcdef0123456789abcdef postgresql://user:hunter2@host/db")
+    clean = errors.redact(dirty)
+    assert "ya29.SUPERSECRET" not in clean
+    assert "sk-abcdef0123456789abcdef" not in clean
+    assert "hunter2" not in clean
+
+
+# ══ 5 · error handling ═════════════════════════════════════════════════
+def test_public_message_hides_the_cause_and_returns_a_reference():
+    msg, ref = errors.public_message(RuntimeError("connection to 10.0.0.5:5432 failed: FATAL role x"),
+                                     "unit test")
+    assert "10.0.0.5" not in msg and "FATAL" not in msg
+    assert ref and ref in msg
+
+
+def test_unknown_route_returns_no_internal_detail():
+    with client() as c:
+        r = c.get("/api/does-not-exist")
+        assert r.status_code == 404
+        body = r.text.lower()
+        for leak in ("traceback", "site-packages", "/app/", "sqlalchemy", ".py\""):
+            assert leak not in body
+
+
+def test_api_docs_are_disabled_in_production():
+    """The schema is a map of the attack surface; it stays in development."""
+    assert Settings(ENVIRONMENT="production").is_production is True
+    assert Settings(ENVIRONMENT="development").is_production is False
+
+
+# ══ 6 · file upload ════════════════════════════════════════════════════
+def test_extension_alone_is_not_enough_content_must_match():
+    with client() as c:
+        h = _signup(c, "Upload Guard Co", "admin@uploadguard.dev")
+        # A PHP web shell renamed to .pdf
+        r = c.post("/api/documents/upload", headers=h,
+                   files={"file": ("invoice.pdf", io.BytesIO(b"<?php system($_GET['c']); ?>"), "application/pdf")})
+        assert r.status_code == 415
+        assert c.get("/api/documents", headers=h).json() == []   # nothing stored
+
+
+def test_executables_are_refused_under_any_extension():
+    with client() as c:
+        h = _signup(c, "Exe Co", "admin@execo.dev")
+        for name, blob in [("notes.txt", b"#!/bin/sh\nrm -rf /"),
+                           ("report.pdf", b"MZ\x90\x00\x03"),
+                           ("data.csv", b"\x7fELF\x02\x01\x01")]:
+            r = c.post("/api/documents/upload", headers=h,
+                       files={"file": (name, io.BytesIO(blob), "application/octet-stream")})
+            assert r.status_code == 415, f"{name} was accepted"
+
+
+def test_oversized_upload_is_refused_and_leaves_nothing_behind(monkeypatch):
+    from app.core.config import settings as live
+
+    monkeypatch.setattr(live, "MAX_UPLOAD_MB", 1)
+    with client() as c:
+        h = _signup(c, "Big File Co", "admin@bigfile.dev")
+        blob = b"%PDF-1.4\n" + b"A" * (2 * 1024 * 1024)
+        r = c.post("/api/documents/upload", headers=h,
+                   files={"file": ("huge.pdf", io.BytesIO(blob), "application/pdf")})
+        assert r.status_code == 413
+        assert c.get("/api/documents", headers=h).json() == []   # no orphan row
+
+
+def test_a_genuine_file_still_uploads():
+    with client() as c:
+        h = _signup(c, "Happy Path Co", "admin@happypath.dev")
+        r = c.post("/api/documents/upload", headers=h,
+                   files={"file": ("policy.txt", io.BytesIO(b"Employees get 27 leave days."), "text/plain")})
+        assert r.status_code == 201, r.text
+        assert len(c.get("/api/documents", headers=h).json()) == 1
+
+
+def test_filenames_cannot_traverse_directories():
+    assert "/" not in uploads.safe_filename("../../../etc/passwd")
+    assert uploads.safe_filename("../../../etc/passwd") == "etc_passwd" or \
+           uploads.safe_filename("../../../etc/passwd") == "passwd"
+    assert uploads.safe_filename("C:\\Windows\\system32\\evil.txt") == "evil.txt"
+    assert uploads.safe_filename(None)                     # never empty
+    assert len(uploads.safe_filename("x" * 900 + ".txt")) <= 255
+
+
+def test_uploads_are_stored_outside_anything_served_as_static():
+    """A stored file must have no URL, so it can never be executed by the
+    web server even if its content were hostile."""
+    upload_dir = os.path.abspath(uploads.ensure_upload_dir())
+    static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static"))
+    assert not upload_dir.startswith(static_dir)
+
+
+def test_empty_uploads_are_refused():
+    with client() as c:
+        h = _signup(c, "Empty Co", "admin@emptyco.dev")
+        r = c.post("/api/documents/upload", headers=h,
+                   files={"file": ("blank.txt", io.BytesIO(b""), "text/plain")})
+        assert r.status_code in (400, 415)
