@@ -2,7 +2,7 @@
    Live mode: requests hit the FastAPI backend (vite proxy → :8000).
    Demo mode: identical shapes served from mock.ts with realistic latency. */
 import { useOS } from "../store";
-import type { Citation, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
+import type { Citation, Doc, GraphEdge, GraphNode, SessionUser, TraceInfo, WorkflowDef, WorkflowRunInfo } from "../types";
 import { DB_SCHEMA, DOCS, MOCK_GRAPH, MOCK_TRACES, MOCK_USERS, MOCK_WORKFLOWS, mockAnalyze, mockChart, mockChat, mockMinutes, mockRunWorkflow, mockSQL } from "./mock";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -820,4 +820,91 @@ export async function apiDeleteOwnWorkspace(confirm: string) {
   return request<{ deleted: string; rows: Record<string, number> }>("/orgs/self/workspace", {
     method: "DELETE", body: JSON.stringify({ confirm }),
   });
+}
+
+/* ── Documents (real uploads) ─────────────────────────────────────────
+   The Knowledge app used to simulate uploads against mock data. These
+   talk to the real ingestion pipeline, with a demo-mode fallback so the
+   app still works with no backend. */
+export const UPLOAD_ACCEPT = ".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg";
+const ALLOWED_EXT = UPLOAD_ACCEPT.split(",");
+
+export function isSupportedFile(name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  return dot > -1 && ALLOWED_EXT.includes(name.slice(dot).toLowerCase());
+}
+
+interface ApiDoc {
+  id: string; title: string; filename: string; doc_type: string; status: string;
+  chunk_count: number; size_bytes: number; created_at: string; tags?: string;
+}
+
+function toDoc(d: ApiDoc): Doc {
+  return {
+    id: d.id, title: d.title, filename: d.filename,
+    doc_type: (d.doc_type || "txt") as Doc["doc_type"],
+    status: (d.status || "queued") as Doc["status"],
+    chunk_count: d.chunk_count ?? 0,
+    size_bytes: d.size_bytes ?? 0,
+    created_at: (d.created_at || "").slice(0, 10),
+    owner: "You",
+    tags: (d.tags || "").split(",").map((t) => t.trim()).filter(Boolean),
+  };
+}
+
+/** This workspace's documents. Falls back to the demo corpus offline. */
+export async function apiDocuments(): Promise<Doc[]> {
+  if (!useOS.getState().live) { await delay(300); return DOCS; }
+  const rows = await request<ApiDoc[]>("/documents");
+  return rows.map(toDoc);
+}
+
+/** Upload one file into the RAG pipeline. `onProgress` gets 0–100. */
+export async function apiUploadDocument(file: File, onProgress?: (pct: number) => void): Promise<Doc> {
+  if (!isSupportedFile(file.name)) {
+    throw new Error(`“${file.name}” isn’t a supported type. Allowed: ${UPLOAD_ACCEPT.replace(/\./g, "")}`);
+  }
+  if (!useOS.getState().live) {
+    // demo mode: fake the pipeline so the UI is never a dead end
+    for (let p = 10; p <= 100; p += 30) { await delay(180); onProgress?.(p); }
+    const ext = file.name.slice(file.name.lastIndexOf(".") + 1).toLowerCase();
+    return {
+      id: `up-${Date.now()}`, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "),
+      filename: file.name, doc_type: (ext === "jpg" || ext === "jpeg" || ext === "png" ? "image" : ext) as Doc["doc_type"],
+      status: "processing", chunk_count: 0, size_bytes: file.size,
+      created_at: new Date().toISOString().slice(0, 10), owner: "You", tags: ["new"],
+    };
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+  const { token } = useOS.getState();
+
+  // XHR (not fetch) so we can report real upload progress on big files.
+  return new Promise<Doc>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/documents/upload");
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        try { resolve(toDoc(JSON.parse(xhr.responseText))); }
+        catch { reject(new Error("Upload succeeded but the response was unreadable")); }
+      } else {
+        let msg = `Upload failed (${xhr.status})`;
+        try { const j = JSON.parse(xhr.responseText); if (j.detail) msg = typeof j.detail === "string" ? j.detail : msg; } catch { /* keep default */ }
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => { demoteToDemo(); reject(new Error("Network error — switched to demo mode")); };
+    xhr.send(form);
+  });
+}
+
+export async function apiDeleteDocument(id: string): Promise<void> {
+  if (!useOS.getState().live) { await delay(250); return; }
+  await request<void>(`/documents/${id}`, { method: "DELETE" });
 }

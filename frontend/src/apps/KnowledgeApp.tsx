@@ -1,6 +1,6 @@
-import { FileSpreadsheet, FileText, Image, Layers, Loader2, Presentation, ScanSearch, Search, Upload, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { apiAnalyze, type AnalyzeCard } from "../lib/api";
+import { Camera, FileSpreadsheet, FileText, Image, Layers, Loader2, Presentation, ScanSearch, Search, Trash2, Upload, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiAnalyze, apiDeleteDocument, apiDocuments, apiUploadDocument, isSupportedFile, UPLOAD_ACCEPT, type AnalyzeCard } from "../lib/api";
 import { useOS } from "../store";
 import { DOCS, fmtBytes } from "../lib/mock";
 import type { Doc } from "../types";
@@ -18,8 +18,6 @@ const TYPE_ICON: Record<string, { icon: React.ReactNode; hue: number }> = {
 const PIPELINE = ["Upload", "Layout detection", "OCR", "Table extraction", "Chunking", "Embeddings", "Indexed"];
 
 const STATUS_PILL: Record<Doc["status"], string> = { indexed: "good", processing: "warn", queued: "dim", failed: "bad" };
-
-let uploadCounter = 0;
 
 const ANALYZE_KINDS = [
   { id: "auto", label: "Auto" },
@@ -40,6 +38,63 @@ export default function KnowledgeApp() {
   const [selected, setSelected] = useState<Doc | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeCard | null>(null);
   const [analyzing, setAnalyzing] = useState<string | null>(null);
+
+  /* ── real uploads ── */
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState<{ name: string; pct: number } | null>(null);
+  const [uploadErr, setUploadErr] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const live = useOS((s) => s.live);
+
+  // Load this workspace's real documents (demo corpus when offline).
+  const refresh = useCallback(() => {
+    apiDocuments().then(setDocs).catch(() => { /* keep whatever is on screen */ });
+  }, []);
+  useEffect(() => { refresh(); }, [refresh, live]);
+
+  // While anything is still being parsed/indexed, poll until it settles.
+  useEffect(() => {
+    if (!live || !docs.some((d) => d.status === "queued" || d.status === "processing")) return;
+    const t = setInterval(refresh, 2500);
+    return () => clearInterval(t);
+  }, [live, docs, refresh]);
+
+  async function uploadFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (!list.length) return;
+    setUploadErr("");
+    for (const file of list) {
+      if (!isSupportedFile(file.name)) {
+        setUploadErr(`“${file.name}” isn’t a supported file type.`);
+        continue;
+      }
+      setUploading({ name: file.name, pct: 0 });
+      try {
+        const doc = await apiUploadDocument(file, (pct) => setUploading({ name: file.name, pct }));
+        setQuery("");                        // make it visible even mid-search
+        setDocs((all) => [doc, ...all.filter((d) => d.id !== doc.id)]);
+        useOS.getState().pushFeed({ agent: "pipeline", text: `Indexing “${doc.title}”…`, kind: "index" });
+      } catch (e) {
+        setUploadErr(e instanceof Error ? e.message : "Upload failed");
+      } finally {
+        setUploading(null);
+      }
+    }
+    refresh();
+    if (fileRef.current) fileRef.current.value = "";      // allow re-picking the same file
+    if (cameraRef.current) cameraRef.current.value = "";
+  }
+
+  async function removeDoc(doc: Doc) {
+    try {
+      await apiDeleteDocument(doc.id);
+      setDocs((all) => all.filter((d) => d.id !== doc.id));
+      if (selected?.id === doc.id) { setSelected(null); setAnalysis(null); }
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : "Couldn't delete that document");
+    }
+  }
 
   async function runAnalyze(kind: string) {
     if (!selected || analyzing) return;
@@ -65,33 +120,19 @@ export default function KnowledgeApp() {
   const indexedCount = docs.filter((d) => d.status === "indexed").length;
   const totalChunks = docs.reduce((sum, d) => sum + d.chunk_count, 0);
 
-  function simulateUpload() {
-    uploadCounter += 1;
-    const id = `up-${uploadCounter}`;
-    const doc: Doc = {
-      id,
-      title: `Uploaded Document ${uploadCounter}`,
-      filename: `upload_${uploadCounter}.pdf`,
-      doc_type: "pdf",
-      status: "processing",
-      chunk_count: 0,
-      size_bytes: 700_000 + Math.floor(Math.random() * 2_000_000),
-      created_at: new Date().toISOString().slice(0, 10),
-      owner: "You",
-      tags: ["new"],
-    };
-    setQuery("");  // make the new upload visible even mid-search
-    setDocs((d) => [doc, ...d]);
-    setTimeout(() => {
-      setDocs((all) =>
-        all.map((d) => (d.id === id ? { ...d, status: "indexed" as const, chunk_count: 8 + Math.floor(Math.random() * 40) } : d))
-      );
-    }, 3200);
-  }
-
   return (
     <div className="app-pane" style={{ flexDirection: "row" }}>
-      <div className="app-pane">
+      <div
+        className={`app-pane ${dragging ? "drop-active" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files); }}
+      >
+        {dragging && (
+          <div className="drop-veil"><Upload size={22} /><b>Drop files to add them to your knowledge base</b>
+            <span className="faint" style={{ fontSize: 11.5 }}>PDF · Word · PowerPoint · Excel · CSV · text · images</span>
+          </div>
+        )}
         <div className="app-toolbar">
           <div className="field" style={{ flex: 1, maxWidth: 300, padding: "6px 11px" }}>
             <Search size={14} className="faint" />
@@ -99,10 +140,40 @@ export default function KnowledgeApp() {
           </div>
           <span className="pill info"><Layers size={11} /> {totalChunks} chunks</span>
           <span className="pill good">{indexedCount}/{docs.length} indexed</span>
-          <button className="btn primary sm" style={{ marginLeft: "auto" }} onClick={simulateUpload}>
-            <Upload size={13} /> Upload
+          {/* Real file pickers. On phones/tablets the OS sheet offers Files,
+              Photo Library and Camera; `capture` opens the camera directly. */}
+          <input ref={fileRef} type="file" multiple accept={UPLOAD_ACCEPT} hidden
+                 data-testid="file-input"
+                 onChange={(e) => e.target.files && uploadFiles(e.target.files)} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden
+                 data-testid="camera-input"
+                 onChange={(e) => e.target.files && uploadFiles(e.target.files)} />
+          <button className="btn sm mobile-only" style={{ marginLeft: "auto" }}
+                  onClick={() => cameraRef.current?.click()} title="Scan a document with the camera">
+            <Camera size={13} /> Scan
+          </button>
+          <button className="btn primary sm" data-testid="upload-btn"
+                  style={{ marginLeft: "auto" }}
+                  disabled={!!uploading}
+                  onClick={() => fileRef.current?.click()}>
+            {uploading ? <Loader2 size={13} className="spin" /> : <Upload size={13} />}
+            {uploading ? `${uploading.pct}%` : "Upload"}
           </button>
         </div>
+
+        {uploading && (
+          <div className="up-bar" data-testid="upload-progress">
+            <span style={{ width: `${uploading.pct}%` }} />
+            <em>Uploading {uploading.name}… {uploading.pct}%</em>
+          </div>
+        )}
+        {uploadErr && (
+          <div className="pill bad" data-testid="upload-error"
+               style={{ margin: "8px 16px", display: "inline-flex", alignSelf: "flex-start" }}>
+            {uploadErr}
+            <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => setUploadErr("")}>dismiss</button>
+          </div>
+        )}
 
         {/* RAG pipeline strip */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "10px 16px", borderBottom: "1px solid var(--hairline)", overflowX: "auto" }}>
@@ -155,7 +226,13 @@ export default function KnowledgeApp() {
         <aside className="app-sidebar" style={{ width: 285, borderRight: "none", borderLeft: "1px solid var(--hairline)", padding: 16, gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 className="h-display" style={{ fontSize: 14 }}>Document details</h3>
-            <button className="mb-item" onClick={() => setSelected(null)} aria-label="Close details"><X size={14} /></button>
+            <span style={{ display: "flex", gap: 4 }}>
+              <button className="mb-item" data-testid="delete-doc" title="Delete this document"
+                      onClick={() => removeDoc(selected)} aria-label="Delete document">
+                <Trash2 size={14} />
+              </button>
+              <button className="mb-item" onClick={() => setSelected(null)} aria-label="Close details"><X size={14} /></button>
+            </span>
           </div>
           <div style={{ fontWeight: 600 }}>{selected.title}</div>
           <div className="faint mono" style={{ fontSize: 11 }}>{selected.filename}</div>
