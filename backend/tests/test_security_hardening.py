@@ -223,3 +223,151 @@ def test_empty_uploads_are_refused():
         r = c.post("/api/documents/upload", headers=h,
                    files={"file": ("blank.txt", io.BytesIO(b""), "text/plain")})
         assert r.status_code in (400, 415)
+
+
+# ══ 7 · HTTP security headers ══════════════════════════════════════════
+def test_security_headers_present_on_every_response():
+    with client() as c:
+        for path in ("/api/health", "/api/does-not-exist"):
+            h = c.get(path).headers
+            assert h.get("X-Frame-Options") == "DENY"                    # clickjacking
+            assert h.get("X-Content-Type-Options") == "nosniff"          # MIME sniffing
+            assert h.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+            assert "Content-Security-Policy" in h
+            assert "geolocation=()" in h.get("Permissions-Policy", "")
+            assert h.get("Server") == "EAIOS" and "X-Powered-By" not in h
+
+
+def test_csp_blocks_framing_and_plugins_without_allowing_eval():
+    from app.core.headers import CSP
+
+    assert "frame-ancestors 'none'" in CSP
+    assert "object-src 'none'" in CSP
+    assert "base-uri 'self'" in CSP and "form-action 'self'" in CSP
+    assert "unsafe-eval" not in CSP          # injected text can never become code
+
+
+def test_hsts_only_in_production(monkeypatch):
+    from app.core.config import settings as live
+
+    with client() as c:
+        assert "Strict-Transport-Security" not in c.get("/api/health").headers
+    monkeypatch.setattr(live, "ENVIRONMENT", "production")
+    with client() as c:
+        assert "max-age=31536000" in c.get("/api/health").headers.get("Strict-Transport-Security", "")
+
+
+def test_cors_is_an_explicit_whitelist_not_a_wildcard():
+    from app.core.config import settings as live
+
+    assert "*" not in live.cors_origins
+
+
+# ══ 5b · password hashing ══════════════════════════════════════════════
+def test_hash_records_its_cost_and_rejects_wrong_passwords():
+    from app.core.security import PBKDF2_ITERATIONS, hash_password, verify_password
+
+    h = hash_password("correct horse battery")
+    assert h.startswith(f"pbkdf2_sha256${PBKDF2_ITERATIONS}$")
+    assert verify_password("correct horse battery", h)
+    assert not verify_password("wrong", h)
+    assert not verify_password("correct horse battery", "garbage")
+
+
+def test_legacy_hashes_still_verify_and_are_marked_for_upgrade():
+    """Raising the cost must never lock an existing account out."""
+    import hashlib
+    import os
+
+    from app.core.security import LEGACY_ITERATIONS, needs_rehash, verify_password
+
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", b"oldpassword", salt, LEGACY_ITERATIONS)
+    legacy = f"{salt.hex()}${digest.hex()}"
+    assert verify_password("oldpassword", legacy)      # still works
+    assert needs_rehash(legacy)                        # and will be upgraded
+
+
+def test_login_transparently_upgrades_an_old_hash():
+    import hashlib
+    import os
+
+    from app.core.database import SessionLocal
+    from app.core.security import LEGACY_ITERATIONS, PBKDF2_ITERATIONS
+    from app.models import User
+
+    with client() as c:
+        _signup(c, "Rehash Co", "admin@rehash.dev", pw="welcome123")
+        db = SessionLocal()
+        try:
+            u = db.query(User).filter(User.email == "admin@rehash.dev").one()
+            salt = os.urandom(16)
+            u.hashed_password = (f"{salt.hex()}$"
+                                 f"{hashlib.pbkdf2_hmac('sha256', b'welcome123', salt, LEGACY_ITERATIONS).hex()}")
+            db.commit()
+        finally:
+            db.close()
+
+        assert c.post("/api/auth/login",
+                      json={"email": "admin@rehash.dev", "password": "welcome123"}).status_code == 200
+
+        db = SessionLocal()
+        try:
+            u = db.query(User).filter(User.email == "admin@rehash.dev").one()
+            assert u.hashed_password.startswith(f"pbkdf2_sha256${PBKDF2_ITERATIONS}$")
+        finally:
+            db.close()
+
+
+# ══ 10 · LLM cost controls ═════════════════════════════════════════════
+def test_every_generation_is_token_capped():
+    """An uncapped response is an unbounded bill."""
+    import pathlib
+
+    src = pathlib.Path(__file__).resolve().parents[1] / "app" / "llm" / "provider.py"
+    text = src.read_text(encoding="utf-8")
+    # both remote providers must pass a ceiling
+    assert text.count("settings.LLM_MAX_TOKENS") >= 2
+    assert '"max_tokens": 1500' not in text          # no hardcoded ceiling left
+
+
+def test_daily_token_budget_blocks_further_ai_use(monkeypatch):
+    from app.core.config import settings as live
+
+    monkeypatch.setattr(live, "LLM_DAILY_TOKEN_BUDGET", 1)   # already exceeded
+    with client() as c:
+        h = _signup(c, "Budget Co", "admin@budgetco.dev")
+        c.post("/api/chat", headers=h, json={"message": "first question"})   # records usage
+        r = c.post("/api/chat", headers=h, json={"message": "second question"})
+        assert r.status_code == 429
+        assert "limit" in r.json()["detail"].lower()
+        assert r.headers.get("Retry-After")
+
+
+def test_budget_of_zero_disables_the_limit(monkeypatch):
+    from app.core.config import settings as live
+
+    monkeypatch.setattr(live, "LLM_DAILY_TOKEN_BUDGET", 0)
+    with client() as c:
+        h = _signup(c, "Unlimited Co", "admin@unlimited.dev")
+        for _ in range(3):
+            assert c.post("/api/chat", headers=h, json={"message": "hello"}).status_code == 200
+
+
+# ══ 4 · per-resource ownership ═════════════════════════════════════════
+def test_a_teammate_cannot_rename_someone_elses_task():
+    """The board is shared — moving cards is fine, rewriting them is not."""
+    with client() as c:
+        ha = _signup(c, "Board Co", "admin@boardco.dev")
+        c.post("/api/users", headers=ha, json={"email": "emp@boardco.dev", "full_name": "Emp Loyee",
+                                               "password": "welcome123", "role": "employee"})
+        he = {"Authorization": "Bearer " + c.post(
+            "/api/auth/login", json={"email": "emp@boardco.dev", "password": "welcome123"}
+        ).json()["token"]["access_token"]}
+
+        task = c.post("/api/tasks", headers=ha, json={"title": "Admin's task"}).json()
+        # collaboration still allowed
+        assert c.patch(f"/api/tasks/{task['id']}", headers=he, json={"status": "doing"}).status_code == 200
+        # rewriting someone else's task is not
+        assert c.patch(f"/api/tasks/{task['id']}", headers=he,
+                       json={"title": "hijacked"}).status_code == 403

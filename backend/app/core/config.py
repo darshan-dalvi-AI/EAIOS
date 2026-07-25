@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     # show database errors there. Off by default: they describe the schema.
     SQL_SHOW_DB_ERRORS: bool = False
 
+    # ── LLM cost controls ────────────────────────────────────────────────
+    # A ceiling on every generation, and a rolling daily budget per user so a
+    # compromised or abusive account cannot run up an unbounded bill.
+    LLM_MAX_TOKENS: int = 1500
+    LLM_DAILY_TOKEN_BUDGET: int = 200_000   # 0 disables the budget
+
     MAX_UPLOAD_MB: int = 25
     MAX_UPLOAD_FILENAME: int = 255
 

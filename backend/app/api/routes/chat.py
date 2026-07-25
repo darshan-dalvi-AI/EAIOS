@@ -10,6 +10,7 @@ from app.agents.orchestrator import Orchestrator
 from app.api.deps import get_current_user, get_db
 from app.core.events import hub
 from app.core.tracing import end_trace, start_trace
+from app.services import budget
 from app.models import Conversation, Message, UsageEvent, User
 from app.schemas import ChatIn, ChatOut, ConversationOut, MessageOut
 
@@ -55,6 +56,7 @@ def delete_conversation(conv_id: str, db: Session = Depends(get_db), user: User 
 @router.post("", response_model=ChatOut)
 def send(body: ChatIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Route a message through the multi-agent orchestrator and persist the exchange."""
+    budget.check(db, user)   # rolling daily AI spend ceiling per user
     text = body.message.strip()
     if not text:
         raise HTTPException(422, "Empty message")
@@ -112,6 +114,7 @@ def send_stream(body: ChatIn, db: Session = Depends(get_db), user: User = Depend
     progressive delivery) → done. The exchange is fully persisted before
     streaming starts, so an aborted client never loses the message.
     """
+    budget.check(db, user)   # rolling daily AI spend ceiling per user
     text = body.message.strip()
     if not text:
         raise HTTPException(422, "Empty message")

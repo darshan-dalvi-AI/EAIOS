@@ -170,16 +170,24 @@ async def _validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": "Invalid input.", "errors": fields})
 
 
-# Rate limiting first, CORS last → CORS is outermost, so even 429s carry CORS headers.
+# Middleware order is bottom-up: the last one added is the outermost. Security
+# headers go outermost-but-one so they are attached to *every* response,
+# including 429s and errors; CORS stays outermost so those still carry it.
+from app.core.headers import SecurityHeadersMiddleware  # noqa: E402
 from app.core.ratelimit import RateLimitMiddleware  # noqa: E402
 
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins,   # explicit whitelist, never "*"
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Only the verbs and headers this API actually uses — a wildcard would
+    # permit method/header combinations no endpoint needs.
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    expose_headers=["Retry-After"],
+    max_age=600,
 )
 
 for router in (

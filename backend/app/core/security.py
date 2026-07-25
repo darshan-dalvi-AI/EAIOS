@@ -10,7 +10,11 @@ import time
 
 from app.core.config import settings
 
-PBKDF2_ITERATIONS = 100_000
+# OWASP's current guidance for PBKDF2-HMAC-SHA256. Raising this is safe:
+# the cost is stored inside each hash, and accounts are re-hashed on their
+# next successful sign-in (see needs_rehash).
+PBKDF2_ITERATIONS = 600_000
+LEGACY_ITERATIONS = 100_000   # hashes written before the format carried a cost
 
 
 def _b64(data: bytes) -> str:
@@ -24,18 +28,48 @@ def _unb64(s: str) -> bytes:
 # ── Passwords ────────────────────────────────────────────────────
 
 def hash_password(password: str) -> str:
+    """Hash with the current cost, recording it so the cost can be raised later.
+
+    Format: ``pbkdf2_sha256$<iterations>$<salt>$<digest>``. The legacy format
+    (``<salt>$<digest>``, fixed at 100 000 rounds) is still verified, so
+    raising the cost never locks anyone out of an existing account."""
     salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS)
-    return f"{salt.hex()}${digest.hex()}"
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def _parse_hash(hashed: str) -> tuple[int, str, str] | None:
+    parts = hashed.split("$")
+    if len(parts) == 4 and parts[0] == "pbkdf2_sha256":
+        try:
+            return int(parts[1]), parts[2], parts[3]
+        except ValueError:
+            return None
+    if len(parts) == 2:                       # legacy: fixed iteration count
+        return LEGACY_ITERATIONS, parts[0], parts[1]
+    return None
 
 
 def verify_password(password: str, hashed: str) -> bool:
+    parsed = _parse_hash(hashed)
+    if parsed is None:
+        return False
+    iterations, salt_hex, digest_hex = parsed
     try:
-        salt_hex, digest_hex = hashed.split("$")
+        salt = bytes.fromhex(salt_hex)
     except ValueError:
         return False
-    expected = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), PBKDF2_ITERATIONS)
+    expected = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
     return hmac.compare_digest(expected.hex(), digest_hex)
+
+
+def needs_rehash(hashed: str) -> bool:
+    """True when a stored hash uses an older, cheaper cost than we now require.
+
+    Called after a *successful* sign-in — the only moment the plaintext is
+    available — so accounts upgrade silently as people log in."""
+    parsed = _parse_hash(hashed)
+    return parsed is None or parsed[0] < PBKDF2_ITERATIONS
 
 
 # ── JWT (HS256) ──────────────────────────────────────────────────

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.core.security import create_token, hash_password, verify_password
+from app.core.security import create_token, hash_password, needs_rehash, verify_password
 from app.models import Organization, User
 from app.schemas import LoginIn, RegisterIn, SignupIn, Token, UserOut
 from app.services import audit, tenancy
@@ -84,6 +84,10 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
         audit.log(db, "auth.suspended", user.id, org.slug)
         raise HTTPException(403, f"The workspace “{org.name}” is suspended. Contact your administrator.")
     user.last_login = datetime.now(timezone.utc)
+    # Silently upgrade a hash written under an older cost — this is the only
+    # point where the plaintext is available to re-derive it.
+    if needs_rehash(user.hashed_password):
+        user.hashed_password = hash_password(body.password)
     db.commit()
     audit.log(db, "auth.login", user.id, ip=request.client.host if request.client else "")
     return {

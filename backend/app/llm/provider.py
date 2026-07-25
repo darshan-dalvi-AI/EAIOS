@@ -122,6 +122,9 @@ class OpenAILLM:
             json={
                 "model": self.model,
                 "temperature": settings.TEMPERATURE,
+                # Without a ceiling a single request can generate — and bill
+                # for — an unbounded response.
+                "max_tokens": settings.LLM_MAX_TOKENS,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             },
             timeout=60,
@@ -141,7 +144,7 @@ class AnthropicLLM:
             headers={"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01"},
             json={
                 "model": settings.ANTHROPIC_MODEL,
-                "max_tokens": 1500,
+                "max_tokens": settings.LLM_MAX_TOKENS,
                 "temperature": settings.TEMPERATURE,
                 "system": system,
                 "messages": [{"role": "user", "content": prompt}],

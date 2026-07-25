@@ -50,6 +50,20 @@ def update_task(task_id: str, body: TaskPatch, db: Session = Depends(get_db), us
     t = db.get(Task, task_id)
     if not t:
         raise HTTPException(404, "Task not found")
+
+    # The board is shared, so any teammate may move a card between columns or
+    # pick up work — that is the point of a kanban. Rewriting the *text* of
+    # someone else's task is different: it changes what they committed to, so
+    # it stays with the creator, the assignee, or a manager/admin.
+    if body.title:
+        may_edit = (
+            t.owner_id == user.id
+            or t.assignee_id == user.id
+            or user.role in ("admin", "manager")
+        )
+        if not may_edit:
+            raise HTTPException(403, "Only the creator, the assignee or a manager can rename this task")
+
     if body.status is not None:
         if body.status not in STATUSES:
             raise HTTPException(400, "status must be todo|doing|done")
