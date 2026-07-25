@@ -99,20 +99,45 @@ async def _schedule_loop() -> None:
             log.exception("scheduler tick failed")
 
 
+def _warm_up() -> None:
+    """Slow, idempotent startup work that the app does not need in order to
+    serve traffic.
+
+    This used to run inline in the lifespan, which meant the platform's health
+    check had to wait for ~60 round-trips to a database in another region plus
+    seed-corpus indexing before the first request could be answered — and a
+    deploy was rejected for exactly that ("timed out waiting for internal
+    health check"). Everything here is safe to finish a few seconds late, so
+    it runs in a worker thread while the app is already up.
+    """
+    from app.core import storage
+    from app.core.database import harden_public_schema
+
+    for step, fn in (("schema hardening", harden_public_schema),
+                     ("seed", _seed_if_empty),
+                     ("storage bucket", storage.ensure_bucket)):
+        try:
+            fn()
+        except Exception as exc:  # noqa: BLE001 — warm-up must never take the app down
+            log.warning("warm-up step '%s' failed: %s", step, exc)
+    log.info("warm-up complete")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Blocking, because nothing works without a schema — but this is only
+    # CREATE TABLE / ADD COLUMN, which is fast.
     init_db()
     _bootstrap_admin()
-    _seed_if_empty()
-    from app.core import storage
 
-    storage.ensure_bucket()  # create the Supabase Storage bucket if configured (idempotent)
+    warm = asyncio.create_task(asyncio.to_thread(_warm_up))
     task = asyncio.create_task(_schedule_loop()) if settings.SCHEDULER_ENABLED else None
-    log.info("EAIOS %s ready — llm=%s scheduler=%s", settings.VERSION, settings.LLM_PROVIDER,
-             "on" if task else "off")
+    log.info("EAIOS %s serving — llm=%s scheduler=%s (warm-up in background)",
+             settings.VERSION, settings.LLM_PROVIDER, "on" if task else "off")
     yield
-    if task:
-        task.cancel()
+    for t in (task, warm):
+        if t:
+            t.cancel()
 
 
 # Refuse to start a production deployment that is signing tokens with the
@@ -201,15 +226,23 @@ for router in (
 
 @app.get("/api/health")
 def health():
-    from app.llm.provider import get_llm
+    """Liveness probe. Deliberately cheap and incapable of hanging.
 
-    llm = get_llm()
-    return {
-        "status": "ok",
-        "version": settings.VERSION,
-        "llm_provider": llm.name,
-        "llm_model": getattr(llm, "model", None),
-    }
+    The platform polls this to decide whether a deploy succeeded, so it must
+    answer immediately even on a cold instance. Resolving the LLM provider can
+    involve a network probe (auto-detecting a local model), so a failure or a
+    slow reply there is reported rather than allowed to stall the check.
+    """
+    info: dict = {"status": "ok", "version": settings.VERSION}
+    try:
+        from app.llm.provider import get_llm
+
+        llm = get_llm()
+        info["llm_provider"] = llm.name
+        info["llm_model"] = getattr(llm, "model", None)
+    except Exception:  # noqa: BLE001 — never let provider detection fail the probe
+        info["llm_provider"] = "initialising"
+    return info
 
 
 # ── single-container mode (Dockerfile.web / Render / HF Spaces) ──────────

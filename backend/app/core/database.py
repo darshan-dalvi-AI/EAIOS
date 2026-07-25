@@ -87,7 +87,10 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _migrate_add_org_id()
-    harden_public_schema()
+    # NOTE: harden_public_schema() is deliberately NOT called here. It issues
+    # ~60 statements against a database that may be in another region, which
+    # delayed the first health check enough to fail a deploy. main.py runs it
+    # in the background once the app is already serving.
 
 
 # ── Supabase / Postgres surface hardening ─────────────────────────────────

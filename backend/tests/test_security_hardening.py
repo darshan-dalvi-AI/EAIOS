@@ -371,3 +371,53 @@ def test_a_teammate_cannot_rename_someone_elses_task():
         # rewriting someone else's task is not
         assert c.patch(f"/api/tasks/{task['id']}", headers=he,
                        json={"title": "hijacked"}).status_code == 403
+
+
+# ══ deploy resilience ══════════════════════════════════════════════════
+def test_health_is_cheap_and_never_blocks_on_the_llm(monkeypatch):
+    """A deploy was rejected once because the health check could not answer
+    in time. It must stay fast and must not depend on provider detection."""
+    import app.llm.provider as provider
+
+    def boom():
+        raise RuntimeError("provider unreachable")
+
+    monkeypatch.setattr(provider, "get_llm", boom)
+    with client() as c:
+        r = c.get("/api/health")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"          # still healthy
+        assert r.json()["llm_provider"] == "initialising"
+
+
+def test_slow_startup_work_is_not_on_the_serving_path():
+    """Schema hardening and seeding run in the background after the app is
+    up — putting them inline is what timed out the health check."""
+    import inspect as _inspect
+
+    from app import main
+    from app.core import database
+
+    lifespan_src = _inspect.getsource(main.lifespan)
+    assert "_warm_up" in lifespan_src
+    assert "to_thread" in lifespan_src            # off the event loop
+    for slow in ("harden_public_schema", "_seed_if_empty", "ensure_bucket"):
+        assert slow not in lifespan_src, f"{slow} still blocks startup"
+
+    # and the hardening is no longer *called* inside init_db (the explanatory
+    # comment there mentions it by name, so compare code lines only)
+    init_code = [ln.split("#")[0] for ln in _inspect.getsource(database.init_db).splitlines()]
+    assert not any("harden_public_schema(" in ln for ln in init_code)
+
+
+def test_warm_up_survives_a_failing_step(monkeypatch):
+    """One broken warm-up step must not stop the others or crash the app."""
+    from app import main
+    from app.core import database, storage
+
+    calls = []
+    monkeypatch.setattr(database, "harden_public_schema", lambda: (_ for _ in ()).throw(RuntimeError("db far away")))
+    monkeypatch.setattr(main, "_seed_if_empty", lambda: calls.append("seed"))
+    monkeypatch.setattr(storage, "ensure_bucket", lambda: calls.append("bucket"))
+    main._warm_up()                                # must not raise
+    assert calls == ["seed", "bucket"]             # later steps still ran
