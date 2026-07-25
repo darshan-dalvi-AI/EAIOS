@@ -139,3 +139,30 @@ on the container disk and are lost on redeploy.
    storage hiccup never breaks an upload.
 
 Leave both unset for local/demo: storage transparently uses the disk.
+
+
+## Supabase security advisors ("RLS Disabled in Public")
+
+Supabase auto-publishes **every table in the `public` schema** through its
+PostgREST API, reachable with the project's anon key — so a fresh project
+raises a CRITICAL *RLS Disabled in Public* advisory per table. EAIOS never uses
+that API (the backend talks to Postgres directly over SQLAlchemy), so the fix
+is to **close the REST surface**, not to write policies for it:
+
+1. **RLS on, with no policies** → deny-by-default for `anon`/`authenticated`.
+2. **Grants revoked** from those roles, including via `ALTER DEFAULT
+   PRIVILEGES`, so tables created later — including the dynamic `dt_*` tables
+   built from uploaded spreadsheets — are never exposed in the first place.
+
+This does not affect the app: it connects as `postgres`, which **owns** every
+table and carries `BYPASSRLS`, and no table uses `FORCE ROW LEVEL SECURITY`.
+Isolation *between companies* is enforced in the application layer (`org_id`
+auto-scoping — see `app/core/database.py`), which is what a multi-tenant SaaS
+needs; database RLS here exists purely to shut an API surface we don't use.
+
+Nothing to do by hand — `init_db()` applies it on every boot
+(`harden_public_schema`), and `rag/tables.py` hardens each `dt_*` table as it
+is created. To apply it immediately without waiting for a deploy, paste
+[`supabase_harden.sql`](supabase_harden.sql) into the Supabase **SQL Editor**;
+it is idempotent and ends with a verification query (expect `rls_enabled =
+true` and `— none —` for every row).

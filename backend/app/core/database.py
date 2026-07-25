@@ -87,6 +87,80 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _migrate_add_org_id()
+    harden_public_schema()
+
+
+# ── Supabase / Postgres surface hardening ─────────────────────────────────
+# Supabase auto-publishes EVERY table in the `public` schema through its
+# PostgREST API, reachable with the project's anon key. EAIOS never uses that
+# API — it talks to Postgres directly over SQLAlchemy — so the whole REST
+# surface should be shut, not merely policed. Two independent locks:
+#
+#   1. ENABLE ROW LEVEL SECURITY with **no policies** → deny-by-default for
+#      every API role. (The app is unaffected: it connects as the table owner,
+#      and owners/BYPASSRLS roles are not subject to RLS unless FORCE is set.)
+#   2. REVOKE the table grants Supabase hands to `anon`/`authenticated`, and
+#      revoke them from DEFAULT PRIVILEGES so tables created later — including
+#      the dynamic ``dt_*`` tables built from uploaded spreadsheets — are never
+#      exposed in the first place.
+#
+# Idempotent, Postgres-only (no-op on SQLite), and never fatal: a permission
+# error here must not stop the app from booting.
+_API_ROLES = ("anon", "authenticated")
+
+
+def harden_public_schema(only_table: str | None = None) -> None:
+    """Close the Supabase REST surface for public tables. See module notes."""
+    if _is_sqlite:
+        return
+
+    import logging
+
+    from sqlalchemy import text
+
+    log = logging.getLogger("eaios")
+    try:
+        with engine.begin() as conn:
+            roles = [
+                r for r in _API_ROLES
+                if conn.execute(text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": r}).first()
+            ]
+
+            if only_table:
+                tables = [only_table]
+            else:
+                tables = [
+                    row[0] for row in conn.execute(text(
+                        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                    ))
+                ]
+
+            secured = 0
+            for name in tables:
+                ident = f'public."{name}"'
+                try:
+                    conn.execute(text(f"ALTER TABLE {ident} ENABLE ROW LEVEL SECURITY"))
+                    for role in roles:
+                        conn.execute(text(f"REVOKE ALL ON {ident} FROM {role}"))
+                    secured += 1
+                except Exception as exc:  # noqa: BLE001 — one bad table must not stop the rest
+                    log.warning("RLS hardening skipped for %s: %s", name, exc)
+
+            # Future tables (dt_* materialised at runtime, new models) inherit
+            # no API grants at all.
+            for role in roles:
+                try:
+                    conn.execute(text(
+                        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM {role}"
+                    ))
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("Default-privilege revoke failed for %s: %s", role, exc)
+
+        if secured:
+            log.info("Public schema hardened: RLS on %d table(s), API roles revoked %s",
+                     secured, roles or "(none present)")
+    except Exception as exc:  # noqa: BLE001 — hardening must never block startup
+        log.warning("Public schema hardening skipped: %s", exc)
 
 
 def _migrate_add_org_id() -> None:

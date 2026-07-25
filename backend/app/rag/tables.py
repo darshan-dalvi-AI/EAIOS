@@ -30,6 +30,28 @@ from app.models import DataTable, Document
 
 log = logging.getLogger("eaios.tables")
 
+
+def _harden(db: Session, table_name: str) -> None:
+    """Close the Supabase REST surface for a freshly created ``dt_*`` table.
+
+    Runs on the caller's session (the table lives in its still-open
+    transaction, so a second connection would block on the lock), each
+    statement inside a SAVEPOINT so a failure can't poison the ingest.
+    No-op on SQLite, which has neither RLS nor an auto-published API."""
+    from app.core.database import _API_ROLES, _is_sqlite
+
+    if _is_sqlite:
+        return
+    stmts = [f'ALTER TABLE public."{table_name}" ENABLE ROW LEVEL SECURITY']
+    stmts += [f'REVOKE ALL ON public."{table_name}" FROM {r}' for r in _API_ROLES]
+    for sql in stmts:
+        try:
+            with db.begin_nested():
+                db.execute(sqltext(sql))
+        except Exception as exc:  # noqa: BLE001 — hardening must not break ingest
+            log.warning("dt table hardening skipped (%s): %s", table_name, exc)
+
+
 MAX_TABLES = 10
 MAX_ROWS = 500
 MAX_COLS = 30
@@ -282,6 +304,10 @@ def materialize(db: Session, doc: Document, tables: list[RawTable]) -> list[Bloc
         col_list = ", ".join(f'"{c}"' for c in cols)
         if params:
             db.execute(sqltext(f'INSERT INTO "{table_name}" ({col_list}) VALUES ({placeholders})'), params)
+
+        # A dt_* table is created outside SQLAlchemy metadata, so Supabase would
+        # otherwise publish it through the REST API with no RLS. Close it now.
+        _harden(db, table_name)
 
         db.add(DataTable(
             document_id=doc.id, doc_title=doc.title, table_name=table_name,
