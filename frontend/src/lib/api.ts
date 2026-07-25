@@ -92,14 +92,16 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-export async function apiLogin(email: string, password: string): Promise<{ user: SessionUser; token: string | null; live: boolean }> {
+export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null }
+
+export async function apiLogin(email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
     try {
-      const data = await request<{ token: { access_token: string }; user: SessionUser }>("/auth/login", {
+      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string } }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      return { user: data.user, token: data.token.access_token, live: true };
+      return { user: data.user, token: data.token.access_token, live: true, orgName: data.org?.name ?? null };
     } catch (err) {
       // fall through to demo credentials so the UI is never a dead end
       const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
@@ -110,7 +112,24 @@ export async function apiLogin(email: string, password: string): Promise<{ user:
   const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
   if (!demo) throw new Error("Invalid credentials");
   const { password: _pw, ...user } = demo;
-  return { user, token: null, live: false };
+  return { user, token: null, live: false, orgName: "EAIOS Demo Workspace" };
+}
+
+/** Create a brand-new company workspace + its first admin (multi-tenant SaaS). */
+export async function apiSignup(company_name: string, full_name: string, email: string, password: string): Promise<Session> {
+  if (useOS.getState().live) {
+    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string } }>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ company_name, full_name, email, password }),
+    });
+    return { user: data.user, token: data.token.access_token, live: true, orgName: data.org?.name ?? company_name };
+  }
+  // demo mode (no backend): simulate an admin session for the new workspace
+  await delay(700);
+  return {
+    user: { id: "demo-owner", email, full_name, role: "admin", avatar_hue: 265 },
+    token: null, live: false, orgName: company_name,
+  };
 }
 
 export interface ChatResult {

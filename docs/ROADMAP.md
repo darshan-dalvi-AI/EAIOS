@@ -106,6 +106,16 @@ Verified: **65/65 pytest** (+6 batch-6 tests: tasks CRUD/RBAC, meeting→tasks, 
 - **Polish** — video self-view shows the true (un-mirrored) camera; login role ordering admin → HR → manager → employee; global error boundary self-heals; connector errors surface cleanly.
 - Verified: **73/73 backend pytest**, tsc clean, both builds, headless A–Z (18 apps + PWA + roles + mirror) all green; live-site integration incl. Supabase read/write and file-in-storage confirmed.
 
+## Post-roadmap upgrades · batch 8 ✅ shipped 2026-07-24 (multi-tenant SaaS — "sell to many companies")
+
+Turns EAIOS from one deployment into a product any company can self-serve — one hosted app, isolated workspaces per company.
+
+- **Company signup** — "Create your workspace →" on the login screen (`POST /auth/signup`): a company name + admin details spin up a new `Organization` (collision-free slug) and its first admin in one call, returning a scoped token. Login/register/JWT now carry the org; the workspace name shows in the menu bar.
+- **Tenant isolation at the ORM layer** — a `TenantMixin` puts `org_id` on all 20 domain tables; a `do_orm_execute` hook auto-scopes **every** read (`with_loader_criteria`) and a `before_flush` hook auto-stamps **every** write with the request's org. Isolation can't be forgotten per-query — it's structural. Activated per-request from the JWT (`deps.py` sets `db.info["org_id"]`), and propagated into RAG ingest, the seeder, and the workflow scheduler.
+- **Raw-SQL guard for the SQL agent** — the NL→SQL agent executes `text()` SQL, which the ORM hook can't see, so it gets its own **fail-closed** `_tenant_scope`: every tenant table is rewritten into `(SELECT * FROM t WHERE org_id = :org) AS t`, the tenant registry (`organizations`) is denied, and any shape it can't provably scope (aliases, comma-joins) is rejected rather than run. A workspace can never read another's rows even by asking the SQL agent directly.
+- **First-run Setup Guide** — new company admins get a dismissible onboarding checklist (invite team → add knowledge → connect tools → ask the AI → install app), progress persisted per workspace, reopenable from Settings.
+- Verified: **79/79 backend pytest** (+`test_tenancy.py`: signup-creates-isolated-org, two-companies-can't-see-each-other across users/docs/tasks/chat/search + cross-org PATCH→404, RAG scoped, SQL-agent cross-org count/rows blocked, guard rewrite/reject units, demo login intact), tsc clean, both builds, **9/9 SaaS headless QA** (signup→empty isolated workspace, org name in menu bar, admin sees only its users, live two-company task isolation, demo login still works).
+
 ## Deliverables checklist
 
 Report + architecture diagrams (docs/) · demo video script: boot → login → ⌘K → RAG answer with citations → compound request planner demo → SQL Studio → admin audit → kill backend mid-demo to show demo-mode resilience (judges love this) · GitHub repo with CI badge · deployed URL.

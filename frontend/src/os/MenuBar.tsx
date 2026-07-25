@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useOS } from "../store";
 
 export default function MenuBar() {
-  const { user, live, agentBusy, setPalette, logout, open, online, wsConnected, theme, setTheme } = useOS();
+  const { user, orgName, live, agentBusy, setPalette, logout, open, online, wsConnected, theme, setTheme } = useOS();
   const liveFeed = useOS((s) => s.liveFeed);
   const [now, setNow] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,6 +33,7 @@ export default function MenuBar() {
         <span className={`orb ${agentBusy ? "busy" : ""}`} />
         EAIOS
       </button>
+      {orgName && <span className="mb-org" title="Your workspace">{orgName}</span>}
       {["File", "View", "Agents", "Help"].map((m) => (
         <button key={m} className="mb-item" onClick={() => setPalette(true)}>{m}</button>
       ))}

@@ -18,6 +18,11 @@ def ingest_document(doc_id: str, path: str) -> None:
         doc = db.get(Document, doc_id)
         if doc is None:
             return
+        # Propagate the document's tenant to this session so every chunk,
+        # entity and structured table created below is stamped with the same
+        # org (and stays isolated from other companies).
+        if doc.org_id:
+            db.info["org_id"] = doc.org_id
         doc.status = "processing"
         db.commit()
 

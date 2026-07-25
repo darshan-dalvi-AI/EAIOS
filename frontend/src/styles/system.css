@@ -626,6 +626,16 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
    pre-mirror the raw feed are counteracted here; the outgoing stream (canvas
    captureStream) is unaffected, so other participants always see you correctly. */
 .vc-selfview { transform: scaleX(-1); }
+
+/* inline text button (e.g. "Create your workspace") */
+.link-btn { color: var(--accent); font-weight: 600; padding: 0; background: none; border: none;
+  cursor: pointer; font-size: inherit; }
+.link-btn:hover { text-decoration: underline; }
+
+/* workspace (tenant) name in the menu bar */
+.mb-org { font-size: 11.5px; color: var(--text-dim); padding: 2px 9px; border-radius: 6px;
+  border: 1px solid var(--hairline); margin-left: 2px; max-width: 180px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
 .vc-name { position: absolute; left: 8px; bottom: 8px; padding: 2px 9px; border-radius: 7px;
   background: rgba(2,4,9,.72); color: #e8edf7; font-size: 11.5px; font-weight: 600; }
 .vc-captions { position: absolute; left: 12px; right: 12px; bottom: 66px; display: flex;
@@ -676,6 +686,39 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 .tour-overlay { background: transparent; }
 .tour-card { background: var(--panel, #0d1220); border: 1px solid var(--hairline-strong); border-radius: 14px;
   padding: 18px 20px; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+
+/* ── First-run Setup Guide (new company admins) ─────────────────────── */
+.setup-guide { position: fixed; right: 18px; bottom: 74px; width: 348px; max-height: min(72vh, 620px);
+  overflow-y: auto; z-index: 900; padding: 0; border-radius: 16px;
+  background: var(--surface-solid, #0d1220); border: 1px solid var(--hairline-strong);
+  box-shadow: 0 24px 70px rgba(0,0,0,.5); animation: sg-in .34s cubic-bezier(.2,.9,.25,1); }
+@keyframes sg-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.setup-guide .sg-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
+.sg-badge { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; flex: none;
+  color: #fff; background: linear-gradient(135deg, var(--accent), #7c5cff);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+.sg-title { font-weight: 650; font-size: 13.5px; line-height: 1.2; }
+.sg-x { margin-left: auto; flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  border-radius: 8px; color: var(--text-faint); background: transparent; border: 0; cursor: pointer; }
+.sg-x:hover { background: var(--hairline); color: var(--text); }
+.sg-bar { height: 4px; margin: 0 14px 4px; border-radius: 4px; background: var(--hairline); overflow: hidden; }
+.sg-bar > span { display: block; height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), #7c5cff); transition: width .4s cubic-bezier(.2,.9,.25,1); }
+.sg-steps { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.sg-step { display: flex; gap: 10px; padding: 11px; border-radius: 12px; border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--text) 3%, transparent); transition: border-color .2s, background .2s; }
+.sg-step:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.sg-step.ok { opacity: .62; }
+.sg-step.ok .sg-ico { color: var(--good); }
+.sg-ico { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sg-step-title { font-weight: 600; font-size: 12.5px; }
+.sg-step-text { font-size: 11.5px; line-height: 1.5; color: var(--text-dim); margin-top: 2px; }
+.btn.ghost { background: transparent; box-shadow: none; }
+.sg-foot { padding: 0 14px 14px; font-size: 12px; color: var(--text-dim); }
+@media (max-width: 740px) {
+  .setup-guide { right: 8px; left: 8px; width: auto; bottom: 66px; max-height: 66vh; }
+}
 
 /* ── Mobile mode (≤740px): full-screen windows + scrollable dock ─────── */
 @media (max-width: 740px) {

@@ -18,7 +18,9 @@ Most "enterprise chatbot" projects are a chat box over an API call. EAIOS is:
 - **Genuinely grounded RAG** — hybrid retrieval (dense vectors + BM25, fused with Reciprocal Rank Fusion), citation chips with relevance meters, per-answer confidence scores.
 - **A real multi-agent system** — a Planning Agent decomposes compound requests and routes subtasks across 8 agents (Document, SQL, Research, Email, Report, Analytics, Memory, Planning), each recorded in an observability table.
 - **Zero-dependency dev mode** — SQLite + in-memory vector store + a deterministic extractive "mock LLM" mean the entire platform runs with no Docker, no GPU, no keys. Swap one env var to move to Postgres + Qdrant + Ollama/GPT/Claude.
-- **Security done properly for a student project** — PBKDF2 password hashing, stdlib HS256 JWTs, RBAC guards, SELECT-only SQL guardrails, append-only audit log.
+- **Multi-tenant SaaS** — any company can self-serve: "Create your workspace" on the login screen spins up an isolated tenant with its own admin, users and data. Isolation is enforced at the ORM layer (auto-scoped reads + auto-stamped writes), so one company can never see another's documents, chats, tasks or search results — proven by a dedicated `test_tenancy.py` suite. The SQL agent, which runs raw SQL, gets its own fail-closed guard that rewrites every tenant table into an org-scoped subquery. One deploy, many companies.
+- **Guided onboarding** — a new company admin lands on a Setup Guide checklist (invite team → add knowledge → connect tools → ask the AI → install the app), reopenable from Settings.
+- **Security done properly for a student project** — PBKDF2 password hashing, stdlib HS256 JWTs, RBAC guards (admin · HR · manager · employee), SELECT-only + org-scoped SQL guardrails, append-only audit log.
 - **Graph-orchestrated agents with real observability** — the orchestrator is a StateGraph (LangGraph semantics, dependency-free); every chat/workflow run records a span waterfall you can open in the Traces app (OTel/Langfuse exporters optional).
 - **A knowledge graph that builds itself** — entities + co-occurrence edges extracted at ingest, explored in a force-directed constellation (Graph app), and used to answer "how are X and Y related?" with paths + cited evidence.
 - **Visual automations** — drag-and-drop workflow canvas (trigger → agents → conditions → notify) executed by the same agent runtime, with live-streamed runs; fires automatically on document upload.
@@ -55,7 +57,9 @@ One-container build (`Dockerfile.web`) + Render blueprint (`render.yaml`):
 push to GitHub → render.com → New → Blueprint → Apply → paste a free Groq key
 for real Llama 3.1 answers. Full steps: [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Logins** — `admin@eaios.dev / admin12345` (admin) · `maya@eaios.dev / demo12345` (manager) · `dev@eaios.dev / demo12345` (employee)
+**Sign up your company** — on the login screen, click **"Create your workspace →"**, enter a company name, your name, a work email and password. You become the admin of a brand-new, empty, isolated workspace — then use the Setup Guide to invite your team.
+
+**Demo logins** (shared demo workspace) — `admin@eaios.dev / admin12345` (admin) · `maya@eaios.dev / demo12345` (manager) · `dev@eaios.dev / demo12345` (employee)
 
 The frontend auto-detects the backend. If it's down, every app still works in **Demo mode** on realistic mock data — the login screen tells you which mode you're in.
 

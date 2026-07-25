@@ -1,4 +1,4 @@
-import { Brain, Cpu, Download, Mic, Palette, PlayCircle, ServerCog, ShieldCheck, Info, Swords, Trash2 } from "lucide-react";
+import { Brain, Cpu, Download, Mic, Palette, PlayCircle, Rocket, ServerCog, ShieldCheck, Info, Swords, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiCompare, apiDeleteMyData, apiExportMyData, apiModelConfig, apiSetModel, type CompareResult, type ModelConfig } from "../lib/api";
 import { MEMORIES } from "../lib/mock";
@@ -298,6 +298,9 @@ function PrivacySection() {
         </button>
         <button className="btn sm" onClick={() => window.dispatchEvent(new Event("eaios:replay-tour"))}>
           <PlayCircle size={13} /> Replay the guided tour
+        </button>
+        <button className="btn sm" onClick={() => window.dispatchEvent(new Event("eaios:open-setup"))}>
+          <Rocket size={13} /> Open setup guide
         </button>
         <button className={`btn sm ${wake ? "primary" : ""}`} onClick={toggleWake} title="Say “Hey EAIOS” to open the assistant">
           <Mic size={13} /> Wake word: {wake ? "on" : "off"}

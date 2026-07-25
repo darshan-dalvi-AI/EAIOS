@@ -17,6 +17,32 @@ FORBIDDEN = re.compile(
 MAX_ROWS = 50
 MAX_SQL_RETRIES = 2  # reflection loop: error → LLM rewrite → retry
 
+# ── multi-tenant isolation for raw SQL ───────────────────────────
+# The ORM auto-filter (core.database) only scopes ORM select() statements;
+# it CANNOT see raw text() SQL. So the SQL agent gets its own guard: every
+# tenant table referenced is transparently rewritten into an org-scoped
+# subquery, and anything the guard can't prove is isolated is rejected
+# (fail-closed). Result: a user in one workspace can never read another's rows.
+TENANT_TABLES = {
+    "users", "documents", "chunks", "conversations", "messages", "agent_runs",
+    "memory_entries", "audit_logs", "entities", "entity_edges", "entity_mentions",
+    "workflows", "workflow_runs", "data_tables", "graph_checkpoints",
+    "custom_agents", "connectors", "saved_charts", "tasks", "usage_events",
+}
+SENSITIVE_DENY = {"organizations"}  # the tenant registry itself — never exposed
+# Tokens that may legally follow a table name (i.e. NOT an alias). Anything
+# else after a table (an alias, or a comma-join) means we can't safely inject
+# the org filter, so we refuse rather than risk a leak.
+_SAFE_FOLLOWERS = {
+    "", "where", "group", "order", "limit", "having", "union", "join",
+    "inner", "left", "right", "full", "cross", "on", "offset",
+}
+_TABLE_REF = re.compile(r'\b(from|join)\s+"?([a-zA-Z_][\w]*)"?', re.I)
+
+
+class _GuardReject(Exception):
+    """Raised when a query can't be guaranteed to stay inside one workspace."""
+
 SYSTEM = (
     "You are the SQL Agent. Generate a single read-only SQL SELECT statement for the schema below. "
     "Return ONLY the SQL, no prose, no code fences."
@@ -43,7 +69,12 @@ class SQLAgent(BaseAgent):
                 return SQLOut(sql=sql, explanation="Query rejected by safety guardrails.", warning=problem)
 
             try:
-                result = self.db.execute(text(sql))
+                scoped, params = self._tenant_scope(sql)
+            except _GuardReject as rej:
+                return SQLOut(sql=sql, explanation="Query rejected by workspace isolation.", warning=str(rej))
+
+            try:
+                result = self.db.execute(text(scoped), params)
                 columns = list(result.keys())
                 rows = [[_cell(v) for v in row] for row in result.fetchmany(MAX_ROWS)]
                 corrected = f" Self-corrected after {attempt} failed attempt(s)." if attempt else ""
@@ -140,6 +171,57 @@ class SQLAgent(BaseAgent):
         if table:
             return f"SELECT * FROM {table} LIMIT 20"
         return None
+
+    # ── multi-tenant isolation ───────────────────────────────────
+    def _tenant_scope(self, sql: str):
+        """Rewrite raw SQL so it can only touch the caller's own workspace.
+
+        Returns (sql, params). When no org context is active (system/single-
+        tenant paths) the query is returned unchanged. Otherwise every tenant
+        table is replaced by ``(SELECT * FROM t WHERE org_id = :org) AS t`` and
+        anything that can't be safely scoped is rejected via ``_GuardReject``."""
+        org_id = self.db.info.get("org_id")
+        if not org_id:
+            return sql, {}
+
+        # dt_* tables the caller legitimately owns (this query is ORM-scoped,
+        # so it already only returns THIS workspace's extracted tables).
+        allowed_dt = set()
+        try:
+            from app.models import DataTable
+            allowed_dt = {name for (name,) in self.db.query(DataTable.table_name).all()}
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Collect edits by position, then apply right-to-left so offsets stay
+        # valid and injected text is never re-scanned (handles self-joins).
+        edits = []
+        for m in _TABLE_REF.finditer(sql):
+            table = m.group(2)
+            tl = table.lower()
+            if tl in SENSITIVE_DENY:
+                raise _GuardReject(f"The '{table}' table isn't available in workspace-scoped queries.")
+            if tl.startswith("dt_"):
+                if table not in allowed_dt:
+                    raise _GuardReject(f"Table '{table}' isn't in your workspace.")
+                continue  # owned extracted table — safe as-is
+            if tl not in TENANT_TABLES:
+                continue  # non-tenant / unknown table — nothing to scope
+            # Refuse if an alias or comma-join follows (can't inject safely).
+            rest = sql[m.end():].lstrip()
+            nxt = re.match(r'([),;]|\w+)', rest)
+            follower = (nxt.group(1) if nxt else "").lower()
+            if follower == ",":
+                raise _GuardReject("Comma joins aren't supported for workspace-scoped queries — use explicit JOIN.")
+            if follower not in _SAFE_FOLLOWERS and follower not in (")", ";"):
+                raise _GuardReject("Query is too complex to guarantee workspace isolation — please simplify (avoid table aliases).")
+            edits.append((m.start(), m.end(),
+                          f"{m.group(1)} (SELECT * FROM {table} WHERE org_id = :org) AS {table}"))
+
+        out = sql
+        for start, end, repl in reversed(edits):
+            out = out[:start] + repl + out[end:]
+        return out, ({"org": org_id} if edits else {})
 
     # ── safety ───────────────────────────────────────────────────
     def _validate(self, sql: str) -> str:

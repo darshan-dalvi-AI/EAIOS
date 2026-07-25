@@ -24,12 +24,15 @@ def _bootstrap_admin() -> None:
 
     with SessionLocal() as db:
         if db.query(User).count() == 0:
+            from app.services.tenancy import default_org
+
             db.add(User(
                 email="admin@eaios.dev",
                 full_name="System Administrator",
                 hashed_password=hash_password("admin12345"),
                 role="admin",
                 avatar_hue=265,
+                org_id=default_org(db).id,
             ))
             db.commit()
             log.info("Bootstrapped admin → admin@eaios.dev / admin12345 (change this!)")

@@ -20,6 +20,14 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=8)
 
 
+class SignupIn(BaseModel):
+    """Create a new company workspace + its first admin."""
+    company_name: str = Field(min_length=2, max_length=160)
+    full_name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    password: str = Field(min_length=8)
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -32,6 +40,7 @@ class UserOut(ORMModel):
     role: str
     avatar_hue: int
     is_active: bool
+    org_id: str | None = None
     created_at: datetime
     last_login: datetime | None = None
 

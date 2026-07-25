@@ -23,6 +23,7 @@ import type { AppId } from "../types";
 import CommandPalette from "./CommandPalette";
 import Dock from "./Dock";
 import MenuBar from "./MenuBar";
+import SetupGuide from "./SetupGuide";
 import Toasts from "./Toasts";
 import Tour from "./Tour";
 import WakeWord from "./WakeWord";
@@ -118,6 +119,7 @@ export default function Desktop() {
       {paletteOpen && <CommandPalette />}
       {wake && <WakeWord />}
       {tour && <Tour onDone={() => { localStorage.setItem("eaios-tour-done", "1"); setTour(false); }} />}
+      {!tour && <SetupGuide />}
     </>
   );
 }

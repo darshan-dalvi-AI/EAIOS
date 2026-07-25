@@ -54,6 +54,13 @@ def seed() -> None:
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
     with SessionLocal() as db:
+        # All seeded data belongs to the shared demo workspace. Setting the org
+        # on the session auto-stamps every row created below (users, documents,
+        # chunks, conversations, memory) with the demo org.
+        from app.services.tenancy import default_org
+
+        db.info["org_id"] = default_org(db).id
+
         # ── users ────────────────────────────────────────────────
         def ensure_user(email: str, name: str, role: str, hue: int, password: str = "demo12345") -> User:
             user = db.query(User).filter(User.email == email).first()

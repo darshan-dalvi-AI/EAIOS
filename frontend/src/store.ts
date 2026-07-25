@@ -46,9 +46,10 @@ interface OSStore {
 
   user: SessionUser | null;
   token: string | null;
+  orgName: string | null;
   live: boolean;
   setLive: (b: boolean) => void;
-  login: (u: SessionUser, token: string | null) => void;
+  login: (u: SessionUser, token: string | null, orgName?: string | null) => void;
   logout: () => void;
 
   windows: Win[];
@@ -108,10 +109,11 @@ export const useOS = create<OSStore>((set, get) => ({
 
   user: null,
   token: null,
+  orgName: null,
   live: false,
   setLive: (live) => set({ live }),
-  login: (user, token) => set({ user, token, phase: "desktop" }),
-  logout: () => set({ user: null, token: null, windows: [], phase: "login" }),
+  login: (user, token, orgName = null) => set({ user, token, orgName, phase: "desktop" }),
+  logout: () => set({ user: null, token: null, orgName: null, windows: [], phase: "login" }),
 
   windows: [],
   topZ: 100,

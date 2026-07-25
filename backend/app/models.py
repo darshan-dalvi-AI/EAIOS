@@ -16,7 +16,27 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class User(Base):
+class Organization(Base):
+    """A tenant — one company/customer. Every other row belongs to exactly one
+    organization; queries are auto-scoped to the caller's org (see database.py)."""
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    name: Mapped[str] = mapped_column(String(160))
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    plan: Mapped[str] = mapped_column(String(20), default="free")  # free | pro | enterprise
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class TenantMixin:
+    """Adds an ``org_id`` to a model. The session layer auto-filters SELECTs and
+    auto-stamps INSERTs by the current org, so tenant isolation can't be
+    forgotten per-query. Nullable so unscoped/system inserts fail safe (an
+    unstamped row is invisible to every tenant) rather than erroring."""
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), index=True, default=None)
+
+
+class User(TenantMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -32,7 +52,7 @@ class User(Base):
     documents: Mapped[list["Document"]] = relationship(back_populates="owner")
 
 
-class Document(Base):
+class Document(TenantMixin, Base):
     __tablename__ = "documents"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -52,7 +72,7 @@ class Document(Base):
     chunks: Mapped[list["Chunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
-class Chunk(Base):
+class Chunk(TenantMixin, Base):
     __tablename__ = "chunks"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -65,7 +85,7 @@ class Chunk(Base):
     document: Mapped[Document] = relationship(back_populates="chunks")
 
 
-class Conversation(Base):
+class Conversation(TenantMixin, Base):
     __tablename__ = "conversations"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -77,7 +97,7 @@ class Conversation(Base):
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
 
 
-class Message(Base):
+class Message(TenantMixin, Base):
     __tablename__ = "messages"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -92,7 +112,7 @@ class Message(Base):
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
-class AgentRun(Base):
+class AgentRun(TenantMixin, Base):
     __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -105,7 +125,7 @@ class AgentRun(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
-class MemoryEntry(Base):
+class MemoryEntry(TenantMixin, Base):
     __tablename__ = "memory_entries"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -117,7 +137,7 @@ class MemoryEntry(Base):
     last_used: Mapped[datetime] = mapped_column(default=_now)
 
 
-class AuditLog(Base):
+class AuditLog(TenantMixin, Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -129,18 +149,18 @@ class AuditLog(Base):
 
 
 # ── knowledge graph ──────────────────────────────────────────────────────
-class Entity(Base):
+class Entity(TenantMixin, Base):
     __tablename__ = "entities"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
     name: Mapped[str] = mapped_column(String(200))
-    key: Mapped[str] = mapped_column(String(200), unique=True, index=True)  # normalized name
+    key: Mapped[str] = mapped_column(String(200), index=True)  # normalized name (unique per org, not global)
     etype: Mapped[str] = mapped_column(String(20), default="term")  # person|org|money|date|acronym|concept|term
     mentions: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
-class EntityEdge(Base):
+class EntityEdge(TenantMixin, Base):
     __tablename__ = "entity_edges"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -150,7 +170,7 @@ class EntityEdge(Base):
     doc_id: Mapped[str | None] = mapped_column(String(32), default=None, index=True)
 
 
-class EntityMention(Base):
+class EntityMention(TenantMixin, Base):
     __tablename__ = "entity_mentions"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -160,7 +180,7 @@ class EntityMention(Base):
 
 
 # ── workflows (Automations app) ──────────────────────────────────────────
-class Workflow(Base):
+class Workflow(TenantMixin, Base):
     __tablename__ = "workflows"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -177,7 +197,7 @@ class Workflow(Base):
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
 
 
-class WorkflowRun(Base):
+class WorkflowRun(TenantMixin, Base):
     __tablename__ = "workflow_runs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
@@ -193,7 +213,7 @@ class WorkflowRun(Base):
 
 
 # ── structured data tables (advanced document parsing → SQL agent) ───────
-class DataTable(Base):
+class DataTable(TenantMixin, Base):
     """A table extracted from an uploaded document, materialized as a REAL
     SQL table (``dt_<doc>_<n>``) so the SQL Agent can query it directly —
     structured data bypasses text chunking entirely."""
@@ -212,7 +232,7 @@ class DataTable(Base):
 
 
 # ── graph checkpoints (LangGraph-style state persistence) ────────────────
-class GraphCheckpoint(Base):
+class GraphCheckpoint(TenantMixin, Base):
     """Orchestrator graph state persisted after every super-step, keyed by
     thread (conversation). Interrupted runs resume from the saved node."""
 
@@ -228,7 +248,7 @@ class GraphCheckpoint(Base):
 
 
 # ── Agent Studio (no-code custom agents) ─────────────────────────────────
-class CustomAgent(Base):
+class CustomAgent(TenantMixin, Base):
     """A user-authored agent: a name, a system prompt, and a set of enabled
     tools (rag / web). Runs through the same BaseAgent contract as the
     built-in fleet and is invocable from Chat's route picker."""
@@ -236,7 +256,7 @@ class CustomAgent(Base):
     __tablename__ = "custom_agents"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
-    slug: Mapped[str] = mapped_column(String(60), unique=True, index=True)  # route id, e.g. "studio_hrbot"
+    slug: Mapped[str] = mapped_column(String(60), index=True)  # route id (unique per org, not global)
     name: Mapped[str] = mapped_column(String(80))
     description: Mapped[str] = mapped_column(String(300), default="")
     system_prompt: Mapped[str] = mapped_column(Text)
@@ -250,7 +270,7 @@ class CustomAgent(Base):
 
 
 # ── Connectors (Gmail / Drive / sample workspace → RAG) ──────────────────
-class Connector(Base):
+class Connector(TenantMixin, Base):
     """A configured data source. Syncing pulls items from the provider and
     feeds them through the same ingestion pipeline as uploaded documents."""
 
@@ -268,7 +288,7 @@ class Connector(Base):
 
 
 # ── Saved dashboards (NL-to-BI charts) ───────────────────────────────────
-class SavedChart(Base):
+class SavedChart(TenantMixin, Base):
     """A pinned natural-language chart: the question, the generated SQL, the
     chart spec and a snapshot of the result so a dashboard renders instantly."""
 
@@ -282,7 +302,7 @@ class SavedChart(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
-class Task(Base):
+class Task(TenantMixin, Base):
     """Kanban task — created manually or auto-extracted from meeting minutes
     ("action items" bullets become cards). Assignable to any workspace user."""
 
@@ -298,7 +318,7 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
 
 
-class UsageEvent(Base):
+class UsageEvent(TenantMixin, Base):
     """One AI request — powers the Admin usage/cost view. Token counts are
     estimated (~4 chars/token) when the provider doesn't report real usage."""
 

@@ -29,6 +29,9 @@ def get_current_user(
     user = db.get(User, payload["sub"])
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or disabled")
+    # Activate tenant isolation for the rest of this request: every ORM query on
+    # this session is now auto-scoped to the caller's organization.
+    db.info["org_id"] = user.org_id
     return user
 
 

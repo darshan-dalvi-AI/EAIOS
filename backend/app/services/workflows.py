@@ -254,6 +254,9 @@ def run_due_scheduled(db: Session, now: datetime | None = None) -> int:
         if last is not None and (now - last).total_seconds() < minutes * 60:
             continue
         try:
+            # System scheduler spans all tenants — stamp this run (and anything
+            # it creates) with the workflow's own org so isolation holds.
+            db.info["org_id"] = wf.org_id
             execute(db, wf, f"Scheduled run · every {minutes} min · {now.isoformat(timespec='minutes')}",
                     trigger="schedule")
             fired += 1
