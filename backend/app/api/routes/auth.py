@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
 from app.core.security import create_token, hash_password, verify_password
 from app.models import Organization, User
 from app.schemas import LoginIn, RegisterIn, SignupIn, Token, UserOut
@@ -14,7 +15,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _org_out(org: Organization | None) -> dict | None:
-    return {"id": org.id, "name": org.name, "slug": org.slug, "plan": org.plan} if org else None
+    if not org:
+        return None
+    return {"id": org.id, "name": org.name, "slug": org.slug,
+            "plan": org.plan, "status": org.status}
 
 
 @router.post("/signup", status_code=201)
@@ -41,6 +45,7 @@ def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
         "token": Token(access_token=create_token(user.id, user.role)).model_dump(),
         "user": UserOut.model_validate(user).model_dump(mode="json"),
         "org": _org_out(org),
+        "is_platform_owner": settings.is_platform_owner(user.email),
     }
 
 
@@ -73,14 +78,19 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(401, "Invalid credentials")
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
+    org = db.get(Organization, user.org_id) if user.org_id else None
+    # A suspended workspace locks out every member — data is kept, access isn't.
+    if org is not None and org.status == "suspended":
+        audit.log(db, "auth.suspended", user.id, org.slug)
+        raise HTTPException(403, f"The workspace “{org.name}” is suspended. Contact your administrator.")
     user.last_login = datetime.now(timezone.utc)
     db.commit()
     audit.log(db, "auth.login", user.id, ip=request.client.host if request.client else "")
-    org = db.get(Organization, user.org_id) if user.org_id else None
     return {
         "token": Token(access_token=create_token(user.id, user.role)).model_dump(),
         "user": UserOut.model_validate(user).model_dump(mode="json"),
         "org": _org_out(org),
+        "is_platform_owner": settings.is_platform_owner(user.email),
     }
 
 

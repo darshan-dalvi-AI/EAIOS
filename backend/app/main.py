@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     admin, agents, analytics, auth, chat, connectors, dashboards, documents,
-    graph, me, reports, search, studio, tasks, traces, users, workflows, ws,
+    graph, me, orgs, reports, search, studio, tasks, traces, users, workflows, ws,
 )
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
@@ -129,7 +129,7 @@ for router in (
     auth.router, users.router, documents.router, chat.router, agents.router,
     admin.router, analytics.router, graph.router, workflows.router, traces.router,
     reports.router, dashboards.router, studio.router, connectors.router,
-    tasks.router, search.router, me.router, ws.router,
+    tasks.router, search.router, me.router, orgs.router, ws.router,
 ):
     app.include_router(router, prefix="/api")
 

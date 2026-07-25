@@ -92,16 +92,17 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null }
+export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean }
 
 export async function apiLogin(email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
     try {
-      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string } }>("/auth/login", {
+      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string }; is_platform_owner?: boolean }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      return { user: data.user, token: data.token.access_token, live: true, orgName: data.org?.name ?? null };
+      return { user: data.user, token: data.token.access_token, live: true,
+               orgName: data.org?.name ?? null, isOwner: !!data.is_platform_owner };
     } catch (err) {
       // fall through to demo credentials so the UI is never a dead end
       const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
@@ -118,11 +119,12 @@ export async function apiLogin(email: string, password: string): Promise<Session
 /** Create a brand-new company workspace + its first admin (multi-tenant SaaS). */
 export async function apiSignup(company_name: string, full_name: string, email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
-    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string } }>("/auth/signup", {
+    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string }; is_platform_owner?: boolean }>("/auth/signup", {
       method: "POST",
       body: JSON.stringify({ company_name, full_name, email, password }),
     });
-    return { user: data.user, token: data.token.access_token, live: true, orgName: data.org?.name ?? company_name };
+    return { user: data.user, token: data.token.access_token, live: true,
+             orgName: data.org?.name ?? company_name, isOwner: !!data.is_platform_owner };
   }
   // demo mode (no backend): simulate an admin session for the new workspace
   await delay(700);
@@ -787,4 +789,35 @@ export async function apiSyncConnector(provider: string, tokenStr = ""): Promise
   };
   demoConnectors = [row, ...(demoConnectors ?? []).filter((c) => c.provider !== "sample")];
   return row;
+}
+
+/* ── Workspaces (multi-tenant admin) ─────────────────────────────────── */
+export interface Workspace {
+  id: string; name: string; slug: string; plan: string;
+  status: "active" | "suspended"; created_at: string;
+  stats?: { users: number; documents: number; conversations: number; messages: number; tasks: number; workflows: number; agent_runs: number };
+}
+
+/** Platform owner: every workspace on this deployment. 403 for everyone else. */
+export async function apiWorkspaces(): Promise<Workspace[]> {
+  return request<Workspace[]>("/orgs");
+}
+
+/** Platform owner: suspend (lock out, keep data) or reactivate a workspace. */
+export async function apiSetWorkspaceStatus(id: string, status: "active" | "suspended"): Promise<Workspace> {
+  return request<Workspace>(`/orgs/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+}
+
+/** Platform owner: permanently delete a workspace. `confirm` must equal its name. */
+export async function apiDeleteWorkspace(id: string, confirm: string) {
+  return request<{ deleted: string; rows: Record<string, number> }>(`/orgs/${id}`, {
+    method: "DELETE", body: JSON.stringify({ confirm }),
+  });
+}
+
+/** Company admin: permanently delete OUR OWN workspace. `confirm` must equal its name. */
+export async function apiDeleteOwnWorkspace(confirm: string) {
+  return request<{ deleted: string; rows: Record<string, number> }>("/orgs/self/workspace", {
+    method: "DELETE", body: JSON.stringify({ confirm }),
+  });
 }

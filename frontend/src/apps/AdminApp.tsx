@@ -1,6 +1,6 @@
-import { Check, Copy, Gauge, KeyRound, Loader2, Lock, RefreshCw, ScrollText, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, Building2, Check, Copy, Gauge, KeyRound, Loader2, Lock, PauseCircle, PlayCircle, RefreshCw, ScrollText, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiAiUsage, apiCreateUser, apiUpdateUser, apiUsers, type AdminUser, type AiUsage } from "../lib/api";
+import { apiAiUsage, apiCreateUser, apiDeleteOwnWorkspace, apiDeleteWorkspace, apiSetWorkspaceStatus, apiUpdateUser, apiUsers, apiWorkspaces, type AdminUser, type AiUsage, type Workspace } from "../lib/api";
 import { AUDIT_ROWS } from "../lib/mock";
 import { useOS } from "../store";
 
@@ -10,6 +10,7 @@ const TABS = [
   { id: "models", label: "Models", icon: <KeyRound size={13} /> },
   { id: "access", label: "Access", icon: <ShieldCheck size={13} /> },
   { id: "usage", label: "AI usage", icon: <Gauge size={13} /> },
+  { id: "workspaces", label: "Workspaces", icon: <Building2 size={13} /> },
 ] as const;
 
 const PROVIDERS = [
@@ -33,7 +34,11 @@ const MATRIX: Record<string, boolean[]> = {
 export default function AdminApp() {
   const role = useOS((s) => s.user?.role ?? "employee");
   const isHR = role === "hr";
-  const visibleTabs = TABS.filter((t) => role === "admin" || HR_TABS.has(t.id));
+  const isOwner = useOS((s) => s.isOwner);
+  // "Workspaces" is the platform-owner console (every tenant on this
+  // deployment). Everyone else — including company admins — never sees it.
+  const visibleTabs = TABS.filter((t) =>
+    (t.id === "workspaces" ? isOwner : role === "admin" || HR_TABS.has(t.id)));
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("users");
 
   const [provider, setProvider] = useState("mock");
@@ -75,7 +80,13 @@ export default function AdminApp() {
 
       <div className="app-content" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {activeTab === "usage" && <UsagePanel />}
-        {activeTab === "users" && <UsersPanel isHR={isHR} />}
+        {activeTab === "workspaces" && <WorkspacesPanel />}
+        {activeTab === "users" && (
+          <>
+            <UsersPanel isHR={isHR} />
+            {role === "admin" && <DangerZone />}
+          </>
+        )}
 
         {activeTab === "audit" && (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -309,6 +320,179 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── Platform-owner console: every workspace on this deployment ─────────
+   Only rendered for accounts listed in PLATFORM_OWNER_EMAILS server-side;
+   the API refuses everyone else regardless of what the UI shows. */
+function WorkspacesPanel() {
+  const orgName = useOS((s) => s.orgName);
+  const [rows, setRows] = useState<Workspace[] | null>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirmFor, setConfirmFor] = useState<Workspace | null>(null);
+  const [typed, setTyped] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const load = () =>
+    apiWorkspaces().then((w) => { setRows(w); setErr(""); })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Couldn't load workspaces"));
+  useEffect(() => { load(); }, []);
+
+  async function toggle(w: Workspace) {
+    setBusy(w.id);
+    try {
+      await apiSetWorkspaceStatus(w.id, w.status === "active" ? "suspended" : "active");
+      setMsg(`${w.name} ${w.status === "active" ? "suspended" : "reactivated"}.`);
+      await load();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Action failed"); }
+    finally { setBusy(null); }
+  }
+
+  async function doDelete() {
+    if (!confirmFor) return;
+    setBusy(confirmFor.id);
+    try {
+      const r = await apiDeleteWorkspace(confirmFor.id, typed.trim());
+      setMsg(`Deleted ${r.deleted} — ${Object.values(r.rows).reduce((a, b) => a + b, 0)} rows removed.`);
+      setConfirmFor(null); setTyped("");
+      await load();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Delete failed"); }
+    finally { setBusy(null); }
+  }
+
+  if (err && !rows) return <p className="pill bad" style={{ fontSize: 12 }}>{err}</p>;
+  if (!rows) return <p className="faint" style={{ fontSize: 12 }}>Loading workspaces…</p>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <p className="faint" style={{ fontSize: 11.5, margin: 0 }}>
+        Every company workspace on this deployment. <b>Suspend</b> locks members out but keeps all data;
+        <b> Delete</b> removes the workspace and everything in it, permanently.
+      </p>
+      {msg && <p className="pill good" style={{ fontSize: 11.5 }}>{msg}</p>}
+      {err && <p className="pill bad" style={{ fontSize: 11.5 }}>{err}</p>}
+
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <table className="table">
+          <thead>
+            <tr><th>Workspace</th><th>Status</th><th style={{ textAlign: "right" }}>Users</th>
+              <th style={{ textAlign: "right" }}>Docs</th><th style={{ textAlign: "right" }}>Chats</th>
+              <th style={{ textAlign: "right" }}>Tasks</th><th style={{ textAlign: "right" }}>Actions</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((w) => {
+              const mine = w.name === orgName;
+              return (
+                <tr key={w.id} data-ws={w.slug}>
+                  <td>
+                    <b>{w.name}</b>{mine && <span className="pill info" style={{ marginLeft: 6 }}>you</span>}
+                    <div className="faint" style={{ fontSize: 10.5 }}>{w.slug}</div>
+                  </td>
+                  <td><span className={`pill ${w.status === "active" ? "good" : "warn"}`}>{w.status}</span></td>
+                  <td style={{ textAlign: "right" }}>{w.stats?.users ?? 0}</td>
+                  <td style={{ textAlign: "right" }}>{w.stats?.documents ?? 0}</td>
+                  <td style={{ textAlign: "right" }}>{w.stats?.conversations ?? 0}</td>
+                  <td style={{ textAlign: "right" }}>{w.stats?.tasks ?? 0}</td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    {mine ? <span className="faint" style={{ fontSize: 11 }}>current</span> : (
+                      <>
+                        <button className="btn sm" disabled={busy === w.id} onClick={() => toggle(w)}
+                                title={w.status === "active" ? "Suspend" : "Reactivate"}>
+                          {w.status === "active" ? <PauseCircle size={13} /> : <PlayCircle size={13} />}
+                          {w.status === "active" ? "Suspend" : "Activate"}
+                        </button>{" "}
+                        <button className="btn sm danger" disabled={busy === w.id}
+                                onClick={() => { setConfirmFor(w); setTyped(""); setErr(""); }}>
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {confirmFor && (
+        <div className="card danger-card">
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <AlertTriangle size={16} style={{ color: "var(--bad)", flex: "none", marginTop: 2 }} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: 650, fontSize: 13 }}>Delete “{confirmFor.name}” permanently?</div>
+              <p className="faint" style={{ fontSize: 11.5, margin: "4px 0 10px" }}>
+                This removes {confirmFor.stats?.users ?? 0} user(s), {confirmFor.stats?.documents ?? 0} document(s),
+                {" "}{confirmFor.stats?.conversations ?? 0} chat(s) and every other row it owns. This cannot be undone.
+                Type <b>{confirmFor.name}</b> to confirm.
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input className="input" style={{ maxWidth: 260 }} value={typed} autoFocus
+                       placeholder={confirmFor.name} onChange={(e) => setTyped(e.target.value)} />
+                <button className="btn sm danger" disabled={typed.trim() !== confirmFor.name || busy !== null}
+                        onClick={doDelete}>
+                  {busy ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />} Delete forever
+                </button>
+                <button className="btn sm" onClick={() => { setConfirmFor(null); setTyped(""); }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── A company admin closing their own workspace ─────────────────────── */
+function DangerZone() {
+  const { orgName, logout } = useOS();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function doDelete() {
+    setBusy(true); setErr("");
+    try {
+      await apiDeleteOwnWorkspace(typed.trim());
+      logout();   // the account no longer exists — drop straight to the login screen
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Delete failed");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card danger-card" data-testid="danger-zone">
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <AlertTriangle size={16} style={{ color: "var(--bad)", flex: "none", marginTop: 2 }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 650, fontSize: 13 }}>Danger zone</div>
+          <p className="faint" style={{ fontSize: 11.5, margin: "4px 0 10px" }}>
+            Deleting <b>{orgName || "this workspace"}</b> removes every user, document, chat, task and
+            uploaded file it owns. This cannot be undone.
+          </p>
+          {!open ? (
+            <button className="btn sm danger" onClick={() => setOpen(true)}>
+              <Trash2 size={13} /> Delete this workspace
+            </button>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input className="input" style={{ maxWidth: 260 }} value={typed} autoFocus
+                     placeholder={`Type “${orgName || ""}” to confirm`}
+                     onChange={(e) => setTyped(e.target.value)} />
+              <button className="btn sm danger" disabled={!typed.trim() || busy} onClick={doDelete}>
+                {busy ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />} Delete forever
+              </button>
+              <button className="btn sm" onClick={() => { setOpen(false); setTyped(""); setErr(""); }}>Cancel</button>
+            </div>
+          )}
+          {err && <p className="pill bad" style={{ fontSize: 11.5, marginTop: 8 }}>{err}</p>}
+        </div>
       </div>
     </div>
   );

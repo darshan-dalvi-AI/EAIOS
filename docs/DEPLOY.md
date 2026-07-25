@@ -141,6 +141,35 @@ on the container disk and are lost on redeploy.
 Leave both unset for local/demo: storage transparently uses the disk.
 
 
+## Managing workspaces (the platform-owner console)
+
+As the vendor running this deployment you can list, suspend and delete any
+company workspace — useful for clearing out test signups and abandoned trials.
+
+Set one environment variable on Render:
+
+```
+PLATFORM_OWNER_EMAILS = you@yourcompany.com      # comma-separated for several
+```
+
+Then sign in with that account → **Admin → Workspaces**. You get every
+workspace with its user/document/chat/task counts and two actions:
+
+| Action | Effect |
+|---|---|
+| **Suspend** | Members can't log in (403 with a clear message). All data is kept; reactivate any time. |
+| **Delete** | Permanently removes the workspace and every row it owns — users, documents, chunks, chats, tasks, workflows, agent runs, audit entries, the `dt_*` tables from its spreadsheets, and its uploaded files. Requires typing the workspace name. |
+
+A company's own admin can close their workspace themselves from
+**Admin → Users → Danger zone** (same typed confirmation). The shared demo
+workspace is protected and can't be deleted.
+
+**Security note:** leave `PLATFORM_OWNER_EMAILS` unset and the console is
+disabled entirely — the API returns 403 to everyone, so the published demo
+login can never reach it. The guard is server-side; hiding the tab is only
+cosmetic.
+
+
 ## Supabase security advisors ("RLS Disabled in Public")
 
 Supabase auto-publishes **every table in the `public` schema** through its

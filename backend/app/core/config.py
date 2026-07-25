@@ -64,6 +64,20 @@ class Settings(BaseSettings):
     # Empty → the Connectors UI falls back to paste-an-access-token.
     GOOGLE_CLIENT_ID: str = ""
 
+    # Platform owner(s) — the vendor running this multi-tenant deployment.
+    # Comma-separated emails. These accounts get the Workspaces console: list,
+    # suspend and delete ANY company workspace. Empty (the default) disables
+    # the console entirely, so a stolen demo login can never reach it.
+    PLATFORM_OWNER_EMAILS: str = ""
+
+    @property
+    def platform_owners(self) -> set[str]:
+        return {e.strip().lower() for e in self.PLATFORM_OWNER_EMAILS.split(",") if e.strip()}
+
+    def is_platform_owner(self, email: str | None) -> bool:
+        owners = self.platform_owners
+        return bool(owners and (email or "").lower() in owners)
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

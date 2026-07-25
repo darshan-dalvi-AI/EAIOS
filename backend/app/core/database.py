@@ -179,3 +179,54 @@ def _migrate_add_org_id() -> None:
             cols = {c["name"] for c in insp.get_columns(name)}
             if "org_id" not in cols:
                 conn.execute(text(f'ALTER TABLE {name} ADD COLUMN org_id VARCHAR(32)'))
+
+        # Organizations gained `status` after the first multi-tenant release.
+        if "organizations" in existing:
+            org_cols = {c["name"] for c in insp.get_columns("organizations")}
+            if "status" not in org_cols:
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN status VARCHAR(20) DEFAULT 'active'"))
+                conn.execute(text("UPDATE organizations SET status = 'active' WHERE status IS NULL"))
+
+    _backfill_null_orgs(existing, tenant_tables)
+
+
+def _backfill_null_orgs(existing: set[str], tenant_tables: list[str]) -> None:
+    """Adopt pre-multi-tenancy rows into the default demo workspace.
+
+    SECURITY: a row with ``org_id IS NULL`` belongs to no workspace, and a
+    *user* with no org gets no read filter at all (the hook skips when the
+    session has no org) — so a legacy account could see every company's data.
+    Any row that predates multi-tenancy is therefore adopted by the default
+    demo org, which restores the invariant "every row has exactly one owner".
+    """
+    from sqlalchemy import text
+
+    if "organizations" not in existing or "users" not in existing:
+        return
+    try:
+        from app.services.tenancy import DEFAULT_SLUG
+
+        with engine.begin() as conn:
+            orphans = conn.execute(text("SELECT COUNT(*) FROM users WHERE org_id IS NULL")).scalar()
+            if not orphans:
+                return
+            org_id = conn.execute(
+                text("SELECT id FROM organizations WHERE slug = :s"), {"s": DEFAULT_SLUG}).scalar()
+            if not org_id:
+                import uuid
+                org_id = uuid.uuid4().hex[:32]
+                conn.execute(
+                    text("INSERT INTO organizations (id, name, slug, plan, status, created_at) "
+                         "VALUES (:i, :n, :s, 'free', 'active', CURRENT_TIMESTAMP)"),
+                    {"i": org_id, "n": "EAIOS Demo Workspace", "s": DEFAULT_SLUG})
+            for name in tenant_tables:
+                if name in existing:
+                    conn.execute(text(f"UPDATE {name} SET org_id = :o WHERE org_id IS NULL"),
+                                 {"o": org_id})
+        import logging
+        logging.getLogger("eaios").info(
+            "Adopted %d pre-tenancy user(s) and their data into the default workspace", orphans)
+    except Exception as exc:  # noqa: BLE001 — never block startup
+        import logging
+        logging.getLogger("eaios").warning("org backfill skipped: %s", exc)
