@@ -89,7 +89,7 @@ export default function AdminApp() {
         )}
 
         {activeTab === "audit" && (
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="card table-wrap" style={{ padding: 0 }}>
             <table className="table">
               <thead>
                 <tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr>
@@ -133,7 +133,7 @@ export default function AdminApp() {
         )}
 
         {activeTab === "access" && (
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="card table-wrap" style={{ padding: 0 }}>
             <table className="table">
               <thead>
                 <tr><th>Capability</th><th style={{ textAlign: "center" }}>Admin</th><th style={{ textAlign: "center" }}>HR</th><th style={{ textAlign: "center" }}>Manager</th><th style={{ textAlign: "center" }}>Employee</th></tr>
@@ -292,7 +292,7 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
       </div>
 
       {/* Existing users */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="card table-wrap" style={{ padding: 0 }}>
         <table className="table">
           <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Active</th></tr></thead>
           <tbody>
@@ -376,7 +376,7 @@ function WorkspacesPanel() {
       {msg && <p className="pill good" style={{ fontSize: 11.5 }}>{msg}</p>}
       {err && <p className="pill bad" style={{ fontSize: 11.5 }}>{err}</p>}
 
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="card table-wrap" style={{ padding: 0 }}>
         <table className="table">
           <thead>
             <tr><th>Workspace</th><th>Status</th><th style={{ textAlign: "right" }}>Users</th>

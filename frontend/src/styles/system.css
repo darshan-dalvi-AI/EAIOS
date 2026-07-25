@@ -687,6 +687,9 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 .tour-card { background: var(--panel, #0d1220); border: 1px solid var(--hairline-strong); border-radius: 14px;
   padding: 18px 20px; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
 
+/* Cards that wrap a data table: clip corners on desktop, scroll on mobile. */
+.table-wrap { overflow: hidden; }
+
 /* ── Document upload: progress bar + drag-and-drop target ───────────── */
 /* The file inputs must stay RENDERED for a programmatic click/showPicker to
    open the OS dialog — `display:none` / `hidden` is unreliable (notably on
@@ -772,4 +775,82 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   .land-section { padding-left: 18px; padding-right: 18px; }
   .feature-grid { grid-template-columns: 1fr; }
   .lp-hero h1, .land-hero h1 { font-size: 34px; }
+
+  /* ── Menu bar ──────────────────────────────────────────────────────
+     On a phone the left half (logo + workspace + File/View/Agents/Help)
+     pushed the right half — search, notifications, theme, the user menu
+     with Log out — clean off the screen. The four dropdowns only open the
+     command palette, which the search icon already does, so they go; the
+     workspace name truncates; the bar grows to a comfortable 44px and the
+     windows/dock below it follow suit. */
+  .menubar { height: calc(44px + env(safe-area-inset-top, 0px)); padding: 0 6px; gap: 2px;
+    padding-top: env(safe-area-inset-top, 0px); }
+  .mb-right { gap: 2px; }
+  .mb-org { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menubar .mb-item, .mb-logo, .mb-right > div > button {
+    min-width: 40px; min-height: 40px; display: inline-flex; align-items: center;
+    justify-content: center; }
+  .mb-logo { min-width: 0; padding: 0 8px; }
+  /* These two MUST come after the sizing rule above: same specificity, and the
+     later declaration wins — otherwise `display: inline-flex` un-hides them. */
+  .menubar > .mb-item { display: none; }        /* File · View · Agents · Help */
+  .mb-right span.mb-item { display: none; }     /* decorative wifi glyph */
+
+  .window { top: calc(44px + env(safe-area-inset-top, 0px)) !important;
+    height: calc(100dvh - 44px - env(safe-area-inset-top, 0px) - 62px - env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* ── Dock: comfortable touch targets + room for the home indicator ── */
+  .dock { padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  .dock-item { min-width: 44px; }
+  .dock-item:hover { transform: none; }   /* hover-lift misfires on touch */
+
+  /* Tables (Admin users, Workspaces console) scroll sideways instead of
+     being clipped — otherwise the Actions column is unreachable. The
+     wrapper scrolls, not the table, so column widths stay aligned. */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap .table { min-width: 460px; }
+
+  /* Landing: full-width CTAs and thumb-sized nav links. */
+  .land-ctas { flex-direction: column; align-items: stretch; }
+  .land-ctas > * { justify-content: center; width: 100%; }
+  .land-nav a, .land-nav button { min-height: 40px; display: inline-flex; align-items: center; }
+  .land-flink { min-height: 40px; }
+
+  /* Login: stack the demo-user cards two-up so they stay tappable. */
+  .login-users { grid-template-columns: repeat(2, 1fr); }
+  .login-card { padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Setup guide sits above the dock, never under it. */
+  .setup-guide { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Tablets and small laptops (≤1024px): the menu bar carries presence chips,
+   two status pills and a clock that only fit on a wide desktop. Drop the
+   ambient information and truncate the workspace chip so the interactive
+   controls — search, notifications, theme, user menu — stay on screen. */
+@media (max-width: 1024px) {
+  .menubar .mb-status { display: none; }
+  .menubar .mb-clock { display: none; }
+  .mb-org { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* Narrow phones (iPhone SE / mini, ≤400px): the menu bar has ~15px less to
+   play with, so the workspace chip truncates harder and the controls tighten
+   — otherwise the avatar/Log out menu slips past the right edge. */
+@media (max-width: 400px) {
+  .menubar { padding: 0 3px; }
+  .mb-org { max-width: 68px; padding: 2px 6px; font-size: 11px; }
+  .menubar .mb-item, .mb-logo, .mb-right > div > button { min-width: 36px; }
+  .mb-logo { gap: 5px; font-size: 13px; }
+}
+
+/* Touch devices (any size): no hover-only affordances, comfortable hit areas. */
+@media (hover: none) and (pointer: coarse) {
+  .dock-item:hover { transform: none; }
+  .btn, .tab, .mb-item { min-height: 34px; }
+  /* List rows people actually tap: schema tables, agent cards, palette items. */
+  .tree-item, .palette-item, .login-user, .agent-card, .doc-row, .bell-row { min-height: 38px; }
+  input, select, textarea { font-size: 16px; }  /* stops iOS zooming on focus */
+  /* Momentum scrolling inside app panes. */
+  .app-content, .app-sidebar { -webkit-overflow-scrolling: touch; }
 }

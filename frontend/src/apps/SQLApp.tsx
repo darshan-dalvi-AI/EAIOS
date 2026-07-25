@@ -137,7 +137,7 @@ export default function SQLApp() {
                 <div className="code-block"><Highlight sql={result.sql} /></div>
               </div>
               <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>{result.explanation}</p>
-              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <div className="card table-wrap" style={{ padding: 0 }}>
                 <table className="table">
                   <thead>
                     <tr>{result.columns.map((c) => <th key={c}>{c}</th>)}</tr>

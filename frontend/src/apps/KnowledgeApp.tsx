@@ -230,7 +230,25 @@ export default function KnowledgeApp() {
               );
             })}
           </div>
-          {filtered.length === 0 && <div className="empty">No documents match “{query}”.</div>}
+          {filtered.length === 0 && (
+            <div className="empty" style={{ textAlign: "center", gap: 10 }}>
+              {query ? (
+                <>No documents match “{query}”.</>
+              ) : (
+                <>
+                  <Upload size={26} style={{ opacity: .5 }} />
+                  <b style={{ fontSize: 14 }}>Your knowledge base is empty</b>
+                  <span className="faint" style={{ fontSize: 12, maxWidth: 300 }}>
+                    Add your company’s PDFs, Word docs, spreadsheets or slides — the AI answers
+                    from them with citations. You can also drag files straight onto this window.
+                  </span>
+                  <button className="btn primary sm" onClick={() => openPicker(fileRef)}>
+                    <Upload size={13} /> Upload your first document
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
