@@ -46,3 +46,18 @@ services:
       # SECRET_KEY and hides the API docs.
       - key: ENVIRONMENT
         value: production
+      # ── Email verification ────────────────────────────────────────────
+      # New signups must prove they can receive mail at the address given —
+      # but ONLY once codes can actually be delivered. With both of the keys
+      # below unset, verification stays off and signup works as before; set
+      # RESEND_API_KEY (https://resend.com, free tier) and MAIL_FROM and it
+      # switches itself on. A gate with no way to send the key is an outage.
+      - key: RESEND_API_KEY
+        sync: false            # paste in the dashboard; never committed
+      - key: MAIL_FROM
+        sync: false            # e.g. "EAIOS <noreply@yourdomain.com>"
+      # Sign in with Google — verifies the address without any email at all.
+      # Create an OAuth client at https://console.cloud.google.com/apis/credentials
+      # and add https://eaios.onrender.com as an authorised JavaScript origin.
+      - key: GOOGLE_CLIENT_ID
+        sync: false

@@ -37,6 +37,9 @@ def _bootstrap_admin() -> None:
                 role="admin",
                 avatar_hue=265,
                 org_id=default_org(db).id,
+                # Created by the platform, not by a signup — there is no
+                # address to prove, and gating it would lock the demo out.
+                email_verified=True,
             ))
             db.commit()
             log.info("Bootstrapped admin → admin@eaios.dev / admin12345 (change this!)")
@@ -134,6 +137,15 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(_schedule_loop()) if settings.SCHEDULER_ENABLED else None
     log.info("EAIOS %s serving — llm=%s scheduler=%s (warm-up in background)",
              settings.VERSION, settings.LLM_PROVIDER, "on" if task else "off")
+    # Say this out loud at boot: whether new signups must prove their address
+    # is the kind of setting people assume is on and discover is off.
+    if settings.REQUIRE_EMAIL_VERIFICATION:
+        log.info("email verification ON — codes via %s",
+                 "Resend" if settings.RESEND_API_KEY else
+                 f"SMTP {settings.SMTP_HOST}" if settings.SMTP_HOST else "server log (!)")
+    else:
+        log.warning("email verification OFF — set RESEND_API_KEY (or SMTP_HOST) + "
+                    "MAIL_FROM to require new signups to prove their address")
     yield
     for t in (task, warm):
         if t:

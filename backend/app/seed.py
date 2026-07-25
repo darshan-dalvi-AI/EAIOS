@@ -65,7 +65,8 @@ def seed() -> None:
         def ensure_user(email: str, name: str, role: str, hue: int, password: str = "demo12345") -> User:
             user = db.query(User).filter(User.email == email).first()
             if user is None:
-                user = User(email=email, full_name=name, hashed_password=hash_password(password), role=role, avatar_hue=hue)
+                user = User(email=email, full_name=name, hashed_password=hash_password(password),
+                            role=role, avatar_hue=hue, email_verified=True)  # seeded demo staff
                 db.add(user)
                 db.commit()
                 db.refresh(user)

@@ -50,6 +50,15 @@ class User(TenantMixin, Base):
     role: Mapped[str] = mapped_column(String(20), default="employee")  # admin | hr | manager | employee
     avatar_hue: Mapped[int] = mapped_column(Integer, default=210)
     is_active: Mapped[bool] = mapped_column(default=True)
+    # ── email ownership ──────────────────────────────────────────────
+    # Anyone can type an address; these prove they can receive at it.
+    # Google sign-in sets verified immediately (Google asserts it);
+    # password signup stays false until the emailed code is entered.
+    email_verified: Mapped[bool] = mapped_column(default=False)
+    auth_provider: Mapped[str] = mapped_column(String(20), default="password")  # password | google
+    verify_code_hash: Mapped[str | None] = mapped_column(String(200), default=None)
+    verify_expires_at: Mapped[datetime | None] = mapped_column(default=None)
+    verify_attempts: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     last_login: Mapped[datetime | None] = mapped_column(default=None)
 

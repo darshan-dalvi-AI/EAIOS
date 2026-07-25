@@ -183,6 +183,24 @@ def _migrate_add_org_id() -> None:
             if "org_id" not in cols:
                 conn.execute(text(f'ALTER TABLE {name} ADD COLUMN org_id VARCHAR(32)'))
 
+        # Users gained email-verification columns after the first release.
+        if "users" in existing:
+            ucols = {c["name"] for c in insp.get_columns("users")}
+            for col, ddl in (
+                ("email_verified", "email_verified BOOLEAN DEFAULT 0"),
+                ("auth_provider", "auth_provider VARCHAR(20) DEFAULT 'password'"),
+                ("verify_code_hash", "verify_code_hash VARCHAR(200)"),
+                ("verify_expires_at", "verify_expires_at TIMESTAMP"),
+                ("verify_attempts", "verify_attempts INTEGER DEFAULT 0"),
+            ):
+                if col not in ucols:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {ddl}"))
+            # Accounts that existed before verification was introduced keep
+            # working — retro-locking real customers out would be worse than
+            # the gap it closes. New signups are gated from here on.
+            if "email_verified" not in ucols:
+                conn.execute(text("UPDATE users SET email_verified = 1"))
+
         # Organizations gained `status` after the first multi-tenant release.
         if "organizations" in existing:
             org_cols = {c["name"] for c in insp.get_columns("organizations")}

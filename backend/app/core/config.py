@@ -2,6 +2,7 @@
 platform boots with zero external services (SQLite + in-memory vectors + mock LLM)."""
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -114,6 +115,30 @@ class Settings(BaseSettings):
     # Empty → the Connectors UI falls back to paste-an-access-token.
     GOOGLE_CLIENT_ID: str = ""
 
+    # ── Email delivery (verification codes) ──────────────────────────────
+    # Configure ONE of these. With neither, codes are written to the server
+    # log instead of sent, so signup still works offline and in tests.
+    RESEND_API_KEY: str = ""
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    MAIL_FROM: str = ""               # e.g. "EAIOS <noreply@yourdomain.com>"
+
+    # Require a new signup to prove it can receive mail at the address given.
+    #
+    # Left empty this follows whether mail can actually be delivered (see the
+    # validator below). Turning it on with no provider configured would send
+    # every code to the server log and lock out every new signup — a gate
+    # nobody can pass is an outage, not a security control. Set it to "1"
+    # explicitly to demand verification regardless (the tests do this).
+    REQUIRE_EMAIL_VERIFICATION: bool | None = None
+
+    # Password hashing cost. OWASP's current figure for PBKDF2-HMAC-SHA256.
+    # Configurable so the test suite — which creates hundreds of accounts —
+    # can use a low cost instead of spending minutes deriving keys.
+    PASSWORD_HASH_ITERATIONS: int = 600_000
+
     # Platform owner(s) — the vendor running this multi-tenant deployment.
     # Comma-separated emails. These accounts get the Workspaces console: list,
     # suspend and delete ANY company workspace. Empty (the default) disables
@@ -131,6 +156,18 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def can_send_email(self) -> bool:
+        """True when a code would actually leave the building."""
+        return bool(self.RESEND_API_KEY or self.SMTP_HOST)
+
+    @model_validator(mode="after")
+    def _resolve_verification(self) -> "Settings":
+        # Unset → follow the mail provider. Set → the operator meant it.
+        if self.REQUIRE_EMAIL_VERIFICATION is None:
+            object.__setattr__(self, "REQUIRE_EMAIL_VERIFICATION", self.can_send_email)
+        return self
 
 
 DEV_SECRET = "dev-secret-change-in-production"

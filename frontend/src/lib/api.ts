@@ -31,6 +31,9 @@ function startRecoveryLoop() {
       if (me.ok) {
         useOS.getState().setLive(true);
         notifyFeed("Backend is back — live mode restored.");
+      } else if (me.status === 403 && me.headers.get("X-Verification-Required") === "1") {
+        useOS.setState({ live: true, emailVerified: false });
+        notifyFeed("Backend is back. Verify your email to finish setting up this workspace.");
       } else {
         // backend restarted with a fresh database → old session is gone
         notifyFeed("Backend is back, but your session expired (database was reset). Log out and back in for live mode.");
@@ -112,6 +115,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error("Backend unreachable — switched to demo mode. Try that again.");
   }
   if (!res.ok) {
+    // The server is the authority on whether an address is proven. If it says
+    // "not verified" on any call, drop straight back to the gate instead of
+    // leaving a desktop on screen whose every request will fail.
+    if (res.status === 403 && res.headers.get("X-Verification-Required") === "1") {
+      useOS.setState({ emailVerified: false });
+    }
     // FastAPI errors arrive as {"detail": "..."} and, for validation failures,
     // {"errors": [{field, problem}]}. Keep the field detail — throwing it away
     // is what reduced a fixable mistake to a blank "Invalid input".
@@ -144,18 +153,20 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean; industry?: string }
+export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean; industry?: string; emailVerified?: boolean; verificationSent?: boolean }
 
 export async function apiLogin(email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
     try {
-      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean }>("/auth/login", {
+      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean; email_verified?: boolean; verification_sent?: boolean }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
       return { user: data.user, token: data.token.access_token, live: true,
                orgName: data.org?.name ?? null, isOwner: !!data.is_platform_owner,
-               industry: data.org?.industry ?? "" };
+               industry: data.org?.industry ?? "",
+               emailVerified: data.email_verified !== false,
+               verificationSent: !!data.verification_sent };
     } catch (err) {
       // fall through to demo credentials so the UI is never a dead end
       const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
@@ -172,13 +183,15 @@ export async function apiLogin(email: string, password: string): Promise<Session
 /** Create a brand-new company workspace + its first admin (multi-tenant SaaS). */
 export async function apiSignup(company_name: string, full_name: string, email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
-    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean }>("/auth/signup", {
+    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean; email_verified?: boolean; verification_sent?: boolean }>("/auth/signup", {
       method: "POST",
       body: JSON.stringify({ company_name, full_name, email, password }),
     });
     return { user: data.user, token: data.token.access_token, live: true,
              orgName: data.org?.name ?? company_name, isOwner: !!data.is_platform_owner,
-             industry: data.org?.industry ?? "" };
+             industry: data.org?.industry ?? "",
+             emailVerified: data.email_verified !== false,
+             verificationSent: !!data.verification_sent };
   }
   // demo mode (no backend): simulate an admin session for the new workspace
   await delay(700);
@@ -980,4 +993,55 @@ export async function apiSetIndustry(industry: string) {
   return request<{ industry: string; name: string; agents_created: string[];
                    workflows_created: string[]; prompts: string[]; analyzer: string }>(
     "/orgs/self/industry", { method: "POST", body: JSON.stringify({ industry }) });
+}
+
+/* ── Email ownership ───────────────────────────────────────────────────
+   Anyone can type an address; these prove they can receive at it. Google
+   asserts it outright; otherwise a six-digit code is emailed. */
+interface AuthResponse {
+  token: { access_token: string }; user: SessionUser;
+  org?: { name: string; industry?: string };
+  is_platform_owner?: boolean; email_verified?: boolean; verification_sent?: boolean;
+}
+
+function toSession(data: AuthResponse, fallbackOrg = ""): Session {
+  return {
+    user: data.user, token: data.token.access_token, live: true,
+    orgName: data.org?.name ?? fallbackOrg, isOwner: !!data.is_platform_owner,
+    industry: data.org?.industry ?? "",
+    emailVerified: data.email_verified !== false,
+    verificationSent: !!data.verification_sent,
+  };
+}
+
+/** Sign in — or create a workspace — with a Google account. */
+export async function apiGoogleAuth(credential: string, companyName?: string): Promise<Session> {
+  const data = await request<AuthResponse>("/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ credential, company_name: companyName || null }),
+  });
+  return toSession(data, companyName);
+}
+
+/** Submit the emailed code. */
+export async function apiVerifyEmail(email: string, code: string): Promise<Session> {
+  const data = await request<AuthResponse>("/auth/verify", {
+    method: "POST", body: JSON.stringify({ email, code }),
+  });
+  return toSession(data);
+}
+
+export async function apiResendCode(email: string) {
+  return request<{ ok: boolean; detail: string }>("/auth/verify/resend", {
+    method: "POST", body: JSON.stringify({ email }),
+  });
+}
+
+/** Is Google sign-in configured on this deployment? */
+export async function apiAuthConfig(): Promise<{ google_client_id: string }> {
+  try {
+    return await request<{ google_client_id: string }>("/connectors/config");
+  } catch {
+    return { google_client_id: "" };
+  }
 }

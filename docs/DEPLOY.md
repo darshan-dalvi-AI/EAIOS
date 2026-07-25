@@ -195,3 +195,47 @@ is created. To apply it immediately without waiting for a deploy, paste
 [`supabase_harden.sql`](supabase_harden.sql) into the Supabase **SQL Editor**;
 it is idempotent and ends with a verification query (expect `rls_enabled =
 true` and `— none —` for every row).
+
+## Verifying that a signup owns its email address
+
+A workspace is a tenant with its own data, so handing one to an unproven
+address is how you end up hosting someone else's mailbox typo — or a hundred
+throwaway tenants. Two routes, both ending verified:
+
+| Route | What proves the address | Code sent? |
+|---|---|---|
+| **Continue with Google** | Google's signed ID token, re-verified server-side (`aud`, `iss`, `email_verified`) | no |
+| **Password signup** | a six-digit code emailed to the address | yes |
+
+Codes are stored as a PBKDF2 hash salted with the address itself, expire after
+15 minutes, and allow 6 attempts before the code is burned. `/auth/verify` and
+`/auth/verify/resend` answer identically for registered and unknown addresses,
+so neither can be used to discover who has an account.
+
+Until the address is verified, **every** authenticated endpoint returns `403`
+with `X-Verification-Required: 1` — the check lives in `get_current_user`, not
+on the role guard, because the token issued at signup is a real token.
+
+### Turning it on
+
+Set these in **Render → Environment**, then redeploy:
+
+```
+RESEND_API_KEY=re_...              # resend.com, free tier is plenty
+MAIL_FROM=EAIOS <noreply@yourdomain.com>
+```
+
+or SMTP instead: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`.
+
+**Verification switches itself on once one of those is present.** With neither
+set it stays off deliberately: codes would only be written to the server log,
+and a gate whose key nobody receives is an outage, not a security control.
+Override either way with `REQUIRE_EMAIL_VERIFICATION=1` or `=0`.
+
+For Google, create an OAuth client (**Web application**) at
+[console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials),
+add `https://<your-app>.onrender.com` as an authorised JavaScript origin, and
+set `GOOGLE_CLIENT_ID`. The button appears only when that variable is set.
+
+Existing accounts are grandfathered by the migration, so switching this on
+never locks out the demo logins or anyone who signed up earlier.

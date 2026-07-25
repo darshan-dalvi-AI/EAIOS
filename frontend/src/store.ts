@@ -53,9 +53,11 @@ interface OSStore {
   /** Industry profile applied to this workspace ("" = never asked). */
   industry: string;
   setIndustry: (i: string) => void;
+  /** False while a password signup still has to enter its emailed code. */
+  emailVerified: boolean;
   live: boolean;
   setLive: (b: boolean) => void;
-  login: (u: SessionUser, token: string | null, orgName?: string | null, isOwner?: boolean, industry?: string) => void;
+  login: (u: SessionUser, token: string | null, orgName?: string | null, isOwner?: boolean, industry?: string, emailVerified?: boolean) => void;
   logout: () => void;
 
   windows: Win[];
@@ -119,11 +121,12 @@ export const useOS = create<OSStore>((set, get) => ({
   isOwner: false,
   industry: "",
   setIndustry: (industry) => set({ industry }),
+  emailVerified: true,
   live: false,
   setLive: (live) => set({ live }),
-  login: (user, token, orgName = null, isOwner = false, industry = "") =>
-    set({ user, token, orgName, isOwner, industry, phase: "desktop" }),
-  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, industry: "", windows: [], phase: "login" }),
+  login: (user, token, orgName = null, isOwner = false, industry = "", emailVerified = true) =>
+    set({ user, token, orgName, isOwner, industry, emailVerified, phase: "desktop" }),
+  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, industry: "", emailVerified: true, windows: [], phase: "login" }),
 
   windows: [],
   topZ: 100,

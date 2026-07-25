@@ -1,8 +1,17 @@
+/// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  // Component tests run against a real DOM. Server tests can't see a button
+  // that never became clickable, which is exactly how a broken verification
+  // screen passed an API-level check once.
+  test: {
+    environment: "jsdom",
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
   server: {
     port: 5173,
     proxy: {

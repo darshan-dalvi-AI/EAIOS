@@ -4,6 +4,7 @@ from collections.abc import Generator
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import decode_token
 from app.models import User
@@ -29,14 +30,35 @@ def get_current_user(
     user = db.get(User, payload["sub"])
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or disabled")
+    # Every authenticated route must prove email ownership — not just the
+    # role-guarded ones. The endpoints that finish verification (/auth/verify
+    # and /auth/verify/resend) are unauthenticated by design, so they stay
+    # reachable while an account is in this state.
+    if settings.REQUIRE_EMAIL_VERIFICATION and not user.email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Verify your email address to finish setting up your workspace.",
+            headers={"X-Verification-Required": "1"},
+        )
     # Activate tenant isolation for the rest of this request: every ORM query on
     # this session is now auto-scoped to the caller's organization.
     db.info["org_id"] = user.org_id
     return user
 
 
+def require_verified(user: User = Depends(get_current_user)) -> User:
+    """Kept as an explicit name for routes that want to state the requirement.
+
+    The check itself lives in ``get_current_user`` — applying it only to a
+    subset of routes was a real gap: a token issued at signup is a genuine
+    token, so an unverified account could still read and write documents by
+    calling the API directly while the interface showed a verification screen.
+    """
+    return user
+
+
 def require_role(*roles: str):
-    def guard(user: User = Depends(get_current_user)) -> User:
+    def guard(user: User = Depends(require_verified)) -> User:
         if user.role not in roles:
             raise HTTPException(status_code=403, detail=f"Requires role: {' or '.join(roles)}")
         return user

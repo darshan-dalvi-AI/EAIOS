@@ -268,7 +268,9 @@ def test_hash_records_its_cost_and_rejects_wrong_passwords():
     from app.core.security import PBKDF2_ITERATIONS, hash_password, verify_password
 
     h = hash_password("correct horse battery")
+    # The cost is recorded in the hash, whatever this deployment configured.
     assert h.startswith(f"pbkdf2_sha256${PBKDF2_ITERATIONS}$")
+    assert PBKDF2_ITERATIONS >= 1000
     assert verify_password("correct horse battery", h)
     assert not verify_password("wrong", h)
     assert not verify_password("correct horse battery", "garbage")
@@ -285,7 +287,10 @@ def test_legacy_hashes_still_verify_and_are_marked_for_upgrade():
     digest = hashlib.pbkdf2_hmac("sha256", b"oldpassword", salt, LEGACY_ITERATIONS)
     legacy = f"{salt.hex()}${digest.hex()}"
     assert verify_password("oldpassword", legacy)      # still works
-    assert needs_rehash(legacy)                        # and will be upgraded
+    # "Needs upgrading" is relative to the configured cost. The suite runs a
+    # deliberately low cost, so compare against that rather than a constant.
+    from app.core.security import PBKDF2_ITERATIONS
+    assert needs_rehash(legacy) is (LEGACY_ITERATIONS < PBKDF2_ITERATIONS)
 
 
 def test_login_transparently_upgrades_an_old_hash():
@@ -314,7 +319,12 @@ def test_login_transparently_upgrades_an_old_hash():
         db = SessionLocal()
         try:
             u = db.query(User).filter(User.email == "admin@rehash.dev").one()
-            assert u.hashed_password.startswith(f"pbkdf2_sha256${PBKDF2_ITERATIONS}$")
+            if LEGACY_ITERATIONS < PBKDF2_ITERATIONS:      # an upgrade was due
+                assert u.hashed_password.startswith(f"pbkdf2_sha256${PBKDF2_ITERATIONS}$")
+            else:
+                # The suite runs a deliberately low cost, so a 100k legacy hash
+                # is already stronger than required and is left alone.
+                assert u.hashed_password.count("$") == 1   # still the legacy format
         finally:
             db.close()
 

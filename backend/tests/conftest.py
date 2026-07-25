@@ -12,6 +12,14 @@ os.environ["DATABASE_URL"] = f"sqlite:///{(_TMP / 'test.db').as_posix()}"
 os.environ["UPLOAD_DIR"] = (_TMP / "uploads").as_posix()
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["QDRANT_URL"] = ""
+# Key derivation is deliberately expensive in production (600k rounds). The
+# suite creates hundreds of accounts, so it uses a low cost — the strength of
+# the KDF is not what these tests are checking.
+os.environ["PASSWORD_HASH_ITERATIONS"] = "1000"
+# Most tests exercise features, not onboarding, so they sign up and use the app
+# immediately. Email verification is switched off here and switched ON explicitly
+# by tests/test_email_verification.py, which is what actually checks the gate.
+os.environ["REQUIRE_EMAIL_VERIFICATION"] = "0"
 # A (fake) key must exist for provider-switch tests: get_llm() only builds the
 # OpenAI-compatible client when a key is present. LLM_PROVIDER=mock still wins.
 os.environ["OPENAI_API_KEY"] = "sk-test-dummy-key"

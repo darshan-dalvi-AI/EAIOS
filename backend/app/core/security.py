@@ -10,10 +10,11 @@ import time
 
 from app.core.config import settings
 
-# OWASP's current guidance for PBKDF2-HMAC-SHA256. Raising this is safe:
+# OWASP's current guidance for PBKDF2-HMAC-SHA256, read from settings so a
+# deployment (or the test suite) can choose its own cost. Raising it is safe:
 # the cost is stored inside each hash, and accounts are re-hashed on their
 # next successful sign-in (see needs_rehash).
-PBKDF2_ITERATIONS = 600_000
+PBKDF2_ITERATIONS = settings.PASSWORD_HASH_ITERATIONS
 LEGACY_ITERATIONS = 100_000   # hashes written before the format carried a cost
 
 
