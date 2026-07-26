@@ -24,7 +24,7 @@
 
 ## Extended cut (+3 min) — Phase 3–5 features
 
-10. **Realtime presence (6:00–6:30)** — Open a second browser (incognito), log in as dev@eaios.dev. Point at the menu bar: *"Two avatars — presence over WebSockets."* Ask a question in browser A; switch to browser B's Agents app: *"The agent feed streams live to every connected user — no polling, no mocks."*
+10. **Realtime presence (6:00–6:30)** — Open a second browser (incognito), log in as employee@eaios.dev. Point at the menu bar: *"Two avatars — presence over WebSockets."* Ask a question in browser A; switch to browser B's Agents app: *"The agent feed streams live to every connected user — no polling, no mocks."*
 
 11. **Knowledge Graph (6:30–7:15)** — Open **Graph** from the taskbar. *"At ingest, EAIOS extracts entities and co-occurrence relationships — the knowledge base becomes a constellation you can explore."* Drag a node, click one, walk its connections. Then in Chat ask: *"How are annual leave and sick leave related?"* — *"Graph-augmented retrieval: connection path plus cited passages."*
 

@@ -62,8 +62,26 @@ def seed() -> None:
         db.info["org_id"] = default_org(db).id
 
         # ── users ────────────────────────────────────────────────
+        # Addresses these accounts used before they became role personas. An
+        # existing row is renamed rather than left beside a new one, so the old
+        # names stop appearing in a database that has already been deployed.
+        RENAMED_FROM = {
+            "manager@eaios.dev": "maya@eaios.dev",
+            "employee@eaios.dev": "dev@eaios.dev",
+            "hr@eaios.dev": "riya@eaios.dev",
+        }
+
         def ensure_user(email: str, name: str, role: str, hue: int, password: str = "demo12345") -> User:
             user = db.query(User).filter(User.email == email).first()
+            if user is None and email in RENAMED_FROM:
+                previous = db.query(User).filter(User.email == RENAMED_FROM[email]).first()
+                if previous is not None:
+                    # Same account, new label: keep their documents, tasks and
+                    # history attached rather than orphaning them beside a
+                    # duplicate.
+                    previous.email, previous.full_name = email, name
+                    db.commit()
+                    user = previous
             if user is None:
                 user = User(email=email, full_name=name, hashed_password=hash_password(password),
                             role=role, avatar_hue=hue, email_verified=True)  # seeded demo staff
@@ -74,9 +92,12 @@ def seed() -> None:
 
         # Admin keeps the documented bootstrap password (admin12345), matching main.py
         admin = ensure_user("admin@eaios.dev", "System Administrator", "admin", 265, password="admin12345")
-        maya = ensure_user("maya@eaios.dev", "Maya Iyer", "manager", 180)
-        ensure_user("dev@eaios.dev", "Darshan Dalvi", "employee", 210)
-        ensure_user("riya@eaios.dev", "Riya Kapoor", "hr", 330)  # HR — hires & manages staff
+        # Role personas, not people. These accounts are shown on a public
+        # sign-in screen, so naming them after real individuals puts real
+        # names in front of every visitor for no benefit.
+        maya = ensure_user("manager@eaios.dev", "Team Manager", "manager", 180)
+        ensure_user("employee@eaios.dev", "Staff Member", "employee", 210)
+        ensure_user("hr@eaios.dev", "People Team", "hr", 330)  # HR — hires & manages staff
 
         # ── documents through the real pipeline ──────────────────
         for filename, content in DOCS.items():
@@ -122,7 +143,7 @@ def seed() -> None:
             ])
             db.commit()
 
-    print("Seed complete — login: admin@eaios.dev / admin12345 · maya@eaios.dev / demo12345")
+    print("Seed complete — login: admin@eaios.dev / admin12345 · manager@eaios.dev / demo12345")
 
 
 if __name__ == "__main__":

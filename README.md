@@ -59,7 +59,11 @@ for real Llama 3.1 answers. Full steps: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 **Sign up your company** — on the login screen, click **"Create your workspace →"**, enter a company name, your name, a work email and password. You become the admin of a brand-new, empty, isolated workspace — then use the Setup Guide to invite your team.
 
-**Demo logins** (shared demo workspace) — `admin@eaios.dev / admin12345` (admin) · `maya@eaios.dev / demo12345` (manager) · `dev@eaios.dev / demo12345` (employee)
+**Demo logins** — `admin@eaios.dev / admin12345` (admin) · `manager@eaios.dev / demo12345` · `hr@eaios.dev / demo12345` · `employee@eaios.dev / demo12345`
+
+On the public deployment these open a **private throwaway workspace** rather than a
+shared one, so two visitors never see each other's uploads — see `DEMO_SANDBOX` in
+[`.env.example`](.env.example). Reloading the page starts a fresh one.
 
 The frontend auto-detects the backend. If it's down, every app still works in **Demo mode** on realistic mock data — the login screen tells you which mode you're in.
 

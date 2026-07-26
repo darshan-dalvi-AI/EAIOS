@@ -37,14 +37,37 @@ log = logging.getLogger("eaios.demo")
 # The published credentials on the sign-in screen. Signing in with any of these
 # on a public deployment hands over a private sandbox rather than the shared
 # workspace they name.
-DEMO_EMAILS = {"admin@eaios.dev", "maya@eaios.dev", "dev@eaios.dev", "riya@eaios.dev"}
+DEMO_EMAILS = {
+    "admin@eaios.dev", "manager@eaios.dev", "employee@eaios.dev", "hr@eaios.dev",
+    # Older addresses that were published before the accounts became role
+    # personas. Anything already written down still opens a sandbox.
+    "maya@eaios.dev", "dev@eaios.dev", "riya@eaios.dev",
+}
 
+# Roles, not people. A public sign-in screen showing real names puts those
+# names in front of every visitor, and a demo persona is a job title anyway.
+#
+# This is also the roster every demo workspace is populated with, so it must
+# hold each role exactly once — retired addresses live in _ALIASES below rather
+# than here, or every sandbox would get two of somebody.
 _ROLE_BY_EMAIL = {
     "admin@eaios.dev": ("admin", "System Administrator", 265),
-    "riya@eaios.dev": ("hr", "Riya Kapoor", 330),
-    "maya@eaios.dev": ("manager", "Maya Iyer", 180),
-    "dev@eaios.dev": ("employee", "Darshan Dalvi", 210),
+    "hr@eaios.dev": ("hr", "People Team", 330),
+    "manager@eaios.dev": ("manager", "Team Manager", 180),
+    "employee@eaios.dev": ("employee", "Staff Member", 210),
 }
+
+# Addresses published before the accounts became role personas.
+_ALIASES = {
+    "riya@eaios.dev": "hr@eaios.dev",
+    "maya@eaios.dev": "manager@eaios.dev",
+    "dev@eaios.dev": "employee@eaios.dev",
+}
+
+
+def _persona(email: str) -> tuple[str, str, int]:
+    key = email.strip().lower()
+    return _ROLE_BY_EMAIL.get(_ALIASES.get(key, key), ("admin", "Demo User", 265))
 
 
 def is_demo_login(email: str) -> bool:
@@ -64,8 +87,7 @@ def start_session(db: Session, as_email: str = "admin@eaios.dev") -> User:
     """
     from app.services import tenancy
 
-    role, full_name, hue = _ROLE_BY_EMAIL.get(
-        as_email.strip().lower(), ("admin", "Demo User", 265))
+    role, full_name, hue = _persona(as_email)
 
     org = tenancy.create_org(db, "Demo Workspace")
     org.is_demo = True

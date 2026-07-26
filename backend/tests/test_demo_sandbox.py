@@ -191,6 +191,72 @@ def test_a_visitor_can_upload_and_the_upload_is_real():
             db.close()
 
 
+def test_the_demo_personas_are_roles_rather_than_real_people():
+    """The sign-in screen is public, so anyone who opens the site sees these
+    names. They should describe a job, not identify a person — and the roster
+    must hold each role exactly once, or every sandbox gets two of somebody."""
+    roles = [role for role, _, _ in demo._ROLE_BY_EMAIL.values()]
+    assert sorted(roles) == ["admin", "employee", "hr", "manager"]
+
+    names = [name for _, name, _ in demo._ROLE_BY_EMAIL.values()]
+    assert len(set(names)) == len(names)
+    for name in names:
+        assert name in {"System Administrator", "People Team", "Team Manager", "Staff Member"}
+
+    # Initials drive the avatars, so two personas sharing them look identical.
+    initials = ["".join(w[0] for w in n.split()[:2]) for n in names]
+    assert len(set(initials)) == len(initials)
+
+
+def test_retired_demo_addresses_still_work():
+    """They were printed in the README and a demo script; anyone following an
+    older copy should still land somewhere sensible."""
+    with client() as c:
+        for old, expected_role in (("maya@eaios.dev", "manager"),
+                                   ("riya@eaios.dev", "hr"),
+                                   ("dev@eaios.dev", "employee")):
+            r = c.post("/api/auth/login", json={"email": old, "password": "demo12345"})
+            assert r.status_code == 200, f"{old} stopped working"
+            assert r.json()["demo"] is True
+            assert r.json()["user"]["role"] == expected_role
+
+
+def test_an_already_deployed_account_is_renamed_rather_than_duplicated():
+    """The live database already holds the old rows. Seeding again must move
+    them to the new label — not leave the old name sitting there beside a new
+    account, with their documents attached to the wrong one."""
+    from app.core.security import hash_password
+    from app.seed import seed
+    from app.services import tenancy
+
+    db = SessionLocal()
+    try:
+        org = tenancy.default_org(db)
+        db.info["org_id"] = org.id
+        db.query(User).filter(User.email.in_(
+            ["manager@eaios.dev", "maya@eaios.dev"])).delete(synchronize_session=False)
+        db.add(User(email="maya@eaios.dev", full_name="Maya Iyer", role="manager",
+                    hashed_password=hash_password("demo12345"), avatar_hue=180,
+                    org_id=org.id, email_verified=True))
+        db.commit()
+        old_id = db.query(User).filter(User.email == "maya@eaios.dev").one().id
+    finally:
+        db.close()
+
+    seed()
+
+    db = SessionLocal()
+    try:
+        db.info["db_org"] = None
+        assert db.query(User).filter(User.email == "maya@eaios.dev").count() == 0, \
+            "the old address survived"
+        renamed = db.query(User).filter(User.email == "manager@eaios.dev").one()
+        assert renamed.id == old_id, "a duplicate was created instead of a rename"
+        assert renamed.full_name == "Team Manager"
+    finally:
+        db.close()
+
+
 def test_the_demo_workspace_still_has_colleagues():
     """Hiring, roles and the people list are pointless with a single account."""
     with client() as c:

@@ -791,7 +791,7 @@ export interface TaskRow { id: string; title: string; status: "todo" | "doing" |
 let demoTasks: TaskRow[] | null = null;
 const seedDemoTasks = (): TaskRow[] => (demoTasks ??= [
   { id: "dt1", title: "Update the security policy by Friday", status: "todo", source: "meeting", assignee_id: null, assignee: null, created_at: new Date().toISOString() },
-  { id: "dt2", title: "Prepare the demo environment", status: "doing", source: "meeting", assignee_id: null, assignee: "Maya Iyer", created_at: new Date().toISOString() },
+  { id: "dt2", title: "Prepare the demo environment", status: "doing", source: "meeting", assignee_id: null, assignee: "Team Manager", created_at: new Date().toISOString() },
   { id: "dt3", title: "Review Q3 revenue report", status: "done", source: "manual", assignee_id: null, assignee: null, created_at: new Date().toISOString() },
 ]);
 export async function apiTasks(): Promise<TaskRow[]> {
@@ -873,7 +873,7 @@ export async function apiAiUsage(): Promise<AiUsage> {
   await delay(200);
   return { window_days: 30, note: "demo data", by_user: [
     { user: "System Administrator", requests: 42, tokens: 61200, est_cost: 0.0122 },
-    { user: "Maya Iyer", requests: 18, tokens: 24400, est_cost: 0.0049 },
+    { user: "Team Manager", requests: 18, tokens: 24400, est_cost: 0.0049 },
     { user: "Dev Sharma", requests: 9, tokens: 8100, est_cost: 0.0016 },
   ], by_model: [{ model: "meta-llama/llama-3.3-70b-instruct", requests: 69, tokens: 93700, est_cost: 0.0187 }] };
 }

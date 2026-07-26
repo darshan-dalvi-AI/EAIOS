@@ -391,7 +391,7 @@ export default function VideoApp() {
 
           <div className="palette-section" style={{ padding: "12px 0 6px" }}>{stage === "live" ? "Invite to this call" : "Call someone"}</div>
           {!live && <p className="faint" style={{ fontSize: 11.5, margin: 0 }}>Calls need the live backend (two logged-in users). Demo mode still gives you camera, effects, captions and MoM.</p>}
-          {live && roster.length === 0 && <p className="faint" style={{ fontSize: 11.5, margin: 0 }}>No one else is online. Open a second browser (incognito) and log in as maya@eaios.dev to test.</p>}
+          {live && roster.length === 0 && <p className="faint" style={{ fontSize: 11.5, margin: 0 }}>No one else is online. Open a second browser (incognito) and log in as manager@eaios.dev to test.</p>}
           {roster.map((u) => {
             const inRoom = members.some((m) => m.id === u.id);
             return (

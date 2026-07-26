@@ -8,22 +8,22 @@ import type {
 
 export const MOCK_USERS: (SessionUser & { password: string })[] = [
   { id: "u1", email: "admin@eaios.dev", full_name: "System Administrator", role: "admin", avatar_hue: 265, password: "admin12345" },
-  { id: "u4", email: "riya@eaios.dev", full_name: "Riya Kapoor", role: "hr", avatar_hue: 330, password: "demo12345" },
-  { id: "u2", email: "maya@eaios.dev", full_name: "Maya Iyer", role: "manager", avatar_hue: 180, password: "demo12345" },
-  { id: "u3", email: "dev@eaios.dev", full_name: "Darshan Dalvi", role: "employee", avatar_hue: 210, password: "demo12345" },
+  { id: "u4", email: "hr@eaios.dev", full_name: "People Team", role: "hr", avatar_hue: 330, password: "demo12345" },
+  { id: "u2", email: "manager@eaios.dev", full_name: "Team Manager", role: "manager", avatar_hue: 180, password: "demo12345" },
+  { id: "u3", email: "employee@eaios.dev", full_name: "Staff Member", role: "employee", avatar_hue: 210, password: "demo12345" },
 ];
 
 export const DOCS: Doc[] = [
   { id: "d1", title: "HR Leave Policy", filename: "HR_Leave_Policy.pdf", doc_type: "pdf", status: "indexed", chunk_count: 18, size_bytes: 482_000, created_at: "2026-06-02", owner: "System Administrator", tags: ["hr", "policy"] },
-  { id: "d2", title: "Q3 Financial Summary", filename: "Q3_Financial_Summary.xlsx", doc_type: "xlsx", status: "indexed", chunk_count: 31, size_bytes: 1_240_000, created_at: "2026-06-11", owner: "Maya Iyer", tags: ["finance", "quarterly"] },
+  { id: "d2", title: "Q3 Financial Summary", filename: "Q3_Financial_Summary.xlsx", doc_type: "xlsx", status: "indexed", chunk_count: 31, size_bytes: 1_240_000, created_at: "2026-06-11", owner: "Team Manager", tags: ["finance", "quarterly"] },
   { id: "d3", title: "Atlas Product Manual", filename: "Atlas_Product_Manual.docx", doc_type: "docx", status: "indexed", chunk_count: 54, size_bytes: 2_310_000, created_at: "2026-06-15", owner: "System Administrator", tags: ["product", "docs"] },
   { id: "d4", title: "Security Incident SOP", filename: "Security_Incident_SOP.pdf", doc_type: "pdf", status: "indexed", chunk_count: 12, size_bytes: 356_000, created_at: "2026-06-18", owner: "System Administrator", tags: ["security", "sop"] },
-  { id: "d5", title: "Vendor Contract — Nimbus Cloud", filename: "Nimbus_Contract_2026.pdf", doc_type: "pdf", status: "indexed", chunk_count: 44, size_bytes: 3_780_000, created_at: "2026-06-20", owner: "Maya Iyer", tags: ["legal", "contract"] },
-  { id: "d6", title: "Sales Pipeline Q3", filename: "Sales_Pipeline_Q3.csv", doc_type: "csv", status: "indexed", chunk_count: 9, size_bytes: 210_000, created_at: "2026-06-24", owner: "Darshan Dalvi", tags: ["sales"] },
-  { id: "d7", title: "Onboarding Deck v4", filename: "Onboarding_Deck_v4.pptx", doc_type: "pptx", status: "processing", chunk_count: 0, size_bytes: 5_920_000, created_at: "2026-07-02", owner: "Maya Iyer", tags: ["hr", "onboarding"] },
-  { id: "d8", title: "Scanned Invoice #8841", filename: "invoice_8841.png", doc_type: "image", status: "indexed", chunk_count: 3, size_bytes: 890_000, created_at: "2026-07-01", owner: "Darshan Dalvi", tags: ["finance", "ocr"] },
+  { id: "d5", title: "Vendor Contract — Nimbus Cloud", filename: "Nimbus_Contract_2026.pdf", doc_type: "pdf", status: "indexed", chunk_count: 44, size_bytes: 3_780_000, created_at: "2026-06-20", owner: "Team Manager", tags: ["legal", "contract"] },
+  { id: "d6", title: "Sales Pipeline Q3", filename: "Sales_Pipeline_Q3.csv", doc_type: "csv", status: "indexed", chunk_count: 9, size_bytes: 210_000, created_at: "2026-06-24", owner: "Staff Member", tags: ["sales"] },
+  { id: "d7", title: "Onboarding Deck v4", filename: "Onboarding_Deck_v4.pptx", doc_type: "pptx", status: "processing", chunk_count: 0, size_bytes: 5_920_000, created_at: "2026-07-02", owner: "Team Manager", tags: ["hr", "onboarding"] },
+  { id: "d8", title: "Scanned Invoice #8841", filename: "invoice_8841.png", doc_type: "image", status: "indexed", chunk_count: 3, size_bytes: 890_000, created_at: "2026-07-01", owner: "Staff Member", tags: ["finance", "ocr"] },
   { id: "d9", title: "Engineering Handbook", filename: "Engineering_Handbook.md", doc_type: "txt", status: "indexed", chunk_count: 27, size_bytes: 145_000, created_at: "2026-06-28", owner: "System Administrator", tags: ["engineering"] },
-  { id: "d10", title: "Board Meeting Notes — June", filename: "Board_Notes_June.docx", doc_type: "docx", status: "failed", chunk_count: 0, size_bytes: 88_000, created_at: "2026-07-02", owner: "Maya Iyer", tags: ["exec"] },
+  { id: "d10", title: "Board Meeting Notes — June", filename: "Board_Notes_June.docx", doc_type: "docx", status: "failed", chunk_count: 0, size_bytes: 88_000, created_at: "2026-07-02", owner: "Team Manager", tags: ["exec"] },
 ];
 
 export const AGENTS: AgentMeta[] = [
@@ -45,7 +45,7 @@ const FEED_TEMPLATES: [string, string, FeedEvent["kind"]][] = [
   ["system", "Indexed Onboarding_Deck_v4.pptx → 38 chunks", "index"],
   ["analytics", "Generated weekly adoption digest for #leadership", "run"],
   ["memory", "Stored preference: “summaries under 200 words”", "run"],
-  ["system", "maya@eaios.dev signed in from 10.0.4.12", "auth"],
+  ["system", "manager@eaios.dev signed in from 10.0.4.12", "auth"],
   ["research", "Fetched 4 sources for “EU AI Act enforcement”", "run"],
   ["report", "Built exec summary “Q3 revenue drivers” (1,240 words)", "run"],
   ["document", "Summarized Nimbus contract §7 termination clauses", "run"],
@@ -73,12 +73,12 @@ export const AGENT_USAGE = AGENTS.map((a) => ({ name: a.name.replace(" Agent", "
 
 export const AUDIT_ROWS = [
   { time: "09:41:22", user: "admin@eaios.dev", action: "model.config", detail: "LLM provider → ollama/llama3.1" },
-  { time: "09:38:10", user: "maya@eaios.dev", action: "document.upload", detail: "Onboarding_Deck_v4.pptx (5.9 MB)" },
+  { time: "09:38:10", user: "manager@eaios.dev", action: "document.upload", detail: "Onboarding_Deck_v4.pptx (5.9 MB)" },
   { time: "09:31:47", user: "dev@eaios.dev", action: "auth.login", detail: "ip=10.0.4.31" },
-  { time: "09:22:05", user: "maya@eaios.dev", action: "chat.query", detail: "agent=document conf=91%" },
+  { time: "09:22:05", user: "manager@eaios.dev", action: "chat.query", detail: "agent=document conf=91%" },
   { time: "09:15:33", user: "admin@eaios.dev", action: "user.update", detail: "dev@eaios.dev role → employee" },
   { time: "08:58:19", user: "system", action: "index.complete", detail: "Sales_Pipeline_Q3.csv → 9 chunks" },
-  { time: "08:44:02", user: "maya@eaios.dev", action: "report.generate", detail: "Q3 revenue drivers" },
+  { time: "08:44:02", user: "manager@eaios.dev", action: "report.generate", detail: "Q3 revenue drivers" },
   { time: "08:31:56", user: "admin@eaios.dev", action: "auth.login", detail: "ip=10.0.1.2" },
 ];
 
@@ -143,7 +143,7 @@ export function mockChat(text: string): { agent: string; plan: string[]; answer:
     return { agent: "sql", plan: ["planning", "sql"], answer: `I generated and executed this query:\n\n${r.sql}\n\n${r.explanation}`, citations: [], confidence: 85 };
   }
   if (/email|draft|reply/.test(q))
-    return { agent: "email", plan: ["planning", "email"], answer: "Subject: Following up on the Atlas deployment timeline\n\nHi Priya,\n\nI hope you're doing well. I wanted to follow up on the Atlas HA rollout — per the admin manual, the 3-node configuration requires load-balancer provisioning before the cutover window. Could we confirm infra sign-off by Friday?\n\nBest regards,\nMaya", citations: [cite("d3", "Atlas Product Manual", "Deployment", 0.81)], confidence: 82 };
+    return { agent: "email", plan: ["planning", "email"], answer: "Subject: Following up on the Atlas deployment timeline\n\nHi Sam,\n\nI hope you're doing well. I wanted to follow up on the Atlas HA rollout — per the admin manual, the 3-node configuration requires load-balancer provisioning before the cutover window. Could we confirm infra sign-off by Friday?\n\nBest regards,\nAlex", citations: [cite("d3", "Atlas Product Manual", "Deployment", 0.81)], confidence: 82 };
   if (/report|executive summary|briefing/.test(q))
     return { agent: "report", plan: ["planning", "document", "report"], answer: "# Report: Q3 Performance\n\n## Executive Summary\nQ3 revenue reached $48.2M, up 14% YoY, driven by Enterprise growth of 22% ($29.5M). Gross margin improved to 71% on $1.8M of cloud savings.\n\n## Key Findings\nEnterprise momentum offset flat SMB revenue ($12.1M). R&D remains the largest opex line at $11.2M (41%).\n\n## Recommendations\nProtect Enterprise pipeline coverage in EMEA where sales cycles are elongating; currency headwinds estimated at 1.5% of revenue.", citations: [cite("d2", "Q3 Financial Summary", "Revenue", 0.93), cite("d2", "Q3 Financial Summary", "Outlook", 0.77)], confidence: 88 };
   if (/\b(code|coding|function|script|debug|refactor|regex|python|javascript|typescript|unit test|algorithm)\b/.test(q))
@@ -174,7 +174,7 @@ const ge = (source: string, target: string, weight: number): GraphEdge => ({ sou
 export const MOCK_GRAPH: { nodes: GraphNode[]; edges: GraphEdge[] } = {
   nodes: [
     gn("e1", "Atlas", "concept", 42), gn("e2", "Annual Leave", "concept", 31), gn("e3", "Q3 Revenue", "concept", 28),
-    gn("e4", "Maya Iyer", "person", 24), gn("e5", "Nimbus Cloud", "org", 22), gn("e6", "Enterprise Segment", "concept", 19),
+    gn("e4", "Ravi Menon", "person", 24), gn("e5", "Nimbus Cloud", "org", 22), gn("e6", "Enterprise Segment", "concept", 19),
     gn("e7", "CISO", "acronym", 17), gn("e8", "Load Balancer", "concept", 15), gn("e9", "SEV-1", "acronym", 14),
     gn("e10", "$48.2M", "money", 12), gn("e11", "Sick Leave", "concept", 12), gn("e12", "December", "date", 11),
     gn("e13", "Priya Sharma", "person", 10), gn("e14", "Gross Margin", "concept", 10), gn("e15", "EMEA", "acronym", 9),
@@ -276,7 +276,7 @@ export function mockRunWorkflow(wf: WorkflowDef, input: string): WorkflowRunInfo
 export const MOCK_TRACES: TraceInfo[] = [
   {
     id: "tr-3f8a21", name: "Summarize the leave policy and email it to HR", kind: "chat",
-    user: "maya@eaios.dev", started_at: "2026-07-04T09:41:12Z", duration_ms: 2412, status: "ok",
+    user: "manager@eaios.dev", started_at: "2026-07-04T09:41:12Z", duration_ms: 2412, status: "ok",
     spans: [
       { name: "planner", kind: "agent", offset_ms: 2, duration_ms: 118, status: "ok", attrs: { subtasks: 2 } },
       { name: "hybrid_search", kind: "retrieval", offset_ms: 128, duration_ms: 64, status: "ok", attrs: { hits: 6 } },
