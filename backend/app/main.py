@@ -91,6 +91,13 @@ async def _schedule_loop() -> None:
                     db.execute(sqldelete(Conversation).where(Conversation.id.in_(old_ids)))
                     db.commit()
                     log.info("retention: purged %d conversation(s) older than %dd", len(old_ids), settings.RETENTION_DAYS)
+            # Throwaway demo tenants past their expiry. Without this they are
+            # only disposable in principle, and a stranger's uploads sit in the
+            # database indefinitely.
+            if settings.DEMO_SANDBOX:
+                from app.services import demo
+
+                demo.sweep_expired(db)
             return fired
 
     while True:

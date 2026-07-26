@@ -4,10 +4,11 @@
 import {
   Activity, ArrowRight, BarChart3, Bot, BookOpen, Briefcase, Building2, Cloud, Copy, Cpu, Database,
   Download, FileText, FolderSearch, Github, Image as ImageIcon, Landmark, LayoutDashboard, Mail, Mic,
-  Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles, Square, Sun, Table2, TrendingUp, UserCog,
+  Loader2, Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles, Square, Sun, Table2, TrendingUp, UserCog,
   Users, Video, Wand2, Workflow, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { apiStartDemo } from "../lib/api";
 import { useOS } from "../store";
 import InstallButton from "./InstallButton";
 
@@ -61,9 +62,28 @@ const TECH = [
 
 export default function LandingPage() {
   const setPhase = useOS((s) => s.setPhase);
+  const login = useOS((s) => s.login);
   const theme = useOS((s) => s.theme);
   const setTheme = useOS((s) => s.setTheme);
   const launch = () => setPhase("boot");
+
+  /* Straight into a private throwaway workspace — no password, no signup. A
+     visitor who has to invent credentials before seeing anything mostly does
+     not. If the deployment has no sandbox, fall back to the sign-in screen
+     rather than showing them an error they can do nothing about. */
+  const [demoBusy, setDemoBusy] = useState(false);
+  async function tryDemo() {
+    setDemoBusy(true);
+    try {
+      const s = await apiStartDemo();
+      useOS.getState().setLive(s.live);
+      login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified, s.demo, s.demoExpiresIn);
+    } catch {
+      launch();
+    } finally {
+      setDemoBusy(false);
+    }
+  }
   const [legal, setLegal] = useState<null | "privacy" | "terms" | "contact">(null);
   const [copied, setCopied] = useState(false);
 
@@ -120,7 +140,11 @@ export default function LandingPage() {
           Grounded. Cited. Audited. Isolated.
         </p>
         <div className="land-ctas">
-          <button className="btn primary" onClick={launch}><PlayCircle size={15} /> Get Started</button>
+          <button className="btn primary" data-testid="landing-demo" onClick={tryDemo} disabled={demoBusy}>
+            {demoBusy ? <><Loader2 size={15} className="spin" /> Opening your workspace…</>
+                      : <><PlayCircle size={15} /> Try the live demo</>}
+          </button>
+          <button className="btn" onClick={launch}>Sign in</button>
           <InstallButton className="btn" label="Download app" />
           <a className="btn" href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a>
           <a className="btn" href={DOCS_ANCHOR}><BookOpen size={14} /> Documentation</a>

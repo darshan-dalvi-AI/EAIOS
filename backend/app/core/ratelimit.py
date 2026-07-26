@@ -58,6 +58,11 @@ def build_rules() -> list[tuple[str, str, Rule]]:
         ("POST", "/api/auth/login",    _r("login",    10, 60, by_user=False, by_account=True, backoff=True)),
         ("POST", "/api/auth/signup",   _r("signup",    5, 3600, by_user=False, backoff=True)),
         ("POST", "/api/auth/register", _r("register",  5, 3600, by_user=False, backoff=True)),
+        # Each call creates a whole tenant with no password in front of it, so
+        # this is the cheapest thing on the site to abuse. Generous enough for a
+        # classroom demoing it at once, tight enough that a script cannot fill
+        # the database with throwaway workspaces.
+        ("POST", "/api/auth/demo",     _r("demo",     10, 3600, by_user=False, backoff=True)),
         # ── tier 2: expensive or externally-reaching authenticated work ──
         ("POST", "/api/documents",     _r("upload",   40, 3600)),
         ("POST", "/api/connectors",    _r("connector", 20, 3600)),

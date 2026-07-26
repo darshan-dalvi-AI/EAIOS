@@ -1,6 +1,6 @@
-import { ArrowRight, Building2, Eye, EyeOff, Lock } from "lucide-react";
+import { ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, PlayCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ApiError, apiAuthConfig, apiGoogleAuth, apiLogin, apiSignup, ping } from "../lib/api";
+import { ApiError, apiAuthConfig, apiGoogleAuth, apiLogin, apiSignup, apiStartDemo, ping } from "../lib/api";
 import { loadGis } from "../lib/gis";
 import { MOCK_USERS } from "../lib/mock";
 import { useOS } from "../store";
@@ -60,10 +60,32 @@ export default function LoginScreen() {
 
   const [googleId, setGoogleId] = useState("");
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoOffered, setDemoOffered] = useState(false);
+
+  /** A private throwaway workspace, no password. Everything in it is real; it
+   *  is deleted when it expires, and reloading starts a fresh one. */
+  async function tryDemo() {
+    setFormError(""); setErrors({});
+    setDemoBusy(true);
+    try {
+      const s = await apiStartDemo();
+      setLive(s.live);
+      login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified, s.demo, s.demoExpiresIn);
+    } catch (err) {
+      setFormError(err instanceof ApiError && err.status === 404
+        ? "The demo isn't enabled on this deployment — sign in with an account instead."
+        : "Couldn't open a demo workspace. Try again in a moment.");
+    } finally {
+      setDemoBusy(false);
+    }
+  }
 
   useEffect(() => {
     ping().then(setLive);
-    apiAuthConfig().then((c) => setGoogleId(c.google_client_id || "")).catch(() => {});
+    apiAuthConfig()
+      .then((c) => { setGoogleId(c.google_client_id || ""); setDemoOffered(!!c.demo_sandbox); })
+      .catch(() => {});
   }, [setLive]);
 
   /** Google confirms the address, so there is no code to send or expire. */
@@ -79,7 +101,7 @@ export default function LoginScreen() {
       const credential = await gis.requestIdToken();
       const s = await apiGoogleAuth(credential, isSignup ? company.trim() : undefined);
       setLive(s.live);
-      login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified);
+      login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified, s.demo, s.demoExpiresIn);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Google sign-in didn't complete.";
       setFormError(msg.includes("popup") ? "The Google window was closed before finishing." : msg);
@@ -108,7 +130,8 @@ export default function LoginScreen() {
         ? await apiSignup(company.trim(), fullName.trim(), email.trim(), password)
         : await apiLogin(email.trim(), password);
       setLive(session.live);
-      login(session.user, session.token, session.orgName, session.isOwner, session.industry, session.emailVerified);
+      login(session.user, session.token, session.orgName, session.isOwner, session.industry,
+            session.emailVerified, session.demo, session.demoExpiresIn);
     } catch (err) {
       // A validation failure names its field; attach the message to that input.
       if (err instanceof ApiError && err.fields.length) {
@@ -262,10 +285,19 @@ export default function LoginScreen() {
           <span className={`dot ${live ? "pulse" : "off"}`} />
           {live ? "Live backend connected" : "Demo mode — backend offline, mock data active"}
         </div>
-        {!isSignup && (
-          <div className="faint" style={{ fontSize: 11, textAlign: "center" }}>
-            Demo: admin@eaios.dev / admin12345 · others / demo12345
-          </div>
+        {!isSignup && demoOffered && (
+          <>
+            <button type="button" className="btn" data-testid="try-demo"
+                    style={{ justifyContent: "center", padding: "9px" }}
+                    onClick={tryDemo} disabled={demoBusy}>
+              {demoBusy ? <><Loader2 size={14} className="spin" /> Opening a workspace…</>
+                        : <><PlayCircle size={14} /> Try the live demo — no signup</>}
+            </button>
+            <div className="faint" style={{ fontSize: 11, textAlign: "center", lineHeight: 1.5 }}>
+              You get a private workspace that resets when you leave. Nothing you
+              do in it is kept.
+            </div>
+          </>
         )}
         <div style={{ display: "flex", justifyContent: "center", marginTop: 2 }}>
           <InstallButton className="btn sm" label="Install as app" />

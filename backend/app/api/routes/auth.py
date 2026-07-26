@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.security import create_token, hash_password, needs_rehash, verify_password
 from app.models import Organization, User
 from app.schemas import LoginIn, RegisterIn, SignupIn, Token, UserOut
-from app.services import audit, emailer, tenancy, verification
+from app.services import audit, demo, emailer, tenancy, verification
 from app.services.google_auth import GoogleAuthError, verify_id_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -38,6 +38,9 @@ def _session_payload(user: User, org: Organization | None, extra: dict | None = 
         "org": _org_out(org),
         "is_platform_owner": settings.is_platform_owner(user.email),
         "email_verified": user.email_verified,
+        # Tells the interface to say plainly that nothing here is being kept.
+        "demo": bool(org and org.is_demo),
+        "demo_expires_in": demo.expires_in_minutes(org),
     }
     if extra:
         payload.update(extra)
@@ -117,8 +120,36 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     return user
 
 
+@router.post("/demo")
+def start_demo(request: Request, db: Session = Depends(get_db)):
+    """Hand a visitor a private throwaway workspace — no password, no signup.
+
+    Everything inside is real. It is deleted when it expires, and a reload
+    starts a new one, so nothing a stranger does here survives into anyone
+    else's session.
+    """
+    if not settings.DEMO_SANDBOX:
+        raise HTTPException(404, "The demo sandbox isn't enabled on this deployment")
+    user = demo.start_session(db)
+    org = db.get(Organization, user.org_id)
+    audit.log(db, "demo.start", user.id, org.slug if org else "",
+              request.client.host if request.client else "")
+    return _session_payload(user, org)
+
+
 @router.post("/login")
 def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    # The credentials printed on the sign-in screen are an invitation, not an
+    # account: on a public deployment they open a private sandbox instead of a
+    # workspace every visitor would share. Checked before the password so a
+    # stranger never needs the real one.
+    if demo.is_demo_login(body.email):
+        user = demo.start_session(db, body.email)
+        org = db.get(Organization, user.org_id)
+        audit.log(db, "demo.start", user.id, org.slug if org else "",
+                  request.client.host if request.client else "")
+        return _session_payload(user, org)
+
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None or not verify_password(body.password, user.hashed_password):
         audit.log(db, "auth.failed", None, body.email, request.client.host if request.client else "")
@@ -162,6 +193,9 @@ def auth_config():
     return {
         "google_client_id": settings.GOOGLE_CLIENT_ID,
         "email_verification": bool(settings.REQUIRE_EMAIL_VERIFICATION),
+        # So the sign-in screen only offers the demo where one actually exists,
+        # rather than presenting a button that answers 404.
+        "demo_sandbox": bool(settings.DEMO_SANDBOX),
     }
 
 

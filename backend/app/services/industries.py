@@ -343,7 +343,7 @@ def get(industry_id: str) -> dict | None:
 SAMPLE_TAG = "sample"
 
 
-def _seed_documents(db: Session, industry_id: str, user: User) -> list[str]:
+def seed_starter_documents(db: Session, industry_id: str, user: User) -> list[str]:
     """Ingest the industry's starter corpus so the suggested questions answer.
 
     A configured workspace with an empty knowledge base still says "I couldn't
@@ -363,9 +363,14 @@ def _seed_documents(db: Session, industry_id: str, user: User) -> list[str]:
         return []
 
     # Never seed twice — re-running the wizard must not duplicate the corpus.
+    # But choosing a *different* field should swap it: a clinic that started on
+    # the general pack, or a workspace correcting a mis-click, must not be left
+    # answering questions out of the wrong industry's documents.
     already = db.scalar(select(Document).where(Document.tags.contains(SAMPLE_TAG)))
     if already:
-        return []
+        if industry_id in (already.tags or "").split(","):
+            return []
+        remove_samples(db, user)
 
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     titles: list[str] = []
@@ -475,7 +480,7 @@ def apply(db: Session, org: Organization, industry_id: str, user: User,
     db.commit()
     # Indexing last: it is the slow step, and everything above should be
     # committed even if the corpus has trouble.
-    docs_created = _seed_documents(db, industry_id, user) if with_samples else []
+    docs_created = seed_starter_documents(db, industry_id, user) if with_samples else []
 
     log.info("workspace %s configured for %s (%d agents, %d workflows, %d docs, %d tasks)",
              org.slug, industry_id, len(created_agents), len(created_flows),

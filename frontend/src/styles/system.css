@@ -1125,3 +1125,27 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 .btn.danger:hover:not(:disabled){background:hsl(0 70% 55% / .14);border-color:hsl(0 70% 55% / .7);color:#fecaca}
 .btn.danger:disabled{opacity:.35;cursor:not-allowed}
 @media (max-width:740px){ .rm-split{grid-template-columns:1fr} }
+
+/* ── demo sandbox notice ─────────────────────────────────────────────────
+   A demo only works if the visitor knows it is one. Sits under the menubar,
+   above the windows, and never blocks anything. */
+.demo-banner{position:fixed;top:var(--menubar-h,34px);left:0;right:0;z-index:45;
+  display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:12px;
+  background:linear-gradient(90deg,hsl(280 80% 60% / .18),hsl(190 85% 55% / .14));
+  border-bottom:1px solid var(--line);backdrop-filter:blur(9px);color:var(--text-dim);
+  animation:demo-in .45s cubic-bezier(.2,.9,.25,1.1)}
+@keyframes demo-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.demo-banner b{color:var(--text);font-size:12px;flex:none}
+.demo-ico{display:grid;place-items:center;width:21px;height:21px;border-radius:6px;flex:none;
+  background:hsl(280 80% 62% / .22);color:hsl(280 85% 78%)}
+.demo-copy{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+.demo-time{display:inline-flex;align-items:center;gap:4px;flex:none;font-size:11px;
+  padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2)}
+.demo-banner.urgent .demo-time{color:#fca5a5;border-color:hsl(0 70% 55% / .45)}
+.demo-x{background:none;border:0;color:var(--text-faint);cursor:pointer;padding:3px;
+  border-radius:6px;line-height:0;flex:none}
+.demo-x:hover{background:var(--panel-2);color:var(--text)}
+@media (max-width:740px){
+  .demo-copy{white-space:normal;font-size:11px}
+  .demo-banner{align-items:flex-start;padding:8px 11px}
+}

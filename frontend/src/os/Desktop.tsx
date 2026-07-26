@@ -26,6 +26,7 @@ import IndustryWizard from "./IndustryWizard";
 import MobileTabBar from "./MobileTabBar";
 import MenuBar from "./MenuBar";
 import SetupGuide from "./SetupGuide";
+import DemoBanner from "./DemoBanner";
 import Toasts from "./Toasts";
 import UpgradeDialog from "./UpgradeDialog";
 import Tour from "./Tour";
@@ -120,6 +121,7 @@ export default function Desktop() {
       </div>
       <Dock />
       <MobileTabBar />
+      <DemoBanner />
       <Toasts />
       {/* Raised by api.ts on any 402, so a plan limit is offered as an
           upgrade wherever it happens rather than surfacing as an error. */}

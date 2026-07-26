@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -29,6 +29,12 @@ class Organization(Base):
     # Which industry profile configured this workspace (see services/industries).
     # Empty = the onboarding picker has not been answered yet.
     industry: Mapped[str] = mapped_column(String(40), default="")
+    # A throwaway workspace handed to a visitor trying the product. Everything
+    # inside is real — uploads index, agents answer, limits apply — but the
+    # whole tenant is deleted when it expires, so nothing a stranger does
+    # survives into the next visitor's session or into the database long-term.
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    expires_at: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 

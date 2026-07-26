@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     RL_SIGNUP_WINDOW: int = 0
     RL_REGISTER_CAPACITY: int = 0
     RL_REGISTER_WINDOW: int = 0
+    RL_DEMO_CAPACITY: int = 0
+    RL_DEMO_WINDOW: int = 0
     RL_UPLOAD_CAPACITY: int = 0
     RL_UPLOAD_WINDOW: int = 0
     RL_CONNECTOR_CAPACITY: int = 0
@@ -138,6 +140,14 @@ class Settings(BaseSettings):
     # Configurable so the test suite — which creates hundreds of accounts —
     # can use a low cost instead of spending minutes deriving keys.
     PASSWORD_HASH_ITERATIONS: int = 600_000
+
+    # Public demo sandbox. On a deployment anyone can reach, a visitor who
+    # signs in with the published demo credentials gets a private throwaway
+    # workspace instead of a shared one — otherwise the next visitor sees the
+    # last one's uploads. Off by default so a local or self-hosted install
+    # behaves normally; render.yaml turns it on for the public site.
+    DEMO_SANDBOX: bool = False
+    DEMO_TTL_MINUTES: int = 120
 
     # Plan every new workspace starts on. "free" is the SaaS default; a
     # self-hosted or on-premise deployment has no billing relationship, so it

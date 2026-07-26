@@ -225,6 +225,13 @@ def _migrate_add_org_id() -> None:
             if "industry" not in org_cols:
                 conn.execute(text(
                     "ALTER TABLE organizations ADD COLUMN industry VARCHAR(40) DEFAULT ''"))
+            # Throwaway workspaces handed to visitors trying the product.
+            if "is_demo" not in org_cols:
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN is_demo BOOLEAN DEFAULT FALSE"))
+            if "expires_at" not in org_cols:
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN expires_at TIMESTAMP"))
             if "status" not in org_cols:
                 conn.execute(text(
                     "ALTER TABLE organizations ADD COLUMN status VARCHAR(20) DEFAULT 'active'"))

@@ -55,9 +55,12 @@ interface OSStore {
   setIndustry: (i: string) => void;
   /** False while a password signup still has to enter its emailed code. */
   emailVerified: boolean;
+  /** This workspace is a throwaway sandbox: real to use, deleted afterwards. */
+  demo: boolean;
+  demoExpiresIn: number | null;
   live: boolean;
   setLive: (b: boolean) => void;
-  login: (u: SessionUser, token: string | null, orgName?: string | null, isOwner?: boolean, industry?: string, emailVerified?: boolean) => void;
+  login: (u: SessionUser, token: string | null, orgName?: string | null, isOwner?: boolean, industry?: string, emailVerified?: boolean, demo?: boolean, demoExpiresIn?: number | null) => void;
   logout: () => void;
 
   windows: Win[];
@@ -122,11 +125,14 @@ export const useOS = create<OSStore>((set, get) => ({
   industry: "",
   setIndustry: (industry) => set({ industry }),
   emailVerified: true,
+  demo: false,
+  demoExpiresIn: null,
   live: false,
   setLive: (live) => set({ live }),
-  login: (user, token, orgName = null, isOwner = false, industry = "", emailVerified = true) =>
-    set({ user, token, orgName, isOwner, industry, emailVerified, phase: "desktop" }),
-  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, industry: "", emailVerified: true, windows: [], phase: "login" }),
+  login: (user, token, orgName = null, isOwner = false, industry = "", emailVerified = true,
+         demo = false, demoExpiresIn = null) =>
+    set({ user, token, orgName, isOwner, industry, emailVerified, demo, demoExpiresIn, phase: "desktop" }),
+  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, industry: "", emailVerified: true, demo: false, demoExpiresIn: null, windows: [], phase: "login" }),
 
   windows: [],
   topZ: 100,

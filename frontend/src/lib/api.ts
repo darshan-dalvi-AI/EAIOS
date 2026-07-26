@@ -181,12 +181,14 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean; industry?: string; emailVerified?: boolean; verificationSent?: boolean }
+export interface Session { user: SessionUser; token: string | null; live: boolean; orgName: string | null; isOwner?: boolean; industry?: string; emailVerified?: boolean; verificationSent?: boolean;
+  /** A throwaway workspace: real while you use it, deleted afterwards. */
+  demo?: boolean; demoExpiresIn?: number | null }
 
 export async function apiLogin(email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
     try {
-      const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean; email_verified?: boolean; verification_sent?: boolean }>("/auth/login", {
+      const data = await request<AuthResponse>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
@@ -194,7 +196,8 @@ export async function apiLogin(email: string, password: string): Promise<Session
                orgName: data.org?.name ?? null, isOwner: !!data.is_platform_owner,
                industry: data.org?.industry ?? "",
                emailVerified: data.email_verified !== false,
-               verificationSent: !!data.verification_sent };
+               verificationSent: !!data.verification_sent,
+               demo: !!data.demo, demoExpiresIn: data.demo_expires_in ?? null };
     } catch (err) {
       // fall through to demo credentials so the UI is never a dead end
       const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
@@ -211,7 +214,7 @@ export async function apiLogin(email: string, password: string): Promise<Session
 /** Create a brand-new company workspace + its first admin (multi-tenant SaaS). */
 export async function apiSignup(company_name: string, full_name: string, email: string, password: string): Promise<Session> {
   if (useOS.getState().live) {
-    const data = await request<{ token: { access_token: string }; user: SessionUser; org?: { name: string; industry?: string }; is_platform_owner?: boolean; email_verified?: boolean; verification_sent?: boolean }>("/auth/signup", {
+    const data = await request<AuthResponse>("/auth/signup", {
       method: "POST",
       body: JSON.stringify({ company_name, full_name, email, password }),
     });
@@ -219,7 +222,8 @@ export async function apiSignup(company_name: string, full_name: string, email: 
              orgName: data.org?.name ?? company_name, isOwner: !!data.is_platform_owner,
              industry: data.org?.industry ?? "",
              emailVerified: data.email_verified !== false,
-             verificationSent: !!data.verification_sent };
+             verificationSent: !!data.verification_sent,
+             demo: !!data.demo, demoExpiresIn: data.demo_expires_in ?? null };
   }
   // demo mode (no backend): simulate an admin session for the new workspace
   await delay(700);
@@ -1095,6 +1099,7 @@ interface AuthResponse {
   token: { access_token: string }; user: SessionUser;
   org?: { name: string; industry?: string };
   is_platform_owner?: boolean; email_verified?: boolean; verification_sent?: boolean;
+  demo?: boolean; demo_expires_in?: number | null;
 }
 
 function toSession(data: AuthResponse, fallbackOrg = ""): Session {
@@ -1104,7 +1109,16 @@ function toSession(data: AuthResponse, fallbackOrg = ""): Session {
     industry: data.org?.industry ?? "",
     emailVerified: data.email_verified !== false,
     verificationSent: !!data.verification_sent,
+    demo: !!data.demo,
+    demoExpiresIn: data.demo_expires_in ?? null,
   };
+}
+
+/** Start a private throwaway workspace — no password, no signup. Everything in
+ *  it is real; it is deleted when it expires, and reloading starts a new one. */
+export async function apiStartDemo(): Promise<Session> {
+  const data = await request<AuthResponse>("/auth/demo", { method: "POST" });
+  return toSession(data, "Demo Workspace");
 }
 
 /** Sign in — or create a workspace — with a Google account. */
@@ -1131,12 +1145,18 @@ export async function apiResendCode(email: string) {
 }
 
 /** Is Google sign-in configured on this deployment? */
-export async function apiAuthConfig(): Promise<{ google_client_id: string }> {
+export interface AuthConfig {
+  google_client_id: string;
+  email_verification?: boolean;
+  demo_sandbox?: boolean;
+}
+
+export async function apiAuthConfig(): Promise<AuthConfig> {
   try {
     // /auth/config, not /connectors/config — the latter needs a bearer token,
     // and this runs on the screen you see before you have one.
-    return await request<{ google_client_id: string }>("/auth/config");
+    return await request<AuthConfig>("/auth/config");
   } catch {
-    return { google_client_id: "" };
+    return { google_client_id: "", demo_sandbox: false };
   }
 }

@@ -33,7 +33,8 @@ export default function VerifyEmail() {
       const s = await apiVerifyEmail(user!.email, clean);
       // Pass the server's answer rather than assuming success means verified:
       // it is the only party that knows, and if it ever says no we stay here.
-      login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified !== false);
+      login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified !== false,
+            s.demo, s.demoExpiresIn);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That code isn't right.");
       setCode("");

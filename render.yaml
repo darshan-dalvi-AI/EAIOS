@@ -46,6 +46,16 @@ services:
       # SECRET_KEY and hides the API docs.
       - key: ENVIRONMENT
         value: production
+      # Public demo sandbox. Anyone can reach this deployment, so a visitor
+      # who clicks "Try the live demo" — or signs in with the credentials
+      # printed on the sign-in screen — gets a PRIVATE throwaway workspace
+      # instead of a shared one. Everything in it is real; the whole tenant is
+      # deleted when it expires, so nothing a stranger uploads survives.
+      # Leave this unset (off) on a self-hosted install.
+      - key: DEMO_SANDBOX
+        value: "1"
+      - key: DEMO_TTL_MINUTES
+        value: "120"
       # Plan every new workspace starts on. Leave as "free" for the SaaS
       # experience (limits enforced, upgrade prompts shown). A self-hosted
       # deployment with no billing relationship sets this to "business" and
