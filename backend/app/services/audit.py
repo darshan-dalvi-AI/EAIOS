@@ -13,7 +13,16 @@ from app.models import AuditLog
 
 
 def log(db: Session, action: str, user_id: str | None = None, detail: str = "", ip: str = "") -> None:
-    db.add(AuditLog(user_id=user_id, action=action, detail=detail[:2000], ip=ip))
+    # Resolve the address now rather than at read time: the account may be gone
+    # by the time anyone reads this row, and "who" is the whole point of it.
+    # db.get hits the identity map, so within a request this is not a query.
+    email = ""
+    if user_id:
+        from app.models import User
+
+        actor = db.get(User, user_id)
+        email = actor.email if actor else ""
+    db.add(AuditLog(user_id=user_id, actor_email=email, action=action, detail=detail[:2000], ip=ip))
     db.commit()
 
 

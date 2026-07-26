@@ -752,6 +752,27 @@ export async function apiCreateUser(body: { email: string; full_name: string; pa
   list.unshift(u);
   return u;
 }
+/** What removing a person would move or delete, asked before confirming. */
+export interface RemovalPreview {
+  allowed: boolean;
+  reason: string;
+  counts: {
+    documents?: number; automations?: number; agents?: number;
+    tasks?: number; assigned_tasks?: number; conversations?: number; connectors?: number;
+  };
+}
+
+export async function apiRemovalPreview(id: string): Promise<RemovalPreview> {
+  return request<RemovalPreview>(`/users/${id}/removal-preview`);
+}
+
+/** Permanently remove someone. Their work transfers to the caller; their chat
+ *  history, memories and personal account connections are deleted. */
+export async function apiRemoveUser(id: string) {
+  return request<{ removed: string; full_name: string; reassigned: Record<string, number> }>(
+    `/users/${id}`, { method: "DELETE" });
+}
+
 export async function apiUpdateUser(id: string, patch: { role?: string; is_active?: boolean; full_name?: string }): Promise<AdminUser> {
   const { live, token } = useOS.getState();
   if (live && token) { try { return await request(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }); } catch { /* demo */ } }

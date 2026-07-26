@@ -154,7 +154,13 @@ class AuditLog(TenantMixin, Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    # Deliberately NOT a foreign key: the trail is append-only and has to
+    # outlive the account it describes.
     user_id: Mapped[str | None] = mapped_column(String(32), default=None)
+    # Captured at write time so the entry still names a person after they are
+    # removed from the workspace. An audit log that forgets who did something
+    # the moment they leave is worthless precisely when it is needed most.
+    actor_email: Mapped[str] = mapped_column(String(200), default="")
     action: Mapped[str] = mapped_column(String(60), index=True)
     detail: Mapped[str] = mapped_column(Text, default="")
     ip: Mapped[str] = mapped_column(String(45), default="")

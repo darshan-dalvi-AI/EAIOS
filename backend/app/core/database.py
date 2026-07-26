@@ -211,6 +211,14 @@ def _migrate_add_org_id() -> None:
             if "email_verified" not in ucols:
                 conn.execute(text("UPDATE users SET email_verified = TRUE"))
 
+        # The audit trail gained the actor's address so an entry still names a
+        # person after that person is removed from the workspace.
+        if "audit_logs" in existing:
+            audit_cols = {c["name"] for c in insp.get_columns("audit_logs")}
+            if "actor_email" not in audit_cols:
+                conn.execute(text(
+                    "ALTER TABLE audit_logs ADD COLUMN actor_email VARCHAR(200) DEFAULT ''"))
+
         # Organizations gained `status` after the first multi-tenant release.
         if "organizations" in existing:
             org_cols = {c["name"] for c in insp.get_columns("organizations")}

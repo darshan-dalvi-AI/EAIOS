@@ -1,6 +1,6 @@
-import { AlertTriangle, Building2, Check, Copy, Gauge, KeyRound, Loader2, Lock, PauseCircle, PlayCircle, RefreshCw, ScrollText, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, Building2, Check, Copy, Gauge, KeyRound, Loader2, Lock, PauseCircle, PlayCircle, RefreshCw, ScrollText, ShieldCheck, Trash2, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiAiUsage, apiCreateUser, apiDeleteOwnWorkspace, apiDeleteWorkspace, apiSetWorkspaceStatus, apiUpdateUser, apiUsers, apiWorkspaces, type AdminUser, type AiUsage, type Workspace } from "../lib/api";
+import { apiAiUsage, apiCreateUser, apiDeleteOwnWorkspace, apiDeleteWorkspace, apiRemovalPreview, apiRemoveUser, apiSetWorkspaceStatus, apiUpdateUser, apiUsers, apiWorkspaces, type AdminUser, type AiUsage, type RemovalPreview, type Workspace } from "../lib/api";
 import { AUDIT_ROWS } from "../lib/mock";
 import { useOS } from "../store";
 
@@ -206,6 +206,7 @@ const HR_ROLE_OPTS = ["manager", "employee"] as const;
 
 function UsersPanel({ isHR = false }: { isHR?: boolean }) {
   const roleOpts = isHR ? HR_ROLE_OPTS : ROLE_OPTS;
+  const me = useOS((s) => s.user);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ full_name: "", email: "", role: "employee", password: genPassword() });
@@ -240,6 +241,48 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
     const next = !u.is_active;
     setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, is_active: next } : x)));
     await apiUpdateUser(u.id, { is_active: next }).catch(() => {});
+  }
+
+  /* ── removing someone ──────────────────────────────────────────────────
+     The button is disabled for exactly the cases the server refuses, so the
+     rules are visible before the click rather than as an error after it. */
+  const [removing, setRemoving] = useState<AdminUser | null>(null);
+  const [preview, setPreview] = useState<RemovalPreview | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeErr, setRemoveErr] = useState("");
+
+  function removalBlockedReason(u: AdminUser): string {
+    if (u.id === me?.id) return "You can't remove your own account";
+    if (isHR && (u.role === "admin" || u.role === "hr")) return "HR can't remove admin or HR accounts";
+    // Mirrors the server: is there another *active* admin once this one is
+    // gone? Counting without excluding the target would wrongly block removing
+    // an admin who has already been deactivated.
+    if (u.role === "admin" &&
+        !users.some((x) => x.role === "admin" && x.is_active && x.id !== u.id))
+      return "This is the last admin — promote someone else first";
+    return "";
+  }
+  const canRemove = (u: AdminUser) => !removalBlockedReason(u);
+
+  function askRemove(u: AdminUser) {
+    setRemoving(u); setPreview(null); setRemoveErr("");
+    // Ask the server what this specific removal moves, so the confirmation
+    // describes reality instead of reassuring in the abstract.
+    apiRemovalPreview(u.id).then(setPreview).catch(() => setPreview(null));
+  }
+
+  async function confirmRemove() {
+    if (!removing) return;
+    setRemoveBusy(true); setRemoveErr("");
+    try {
+      await apiRemoveUser(removing.id);
+      setUsers((list) => list.filter((x) => x.id !== removing.id));
+      setRemoving(null);
+    } catch (e) {
+      setRemoveErr(e instanceof Error ? e.message : "Could not remove that person.");
+    } finally {
+      setRemoveBusy(false);
+    }
   }
   function copyCreds() {
     if (!created) return;
@@ -294,9 +337,9 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
       {/* Existing users */}
       <div className="card table-wrap" style={{ padding: 0 }}>
         <table className="table">
-          <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Active</th></tr></thead>
+          <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Active</th><th /></tr></thead>
           <tbody>
-            {loading && <tr><td colSpan={4} className="faint" style={{ textAlign: "center", padding: 18 }}><Loader2 size={14} className="spin" /> Loading users…</td></tr>}
+            {loading && <tr><td colSpan={5} className="faint" style={{ textAlign: "center", padding: 18 }}><Loader2 size={14} className="spin" /> Loading users…</td></tr>}
             {users.map((u) => (
               <tr key={u.id}>
                 <td>
@@ -316,11 +359,79 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
                   )}
                 </td>
                 <td><button className={`toggle ${u.is_active ? "on" : ""}`} onClick={() => toggleActive(u)} disabled={isHR && (u.role === "admin" || u.role === "hr")} aria-label={`Toggle ${u.full_name} active`} /></td>
+                <td style={{ textAlign: "right" }}>
+                  {/* Deactivating (the toggle) is the reversible option and also
+                      frees the seat. This one is for people who have actually left. */}
+                  <button className="btn sm danger" data-testid={`remove-${u.email}`}
+                          disabled={!canRemove(u)} title={removalBlockedReason(u) || `Remove ${u.full_name} from this workspace`}
+                          onClick={() => askRemove(u)} aria-label={`Remove ${u.full_name}`}>
+                    <UserMinus size={12} /> Remove
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Confirmation. States what happens to their work, because that is the
+          part people are actually deciding about. */}
+      {removing && (
+        <div className="up-backdrop" role="dialog" aria-modal="true"
+             aria-label={`Remove ${removing.full_name}`}
+             onMouseDown={(e) => { if (e.target === e.currentTarget) setRemoving(null); }}>
+          <div className="up" style={{ maxWidth: 520 }} data-testid="remove-dialog">
+            <button className="up-x" onClick={() => setRemoving(null)} aria-label="Close"><X size={15} /></button>
+            <header className="up-head">
+              <span className="up-badge" style={{ color: "var(--bad)" }}>
+                <UserMinus size={13} /> {removing.role}
+              </span>
+              <h2>Remove {removing.full_name}?</h2>
+              <p>
+                Their account is deleted and they lose access immediately.
+                To pause someone instead — parental leave, a secondment — use the
+                Active toggle, which also frees their seat and can be undone.
+              </p>
+            </header>
+
+            <div className="rm-split">
+              <section>
+                <h4>Moves to you</h4>
+                <ul>
+                  <li>{preview?.counts.documents ?? "—"} document(s)</li>
+                  <li>{preview?.counts.automations ?? "—"} automation(s)</li>
+                  <li>{preview?.counts.agents ?? "—"} custom agent(s)</li>
+                  <li>{preview?.counts.tasks ?? "—"} task(s) they raised</li>
+                </ul>
+                <p className="faint">Work they were assigned becomes unassigned so someone can pick it up.</p>
+              </section>
+              <section>
+                <h4>Deleted with the account</h4>
+                <ul>
+                  <li>{preview?.counts.conversations ?? "—"} chat conversation(s)</li>
+                  <li>Their saved memories</li>
+                  <li>{preview?.counts.connectors ?? "—"} connected account(s)</li>
+                </ul>
+                <p className="faint">Their Google connection is a token for their inbox — it is never inherited.</p>
+              </section>
+            </div>
+
+            <p className="up-foot faint">
+              The audit trail keeps every action they took, still attributed to their address.
+            </p>
+            {removeErr && <p className="pill bad" style={{ fontSize: 12 }}>{removeErr}</p>}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button className="btn" onClick={() => setRemoving(null)} disabled={removeBusy}>Cancel</button>
+              <button className="btn danger" onClick={confirmRemove} disabled={removeBusy}
+                      data-testid="confirm-remove">
+                {removeBusy ? <><Loader2 size={13} className="spin" /> Removing…</>
+                            : <><UserMinus size={13} /> Remove {removing.full_name.split(" ")[0]}</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

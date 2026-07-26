@@ -6,7 +6,7 @@ from app.api.deps import get_db, require_admin_or_hr
 from app.core.security import hash_password
 from app.models import Organization, User
 from app.schemas import UserCreate, UserOut, UserUpdate
-from app.services import audit, plans
+from app.services import audit, plans, staff
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -46,6 +46,44 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), actor: User = D
     db.refresh(user)
     audit.log(db, "user.create", actor.id, f"{email} role={body.role} by={actor.role}")
     return user
+
+
+@router.get("/{user_id}/removal-preview")
+def removal_preview(user_id: str, db: Session = Depends(get_db),
+                    actor: User = Depends(require_admin_or_hr)):
+    """What removing this person would move or delete.
+
+    The confirmation should describe what will actually happen to this
+    particular account rather than reassure in the abstract — "12 documents and
+    3 automations move to you" is a decision; "this cannot be undone" is not.
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "User not found")
+    try:
+        staff.check_removable(db, actor, user)
+    except staff.RemovalRefused as exc:
+        return {"allowed": False, "reason": str(exc), "counts": {}}
+    return {"allowed": True, "reason": "", "counts": staff.removal_preview(db, user)}
+
+
+@router.delete("/{user_id}")
+def remove_user(user_id: str, db: Session = Depends(get_db),
+                actor: User = Depends(require_admin_or_hr)):
+    """Remove someone from the workspace permanently.
+
+    Their documents, automations and tasks transfer to you; their chat history,
+    saved memories and personal account connections are deleted. Deactivating
+    (PATCH is_active=false) is the reversible option and also frees the seat —
+    this one is for people who are actually gone.
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "User not found")
+    try:
+        return staff.remove_user(db, actor, user)
+    except staff.RemovalRefused as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @router.patch("/{user_id}", response_model=UserOut)

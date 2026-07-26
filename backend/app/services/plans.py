@@ -165,7 +165,11 @@ def usage(db: Session) -> dict[str, int]:
     return {
         "documents": db.scalar(select(func.count()).select_from(Document)) or 0,
         "custom_agents": db.scalar(select(func.count()).select_from(CustomAgent)) or 0,
-        "seats": db.scalar(select(func.count()).select_from(User)) or 0,
+        # Only active accounts hold a seat: deactivating someone has to give
+        # the seat back, or it is not a useful thing to do to a full workspace.
+        "seats": db.scalar(
+            select(func.count()).select_from(User).where(User.is_active.is_(True))
+        ) or 0,
         "automations": db.scalar(
             select(func.count()).select_from(Workflow).where(Workflow.enabled.is_(True))
         ) or 0,

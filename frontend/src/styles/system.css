@@ -1112,3 +1112,16 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   .up-plans{grid-template-columns:1fr}
   .iw-reveal{grid-template-columns:1fr}
 }
+
+/* Removing a person: the two columns are the decision — what the company
+   keeps, and what goes with them. */
+.rm-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 4px;text-align:left}
+.rm-split section{border:1px solid var(--line);border-radius:12px;padding:12px 13px;background:var(--panel-2)}
+.rm-split h4{margin:0 0 8px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim)}
+.rm-split ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.rm-split li{font-size:12.5px;color:var(--text)}
+.rm-split p.faint{margin:9px 0 0;font-size:11px;line-height:1.5;color:var(--text-faint)}
+.btn.danger{border-color:hsl(0 70% 55% / .4);color:#fca5a5}
+.btn.danger:hover:not(:disabled){background:hsl(0 70% 55% / .14);border-color:hsl(0 70% 55% / .7);color:#fecaca}
+.btn.danger:disabled{opacity:.35;cursor:not-allowed}
+@media (max-width:740px){ .rm-split{grid-template-columns:1fr} }
