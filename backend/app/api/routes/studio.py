@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.agents.custom_agent import CustomAgentRunner
 from app.api.deps import get_current_user, get_db
-from app.models import CustomAgent, User
-from app.services import audit
+from app.models import CustomAgent, Organization, User
+from app.services import audit, plans
 
 router = APIRouter(prefix="/studio", tags=["studio"])
 
@@ -49,6 +49,10 @@ def list_agents(db: Session = Depends(get_db), user: User = Depends(get_current_
 @router.post("/agents", status_code=201)
 def create_agent(body: AgentIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     tools = [t for t in body.tools if t in VALID_TOOLS]
+    # The industry profile's own agents count towards this, so a Free workspace
+    # starts at its limit — which is the point: the specialists it was given are
+    # exactly what a third one would be worth.
+    plans.enforce(db, db.get(Organization, user.org_id) if user.org_id else None, "custom_agents")
     agent = CustomAgent(
         slug=_slug(body.name, db), name=body.name, description=body.description,
         system_prompt=body.system_prompt, tools=json.dumps(tools), hue=body.hue,

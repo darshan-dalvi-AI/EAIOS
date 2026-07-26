@@ -16,6 +16,7 @@ from app.api.routes import (
 )
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
+from app.services.plans import LimitReached
 
 log = logging.getLogger("eaios")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -194,6 +195,17 @@ async def _db_error(request: Request, exc: SQLAlchemyError):
         content={"detail": "A database error occurred. "
                            f"Quote reference {ref} if you contact support.", "ref": ref},
     )
+
+
+@app.exception_handler(LimitReached)
+async def _plan_limit(request: Request, exc: LimitReached):
+    """A plan limit is not a failure — it is the moment to offer the upgrade.
+
+    402 Payment Required is the honest status here, and the body carries what
+    was hit, what the current plan allows and what the next one would, so the
+    interface can make an offer instead of showing a dead end.
+    """
+    return JSONResponse(status_code=402, content=exc.as_payload())
 
 
 @app.exception_handler(RequestValidationError)

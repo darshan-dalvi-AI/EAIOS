@@ -1,6 +1,6 @@
 import { Bot, Check, Copy, Download, FileText, FileType2, Mic, Plus, RefreshCw, Send, Sparkles, Square, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { apiChatStream, apiExportReport, apiStudioList, type StudioAgent } from "../lib/api";
+import { apiChatStream, apiExportReport, apiIndustries, apiStudioList, type StudioAgent } from "../lib/api";
 import { AGENTS } from "../lib/mock";
 import { useOS } from "../store";
 import type { ChatMsg } from "../types";
@@ -8,6 +8,9 @@ import type { ChatMsg } from "../types";
 let msgId = 0;
 const nid = () => `msg-${++msgId}`;
 
+/* Fallback for a workspace that never answered the industry question. Once it
+   has, the suggestions come from that profile instead — a clinic should not be
+   invited to ask about Q3 revenue. */
 const SUGGESTIONS = [
   "How many annual leave days do we get?",
   "Summarize Q3 revenue performance",
@@ -17,7 +20,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatApp() {
-  const { user, setAgentBusy, chatDraft, setChatDraft } = useOS();
+  const { user, setAgentBusy, chatDraft, setChatDraft, industry } = useOS();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [agent, setAgent] = useState("auto");
@@ -29,6 +32,17 @@ export default function ChatApp() {
   const lastUserText = useRef("");
 
   useEffect(() => { apiStudioList().then((a) => setCustomAgents(a.filter((x) => x.enabled))).catch(() => {}); }, []);
+
+  // The blank chat is where a new workspace decides whether this product is for
+  // them. Offering "Summarize Q3 revenue" to a clinic answers that badly, so
+  // once a field has been chosen the openers come from its profile.
+  const [industryPrompts, setIndustryPrompts] = useState<string[]>([]);
+  useEffect(() => {
+    if (!industry) { setIndustryPrompts([]); return; }
+    apiIndustries()
+      .then((list) => setIndustryPrompts(list.find((i) => i.id === industry)?.prompts ?? []))
+      .catch(() => {});   // fall back to the generic openers
+  }, [industry]);
 
   function startVoice() {
     const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -177,8 +191,9 @@ export default function ChatApp() {
             <p className="muted" style={{ maxWidth: 400, margin: 0 }}>
               Ask anything about your enterprise knowledge. The planner routes each request to the right agent automatically.
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 520 }}>
-              {SUGGESTIONS.map((s) => (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 520 }}
+                 data-testid="chat-suggestions">
+              {(industryPrompts.length ? industryPrompts : SUGGESTIONS).map((s) => (
                 <button key={s} className="btn sm" onClick={() => void send(s)}>{s}</button>
               ))}
             </div>

@@ -1,7 +1,8 @@
-import { Brain, Cpu, Download, Mic, Palette, PlayCircle, Rocket, ServerCog, ShieldCheck, Info, Swords, Trash2 } from "lucide-react";
+import { Brain, Cpu, Download, Gem, Mic, Palette, PlayCircle, Rocket, ServerCog, ShieldCheck, Info, Swords, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiCompare, apiDeleteMyData, apiExportMyData, apiModelConfig, apiSetModel, type CompareResult, type ModelConfig } from "../lib/api";
 import { MEMORIES } from "../lib/mock";
+import { PlanPanel } from "../os/UpgradeDialog";
 import { useOS } from "../store";
 
 // Curated OpenRouter model catalog — one key, every major family.
@@ -98,6 +99,15 @@ export default function SettingsApp() {
   return (
     <div className="app-pane">
       <div className="app-content" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Plan first: it is the thing people come here to check, and seeing
+            the meters before they hit a wall is the point. */}
+        <section className="card" data-testid="settings-plan">
+          <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
+            <Gem size={14} style={{ color: "#a78bfa" }} /> Plan &amp; usage
+          </h3>
+          <div style={{ marginTop: 12 }}><PlanPanel /></div>
+        </section>
+
         <section className="card">
           <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
             <Palette size={14} style={{ color: "var(--accent)" }} /> Appearance

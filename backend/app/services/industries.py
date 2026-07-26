@@ -18,7 +18,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CustomAgent, Organization, User, Workflow
+from app.models import CustomAgent, Document, Organization, Task, User, Workflow
 
 log = logging.getLogger("eaios.industries")
 
@@ -244,6 +244,11 @@ INDUSTRIES: dict[str, dict] = {
                    "You analyse leases and property agreements. For each, report: parties, demised premises, term, rent "
                    "and review mechanism, break clauses and their conditions, repair obligations, and permitted use. "
                    "Quote the clause. Flag any condition attached to a break right, since an unmet condition invalidates it."),
+            _agent("portfolio-diary", "Portfolio Diary", "Tracks rent reviews, break notices and renewal deadlines", 42,
+                   "You track dates and obligations across a property portfolio. For any question about timing, list every "
+                   "relevant date with the property, the clause it comes from, and the notice period required to act on it — "
+                   "then state the last date on which notice can still be given. Treat a missed notice deadline as the most "
+                   "serious outcome: say plainly when a deadline has already passed rather than softening it."),
         ],
         "prompts": [
             "Which leases have a rent review in the next twelve months?",
@@ -335,8 +340,108 @@ def get(industry_id: str) -> dict | None:
     return INDUSTRIES.get(industry_id)
 
 
-def apply(db: Session, org: Organization, industry_id: str, user: User) -> dict:
-    """Configure a workspace for its industry. Idempotent per agent slug."""
+SAMPLE_TAG = "sample"
+
+
+def _seed_documents(db: Session, industry_id: str, user: User) -> list[str]:
+    """Ingest the industry's starter corpus so the suggested questions answer.
+
+    A configured workspace with an empty knowledge base still says "I couldn't
+    find that in your documents" to every question in the picker — which reads
+    as a broken product rather than an empty one. These are tagged ``sample``
+    and can be removed in one click.
+    """
+    import os
+
+    from app.core import storage
+    from app.core.config import settings
+    from app.rag import pipeline
+    from app.services import industry_packs
+
+    docs = industry_packs.for_industry(industry_id)
+    if not docs:
+        return []
+
+    # Never seed twice — re-running the wizard must not duplicate the corpus.
+    already = db.scalar(select(Document).where(Document.tags.contains(SAMPLE_TAG)))
+    if already:
+        return []
+
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    titles: list[str] = []
+    for title, text in docs:
+        # A comma-separated first line with no markdown heading is tabular data:
+        # ingesting it as CSV makes it a real table the SQL agent can chart.
+        first = text.lstrip().split("\n", 1)[0]
+        dtype = "csv" if ("," in first and not first.startswith("#")) else "txt"
+        doc = Document(
+            filename=f"sample_{industry_id}_{len(titles)}.{dtype}",
+            title=title[:255], doc_type=dtype, owner_id=user.id, status="queued",
+            tags=f"{SAMPLE_TAG},{industry_id}",
+        )
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
+
+        dest = os.path.join(settings.UPLOAD_DIR, f"{doc.id}.{dtype}")
+        with open(dest, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        doc.size_bytes = os.path.getsize(dest)
+        db.commit()
+        try:
+            pipeline.ingest_document(doc.id, dest)   # synchronous: the count must be true
+            storage.put(f"{doc.id}.{dtype}", dest)
+        except Exception as exc:   # noqa: BLE001 — a failed sample must not fail onboarding
+            log.warning("sample document %r failed to index: %s", title, exc)
+        titles.append(title)
+    return titles
+
+
+def _seed_checklist(db: Session, industry_id: str, user: User) -> list[str]:
+    """Put a first-week route through the product on the task board."""
+    from app.services import industry_packs
+
+    if db.scalar(select(Task).where(Task.source == "onboarding")):
+        return []
+    items = industry_packs.checklist_for(industry_id)
+    for title in items:
+        db.add(Task(title=title[:400], status="todo", source="onboarding", owner_id=user.id))
+    return items
+
+
+def remove_samples(db: Session, user: User) -> int:
+    """Delete the seeded starter corpus. Their workspace, their call.
+
+    Mirrors the document delete route: vectors, materialised tables and the
+    stored file all go, not just the row — a half-deleted sample would keep
+    turning up in answers after the customer thought it was gone.
+    """
+    import os
+
+    from app.core import storage
+    from app.rag import pipeline
+    from app.rag import tables as dtables
+    from app.services import kgraph
+
+    docs = list(db.scalars(select(Document).where(Document.tags.contains(SAMPLE_TAG))))
+    for doc in docs:
+        try:
+            pipeline.delete_document_vectors(doc.id)
+            dtables.drop_for_document(db, doc.id)
+            kgraph.forget_document(db, doc.id)
+            storage.remove(f"{doc.id}{os.path.splitext(doc.filename)[1].lower()}")
+        except Exception:   # noqa: BLE001 — removal must succeed even if artefacts are already gone
+            log.warning("partial cleanup for sample document %s", doc.id)
+        db.delete(doc)
+    db.commit()
+    log.info("removed %d sample document(s) for %s", len(docs), user.email)
+    return len(docs)
+
+
+def apply(db: Session, org: Organization, industry_id: str, user: User,
+          with_samples: bool = True) -> dict:
+    """Configure a workspace for its industry. Idempotent — re-running the
+    wizard refines the workspace rather than duplicating it."""
     profile = INDUSTRIES.get(industry_id)
     if profile is None:
         raise ValueError(f"Unknown industry '{industry_id}'")
@@ -365,13 +470,26 @@ def apply(db: Session, org: Organization, industry_id: str, user: User) -> dict:
 
     org.industry = industry_id
     db.commit()
-    log.info("workspace %s configured for %s (%d agents, %d workflows)",
-             org.slug, industry_id, len(created_agents), len(created_flows))
+
+    tasks_created = _seed_checklist(db, industry_id, user)
+    db.commit()
+    # Indexing last: it is the slow step, and everything above should be
+    # committed even if the corpus has trouble.
+    docs_created = _seed_documents(db, industry_id, user) if with_samples else []
+
+    log.info("workspace %s configured for %s (%d agents, %d workflows, %d docs, %d tasks)",
+             org.slug, industry_id, len(created_agents), len(created_flows),
+             len(docs_created), len(tasks_created))
     return {
         "industry": industry_id,
         "name": profile["name"],
+        "hue": profile["hue"],
+        "value": profile["value"],
         "agents_created": created_agents,
         "workflows_created": created_flows,
+        "documents_created": docs_created,
+        "tasks_created": tasks_created,
         "prompts": profile["prompts"],
         "analyzer": profile["analyzer"],
+        "compliance_note": profile.get("compliance_note", ""),
     }

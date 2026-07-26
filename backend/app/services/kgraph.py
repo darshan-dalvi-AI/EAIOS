@@ -164,6 +164,44 @@ def index_chunks(db: Session, doc: Document, chunks: list[Chunk]) -> int:
     return len(touched)
 
 
+def forget_document(db: Session, doc_id: str) -> int:
+    """Remove a deleted document's traces from the knowledge graph.
+
+    Without this, deleting a document leaves its entities and edges standing:
+    the graph keeps showing people and organisations whose only evidence was a
+    file the customer removed, and ``relate`` offers evidence from chunks that
+    no longer exist. For a product whose promise is "every answer points at a
+    real source", an entity with no surviving source is worse than no entity.
+
+    Entities mentioned by other documents are kept and simply recounted —
+    deleting one contract must not erase a client named in ten others.
+
+    Returns the number of entities that disappeared entirely.
+    """
+    touched = {m.entity_id for m in db.scalars(
+        select(EntityMention).where(EntityMention.document_id == doc_id))}
+    db.query(EntityMention).filter(EntityMention.document_id == doc_id).delete()
+    db.query(EntityEdge).filter(EntityEdge.doc_id == doc_id).delete()
+
+    removed = 0
+    for entity_id in touched:
+        entity = db.get(Entity, entity_id)
+        if entity is None:
+            continue
+        remaining = db.query(EntityMention).filter(EntityMention.entity_id == entity_id).count()
+        if remaining:
+            entity.mentions = remaining
+            continue
+        # nothing references it any more — take the edges with it
+        db.query(EntityEdge).filter(
+            (EntityEdge.source_id == entity_id) | (EntityEdge.target_id == entity_id)
+        ).delete(synchronize_session=False)
+        db.delete(entity)
+        removed += 1
+    db.flush()
+    return removed
+
+
 # ── queries ──────────────────────────────────────────────────────────────
 def graph_data(db: Session, q: str = "", limit: int = 60) -> dict:
     stmt = select(Entity).order_by(Entity.mentions.desc())

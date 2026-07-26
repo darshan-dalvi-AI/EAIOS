@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db, require_admin
 from app.core.config import settings
 from app.models import Organization, User
-from app.services import audit, industries, tenancy
+from app.services import audit, industries, plans, tenancy
 
 router = APIRouter(prefix="/orgs", tags=["workspaces"])
 
@@ -35,6 +35,14 @@ class ConfirmIn(BaseModel):
 
 class IndustryIn(BaseModel):
     industry: str = Field(min_length=2, max_length=40)
+    # Starter documents make every suggested question answerable on day one.
+    # Opt-out rather than opt-in: a workspace that answers nothing reads as a
+    # broken product, and they are one click to remove.
+    with_samples: bool = True
+
+
+class PlanIn(BaseModel):
+    plan: str = Field(pattern="^(free|pro|business)$")
 
 
 def require_owner(user: User = Depends(get_current_user)) -> User:
@@ -134,8 +142,54 @@ def set_industry(body: IndustryIn, db: Session = Depends(get_db),
     if org is None:
         raise HTTPException(404, "Workspace not found")
     try:
-        result = industries.apply(db, org, body.industry, user)
+        result = industries.apply(db, org, body.industry, user,
+                                  with_samples=body.with_samples)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     audit.log(db, "org.industry", user.id, f"{org.slug} → {body.industry}")
     return result
+
+
+@router.delete("/self/industry/samples")
+def clear_samples(db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Remove the starter documents once the customer has their own."""
+    removed = industries.remove_samples(db, user)
+    audit.log(db, "org.samples.remove", user.id, f"{removed} document(s)")
+    return {"removed": removed}
+
+
+# ── plan and limits ──────────────────────────────────────────────────────
+@router.get("/self/billing")
+def billing(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Current plan, live usage against every limit, and the full ladder.
+
+    Readable by everyone in the workspace: a person who just hit a limit needs
+    to see why, even if they are not the one who can change the plan.
+    """
+    org = db.get(Organization, user.org_id) if user.org_id else None
+    return plans.describe(db, org)
+
+
+@router.post("/self/billing/plan")
+def change_plan(body: PlanIn, db: Session = Depends(get_db),
+                user: User = Depends(require_admin)):
+    """Move this workspace to a plan.
+
+    No payment processor is wired in — this is the seam a checkout webhook
+    would call. It stays admin-only and audited so the change is always
+    attributable.
+    """
+    if not user.org_id:
+        raise HTTPException(400, "Your account isn't attached to a workspace")
+    org = db.get(Organization, user.org_id)
+    if org is None:
+        raise HTTPException(404, "Workspace not found")
+    previous = org.plan
+    try:
+        plan = plans.set_plan(db, org, body.plan)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    audit.log(db, "org.plan", user.id, f"{org.slug}: {previous} → {plan.id}")
+    # The full description comes back so the screen can repaint its usage bars
+    # against the new headroom without a second round trip.
+    return {"previous": previous, **plans.describe(db, org)}

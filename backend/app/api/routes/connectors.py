@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.core import errors
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.models import Connector, User
-from app.services import audit, connectors
+from app.models import Connector, Organization, User
+from app.services import audit, connectors, plans
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
@@ -43,6 +43,11 @@ class SyncIn(BaseModel):
 def sync_connector(body: SyncIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Fetch from the provider and ingest into the knowledge base. Reuses (or
     creates) a Connector row per provider for this user."""
+    # The bundled sample provider stays open on every plan — it is how someone
+    # on Free sees what a connector does before deciding to pay for real ones.
+    if body.provider != "sample":
+        org = db.get(Organization, user.org_id) if user.org_id else None
+        plans.require_feature(org, "connectors", "Connecting Google Drive, Gmail and websites")
     connector = db.scalar(select(Connector).where(Connector.provider == body.provider,
                                                   Connector.owner_id == user.id))
     if connector is None:

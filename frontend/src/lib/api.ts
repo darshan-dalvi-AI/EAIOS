@@ -55,14 +55,30 @@ export function demoteToDemo(): void {
 
 /** An API failure that keeps the per-field detail the server sent, so a form
  *  can say "Company name is too short" instead of a blanket "Invalid input". */
+/** Raised whenever the server refuses an action on plan grounds. UpgradeDialog
+ *  listens for it, so no screen has to handle 402 for itself. */
+export const PLAN_LIMIT_EVENT = "eaios:plan-limit";
+
+/** A plan limit that stopped an action, with everything needed to offer the
+ *  upgrade instead of just refusing. */
+export interface PlanBlock {
+  limit: string; used: number; plan: string; plan_name: string;
+  upgrade_to: string | null; upgrade_name: string | null; upgrade_allows: string | null;
+}
+
 export class ApiError extends Error {
   status: number;
   fields: { field: string; problem: string }[];
-  constructor(message: string, status: number, fields: { field: string; problem: string }[] = []) {
+  /** Present when the server answered 402 — the action was refused on plan
+   *  grounds, which is a sales conversation rather than a failure. */
+  planBlock?: PlanBlock;
+  constructor(message: string, status: number, fields: { field: string; problem: string }[] = [],
+              planBlock?: PlanBlock) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.fields = fields;
+    this.planBlock = planBlock;
   }
 }
 
@@ -127,16 +143,28 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const raw = (await res.text().catch(() => "")) || "";
     let msg = raw;
     let fields: { field: string; problem: string }[] = [];
+    let planBlock: PlanBlock | undefined;
     try {
-      const j = JSON.parse(raw) as { detail?: unknown; errors?: { field: string; problem: string }[] };
+      const j = JSON.parse(raw) as {
+        detail?: unknown; errors?: { field: string; problem: string }[];
+        limit?: string; plan?: string;
+      };
       if (Array.isArray(j?.errors) && j.errors.length) {
         fields = j.errors;
         msg = j.errors.map((e) => friendlyFieldError(e.field, e.problem)).join(" ");
       } else if (j && j.detail) {
         msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
       }
+      // 402 carries the plan context so callers can offer the upgrade rather
+      // than showing the customer a dead end.
+      if (res.status === 402 && j?.limit) planBlock = j as unknown as PlanBlock;
     } catch { /* plain-text body */ }
-    throw new ApiError(msg || `HTTP ${res.status}`, res.status, fields);
+    // Raised centrally: every screen gets the upgrade offer without having to
+    // know that plans exist, and none of them can forget to handle a 402.
+    if (planBlock) {
+      window.dispatchEvent(new CustomEvent(PLAN_LIMIT_EVENT, { detail: { ...planBlock, detail: msg } }));
+    }
+    throw new ApiError(msg || `HTTP ${res.status}`, res.status, fields, planBlock);
   }
   return res.json() as Promise<T>;
 }
@@ -989,10 +1017,54 @@ export async function apiIndustries(): Promise<Industry[]> {
   return request<Industry[]>("/orgs/industries");
 }
 
-export async function apiSetIndustry(industry: string) {
-  return request<{ industry: string; name: string; agents_created: string[];
-                   workflows_created: string[]; prompts: string[]; analyzer: string }>(
-    "/orgs/self/industry", { method: "POST", body: JSON.stringify({ industry }) });
+/** What the workspace actually gained — the reveal screen reads this. */
+export interface IndustryResult {
+  industry: string; name: string; hue: number; value: string;
+  agents_created: string[]; workflows_created: string[];
+  documents_created: string[]; tasks_created: string[];
+  prompts: string[]; analyzer: string; compliance_note: string;
+}
+
+export async function apiSetIndustry(industry: string, withSamples = true) {
+  return request<IndustryResult>("/orgs/self/industry", {
+    method: "POST", body: JSON.stringify({ industry, with_samples: withSamples }),
+  });
+}
+
+/** Drop the starter corpus once the customer has their own documents. */
+export async function apiClearSamples() {
+  return request<{ removed: number }>("/orgs/self/industry/samples", { method: "DELETE" });
+}
+
+/* ── Plans ─────────────────────────────────────────────────────────────
+   The limits are enforced on the server; these calls are what lets the
+   interface show the ceiling coming rather than only announce it. */
+export interface PlanRow {
+  id: string; name: string; price_month: number; blurb: string; highlights: string[];
+  current: boolean; documents: number; custom_agents: number; seats: number;
+  automations: number; connectors: boolean; video: boolean;
+  audit_export: boolean; ai_daily_tokens: number;
+}
+
+export interface UsageRow {
+  key: string; label: string; used: number; limit: number; unlimited: boolean;
+}
+
+export interface Billing {
+  plan: { id: string; name: string; price_month: number; blurb: string; highlights: string[] };
+  usage: UsageRow[];
+  features: Record<string, number | boolean>;
+  plans: PlanRow[];
+}
+
+export async function apiBilling(): Promise<Billing> {
+  return request<Billing>("/orgs/self/billing");
+}
+
+export async function apiChangePlan(plan: string): Promise<Billing & { previous: string }> {
+  return request<Billing & { previous: string }>("/orgs/self/billing/plan", {
+    method: "POST", body: JSON.stringify({ plan }),
+  });
 }
 
 /* ── Email ownership ───────────────────────────────────────────────────

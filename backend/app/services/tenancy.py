@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models import (
     AgentRun, AuditLog, Chunk, Connector, Conversation, CustomAgent, DataTable,
     Document, Entity, EntityEdge, EntityMention, GraphCheckpoint, MemoryEntry,
@@ -37,7 +38,8 @@ def default_org(db: Session) -> Organization:
     so the platform works out of the box before anyone signs up a company."""
     org = db.scalar(select(Organization).where(Organization.slug == DEFAULT_SLUG))
     if org is None:
-        org = Organization(name="EAIOS Demo Workspace", slug=DEFAULT_SLUG)
+        org = Organization(name="EAIOS Demo Workspace", slug=DEFAULT_SLUG,
+                           plan=settings.DEFAULT_PLAN)
         db.add(org)
         db.commit()
         db.refresh(org)
@@ -56,7 +58,8 @@ def create_org(db: Session, name: str) -> Organization:
     while db.scalar(select(Organization).where(Organization.slug == slug)):
         slug = f"{base}-{i}"
         i += 1
-    org = Organization(name=name.strip()[:160] or "Company", slug=slug)
+    org = Organization(name=name.strip()[:160] or "Company", slug=slug,
+                       plan=settings.DEFAULT_PLAN)
     db.add(org)
     db.commit()
     db.refresh(org)

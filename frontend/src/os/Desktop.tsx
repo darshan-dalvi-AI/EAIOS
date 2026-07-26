@@ -27,6 +27,7 @@ import MobileTabBar from "./MobileTabBar";
 import MenuBar from "./MenuBar";
 import SetupGuide from "./SetupGuide";
 import Toasts from "./Toasts";
+import UpgradeDialog from "./UpgradeDialog";
 import Tour from "./Tour";
 import WakeWord from "./WakeWord";
 import Window from "./Window";
@@ -120,6 +121,9 @@ export default function Desktop() {
       <Dock />
       <MobileTabBar />
       <Toasts />
+      {/* Raised by api.ts on any 402, so a plan limit is offered as an
+          upgrade wherever it happens rather than surfacing as an error. */}
+      <UpgradeDialog />
       {paletteOpen && <CommandPalette />}
       {wake && <WakeWord />}
       {tour && <Tour onDone={() => { localStorage.setItem("eaios-tour-done", "1"); setTour(false); }} />}

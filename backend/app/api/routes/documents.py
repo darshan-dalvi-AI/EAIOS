@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.core import storage, uploads
 from app.core.config import settings
-from app.models import Chunk, Document, User
+from app.models import Chunk, Document, Organization, User
 from app.rag import pipeline
 from app.schemas import ChunkOut, DocumentOut
-from app.services import audit
+from app.services import audit, plans
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -34,6 +34,10 @@ def upload(
     # a hard size cap (see core/uploads.py).
     safe_name = uploads.safe_filename(file.filename)
     ext, doc_type = uploads.check_extension(safe_name)
+
+    # Checked before a byte is written, so a workspace at its allowance is told
+    # immediately rather than after uploading a large file.
+    plans.enforce(db, db.get(Organization, user.org_id) if user.org_id else None, "documents")
 
     doc = Document(
         filename=safe_name,
@@ -101,6 +105,12 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), user: User = Dep
         from app.rag import tables as dtables
 
         dtables.drop_for_document(db, doc_id)
+    except Exception:  # noqa: BLE001
+        pass
+    try:  # and its entities, so the graph never outlives its evidence
+        from app.services import kgraph
+
+        kgraph.forget_document(db, doc_id)
     except Exception:  # noqa: BLE001
         pass
     ext = os.path.splitext(doc.filename)[1].lower()

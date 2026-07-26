@@ -139,6 +139,11 @@ class Settings(BaseSettings):
     # can use a low cost instead of spending minutes deriving keys.
     PASSWORD_HASH_ITERATIONS: int = 600_000
 
+    # Plan every new workspace starts on. "free" is the SaaS default; a
+    # self-hosted or on-premise deployment has no billing relationship, so it
+    # sets DEFAULT_PLAN=business and the limits stop applying.
+    DEFAULT_PLAN: str = "free"
+
     # Platform owner(s) — the vendor running this multi-tenant deployment.
     # Comma-separated emails. These accounts get the Workspaces console: list,
     # suspend and delete ANY company workspace. Empty (the default) disables

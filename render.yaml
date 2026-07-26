@@ -46,6 +46,12 @@ services:
       # SECRET_KEY and hides the API docs.
       - key: ENVIRONMENT
         value: production
+      # Plan every new workspace starts on. Leave as "free" for the SaaS
+      # experience (limits enforced, upgrade prompts shown). A self-hosted
+      # deployment with no billing relationship sets this to "business" and
+      # the limits stop applying entirely.
+      - key: DEFAULT_PLAN
+        value: free
       # ── Email verification ────────────────────────────────────────────
       # New signups must prove they can receive mail at the address given —
       # but ONLY once codes can actually be delivered. With both of the keys

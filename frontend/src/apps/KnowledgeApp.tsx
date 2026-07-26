@@ -1,6 +1,6 @@
 import { Camera, FileSpreadsheet, FileText, Image, Layers, Loader2, Presentation, ScanSearch, Search, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiAnalyze, apiDeleteDocument, apiDocuments, apiUploadDocument, isSupportedFile, UPLOAD_ACCEPT, type AnalyzeCard } from "../lib/api";
+import { apiAnalyze, apiClearSamples, apiDeleteDocument, apiDocuments, apiUploadDocument, isSupportedFile, UPLOAD_ACCEPT, type AnalyzeCard } from "../lib/api";
 import { useOS } from "../store";
 import { DOCS, fmtBytes } from "../lib/mock";
 import type { Doc } from "../types";
@@ -129,6 +129,25 @@ export default function KnowledgeApp() {
     [docs, query]
   );
 
+  // Documents seeded when the workspace chose its field. Shown as removable so
+  // nobody has to wonder which files are theirs and which came with the setup.
+  const sampleCount = docs.filter((d) => d.tags.includes("sample")).length;
+  const [clearing, setClearing] = useState(false);
+
+  async function clearSamples() {
+    setClearing(true);
+    try {
+      await apiClearSamples();
+      setDocs((prev) => prev.filter((d) => !d.tags.includes("sample")));
+      useOS.getState().pushFeed({ agent: "system", kind: "system",
+        text: "Example documents removed — your knowledge base is now only your own." });
+    } catch {
+      /* the list refreshes on next load; nothing destructive happened */
+    } finally {
+      setClearing(false);
+    }
+  }
+
   const indexedCount = docs.filter((d) => d.status === "indexed").length;
   const totalChunks = docs.reduce((sum, d) => sum + d.chunk_count, 0);
 
@@ -152,6 +171,15 @@ export default function KnowledgeApp() {
           </div>
           <span className="pill info"><Layers size={11} /> {totalChunks} chunks</span>
           <span className="pill good">{indexedCount}/{docs.length} indexed</span>
+          {/* The starter corpus is honest about being ours, and leaves on one
+              click — a customer should never wonder which documents are theirs. */}
+          {sampleCount > 0 && (
+            <button className="btn sm" data-testid="clear-samples" disabled={clearing}
+                    title="Remove the example documents added when you chose your field"
+                    onClick={clearSamples}>
+              <Trash2 size={12} /> {clearing ? "Removing…" : `Remove ${sampleCount} example${sampleCount === 1 ? "" : "s"}`}
+            </button>
+          )}
           {/* Real file pickers. On phones/tablets the OS sheet offers Files,
               Photo Library and Camera; `capture` opens the camera directly. */}
           <input ref={fileRef} type="file" multiple accept={UPLOAD_ACCEPT}

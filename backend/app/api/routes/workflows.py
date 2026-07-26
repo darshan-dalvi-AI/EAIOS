@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.models import User, Workflow, WorkflowRun
+from app.models import Organization, User, Workflow, WorkflowRun
 from app.schemas import WorkflowApprovalIn, WorkflowIn, WorkflowOut, WorkflowRunIn, WorkflowRunOut
-from app.services import audit, workflows as engine
+from app.services import audit, plans, workflows as engine
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -27,10 +27,19 @@ def list_workflows(db: Session = Depends(get_db), user: User = Depends(get_curre
     return db.scalars(select(Workflow).order_by(Workflow.updated_at.desc())).all()
 
 
+def _gate_enabling(db: Session, user: User) -> None:
+    """Building an automation is free; leaving one running unattended is the
+    paid part. The gate is on the switch, not on the canvas — a workspace can
+    design its whole process and see exactly what it would get."""
+    plans.enforce(db, db.get(Organization, user.org_id) if user.org_id else None, "automations")
+
+
 @router.post("", response_model=WorkflowOut, status_code=201)
 def create_workflow(body: WorkflowIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if body.trigger not in ("manual", "upload", "schedule"):
         raise HTTPException(422, "trigger must be manual | upload | schedule")
+    if body.enabled:
+        _gate_enabling(db, user)
     wf = Workflow(
         name=body.name, description=body.description, owner_id=user.id, trigger=body.trigger,
         nodes=json.dumps(body.nodes), edges=json.dumps(body.edges), enabled=body.enabled,
@@ -45,6 +54,8 @@ def create_workflow(body: WorkflowIn, db: Session = Depends(get_db), user: User 
 @router.put("/{wf_id}", response_model=WorkflowOut)
 def update_workflow(wf_id: str, body: WorkflowIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     wf = _get_owned(db, user, wf_id)
+    if body.enabled and not wf.enabled:      # only the off → on transition costs
+        _gate_enabling(db, user)
     wf.name, wf.description, wf.trigger = body.name, body.description, body.trigger
     wf.nodes, wf.edges, wf.enabled = json.dumps(body.nodes), json.dumps(body.edges), body.enabled
     db.commit()

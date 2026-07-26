@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin_or_hr
 from app.core.security import hash_password
-from app.models import User
+from app.models import Organization, User
 from app.schemas import UserCreate, UserOut, UserUpdate
-from app.services import audit
+from app.services import audit, plans
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -33,6 +33,7 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), actor: User = D
         raise HTTPException(403, "HR can only create managers and employees")
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "A user with that email already exists")
+    plans.enforce(db, db.get(Organization, actor.org_id) if actor.org_id else None, "seats")
     user = User(
         email=email,
         full_name=body.full_name.strip(),

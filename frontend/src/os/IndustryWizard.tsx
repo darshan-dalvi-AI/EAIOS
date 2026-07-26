@@ -5,11 +5,12 @@
    for their field, the questions their staff actually ask, and an intake
    automation. Shown once per workspace, to the admin only. */
 import {
-  ArrowRight, Bot, Briefcase, Building2, Check, Factory, GraduationCap, HeartPulse,
-  Landmark, Loader2, Scale, ShoppingBag, Sparkles, Users, Workflow, Zap,
+  ArrowRight, Bot, Briefcase, Building2, Check, Factory, FileText, GraduationCap,
+  HeartPulse, Landmark, ListChecks, Loader2, Scale, ShieldCheck, ShoppingBag,
+  Sparkles, Users, Workflow, Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiIndustries, apiSetIndustry, type Industry } from "../lib/api";
+import { apiIndustries, apiSetIndustry, type Industry, type IndustryResult } from "../lib/api";
 import { useOS } from "../store";
 
 const ICONS: Record<string, typeof Bot> = {
@@ -19,12 +20,37 @@ const ICONS: Record<string, typeof Bot> = {
 
 type Phase = "pick" | "confirm" | "applying" | "done";
 
+/** The reveal is the whole point of the wizard: the customer has to *see* the
+ *  workspace change, not be told it did. Each row reads a different part of
+ *  the server's answer, so it can only show what genuinely happened. */
+const REVEAL: {
+  key: string; Icon: typeof Bot;
+  label: (n: number) => string;
+  pick: (r: IndustryResult | null) => string[];
+}[] = [
+  { key: "agents", Icon: Bot,
+    label: (n) => `specialist agent${n === 1 ? "" : "s"}, trained on your field`,
+    pick: (r) => r?.agents_created ?? [] },
+  { key: "docs", Icon: FileText,
+    label: (n) => `starter document${n === 1 ? "" : "s"}, indexed and searchable`,
+    pick: (r) => r?.documents_created ?? [] },
+  { key: "flows", Icon: Workflow,
+    label: (n) => `automation${n === 1 ? "" : "s"}, ready to switch on`,
+    pick: (r) => r?.workflows_created ?? [] },
+  { key: "tasks", Icon: ListChecks,
+    label: (n) => `task${n === 1 ? "" : "s"} on your board for this week`,
+    pick: (r) => r?.tasks_created ?? [] },
+];
+
 export default function IndustryWizard() {
   const { user, orgName, industry, setIndustry, live, open } = useOS();
   const [list, setList] = useState<Industry[] | null>(null);
   const [chosen, setChosen] = useState<Industry | null>(null);
   const [phase, setPhase] = useState<Phase>("pick");
-  const [result, setResult] = useState<{ agents_created: string[]; workflows_created: string[] } | null>(null);
+  const [result, setResult] = useState<IndustryResult | null>(null);
+  // Opt-out, not opt-in: a workspace that answers nothing on day one reads
+  // as a broken product rather than an empty one.
+  const [withSamples, setWithSamples] = useState(true);
   const [err, setErr] = useState("");
   const [dismissed, setDismissed] = useState(false);
 
@@ -50,9 +76,15 @@ export default function IndustryWizard() {
     try {
       // In demo mode there is no backend to configure; still show the outcome
       // so the flow can be demonstrated end to end.
-      const r = live
-        ? await apiSetIndustry(chosen.id)
-        : { agents_created: chosen.agents.map((a) => a.name), workflows_created: [chosen.workflow] };
+      const r: IndustryResult = live
+        ? await apiSetIndustry(chosen.id, withSamples)
+        : {
+            industry: chosen.id, name: chosen.name, hue: chosen.hue, value: chosen.value,
+            agents_created: chosen.agents.map((a) => a.name),
+            workflows_created: [chosen.workflow],
+            documents_created: [], tasks_created: [],
+            prompts: chosen.prompts, analyzer: chosen.analyzer, compliance_note: "",
+          };
       setResult(r);
       setIndustry(chosen.id);
       setPhase("done");
@@ -134,6 +166,18 @@ export default function IndustryWizard() {
                 <div className="iw-row"><b>{chosen.workflow}</b>
                   <span>Runs on every upload — off until you enable it</span></div>
               </section>
+              <section>
+                <h4><FileText size={13} /> Something to ask questions about</h4>
+                <label className="iw-check-row">
+                  <input type="checkbox" checked={withSamples} data-testid="with-samples"
+                         onChange={(e) => setWithSamples(e.target.checked)} />
+                  <span>
+                    <b>Add example {chosen.name.split(" &")[0].toLowerCase()} documents</b>
+                    <span>So the questions above answer immediately. Clearly labelled,
+                      and removable in one click.</span>
+                  </span>
+                </label>
+              </section>
             </div>
 
             {err && <p className="pill bad" style={{ fontSize: 12 }}>{err}</p>}
@@ -151,27 +195,46 @@ export default function IndustryWizard() {
           </>
         )}
 
-        {/* ── done ── */}
+        {/* ── the reveal: what actually changed, item by item ── */}
         {phase === "done" && chosen && (
-          <div className="iw-done">
+          <div className="iw-done" style={{ "--hue": chosen.hue } as React.CSSProperties}>
             <span className="iw-tick"><Check size={26} /></span>
-            <h2>{orgName} is ready</h2>
-            <p>
-              Configured for {chosen.name}. {result?.agents_created.length ?? 0} specialist agent
-              {(result?.agents_created.length ?? 0) === 1 ? "" : "s"} and{" "}
-              {result?.workflows_created.length ?? 0} automation are waiting in your workspace.
-            </p>
-            <div className="iw-done-list">
-              {result?.agents_created.map((n) => (
-                <span key={n} className="pill good"><Bot size={11} /> {n}</span>
-              ))}
-              {result?.workflows_created.map((n) => (
-                <span key={n} className="pill info"><Workflow size={11} /> {n}</span>
-              ))}
+            <h2>{orgName} is a {chosen.name.split(" &")[0].toLowerCase()} workspace now</h2>
+            <p>{chosen.value}</p>
+
+            <div className="iw-reveal" data-testid="industry-reveal">
+              {REVEAL.map((row, i) => {
+                const items = row.pick(result);
+                if (!items.length) return null;
+                return (
+                  <section key={row.key} className="iw-rev" style={{ animationDelay: `${i * 110}ms` }}>
+                    <header>
+                      <span className="iw-rev-ico"><row.Icon size={14} /></span>
+                      <b>{items.length}</b> {row.label(items.length)}
+                    </header>
+                    <ul>
+                      {items.slice(0, 4).map((name) => <li key={name}>{name}</li>)}
+                      {items.length > 4 && <li className="faint">+{items.length - 4} more</li>}
+                    </ul>
+                  </section>
+                );
+              })}
             </div>
+
+            {result?.compliance_note && (
+              <p className="iw-note"><ShieldCheck size={13} /> {result.compliance_note}</p>
+            )}
+
+            {!!result?.documents_created.length && (
+              <p className="iw-note faint">
+                The starter documents are examples so you can try a question straight away —
+                remove them any time from Knowledge.
+              </p>
+            )}
+
             <div className="iw-foot" style={{ justifyContent: "center", gap: 10 }}>
               <button className="btn" onClick={() => { setDismissed(true); open("knowledge"); }}>
-                Add your documents
+                Add your own documents
               </button>
               <button className="btn primary" onClick={() => { setDismissed(true); open("chat"); }}>
                 Ask your first question <ArrowRight size={15} />

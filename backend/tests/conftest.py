@@ -28,6 +28,11 @@ os.environ["OPENAI_API_KEY"] = "sk-test-dummy-key"
 os.environ["RATE_LIMIT_ENABLED"] = "0"
 # Keep the background scheduler quiet during tests (run_due_scheduled is unit-tested directly).
 os.environ["SCHEDULER_ENABLED"] = "0"
+# Most tests exercise product behaviour, not commercial packaging, and the whole
+# suite shares one workspace — so on the Free plan the fifth account created by
+# any test would fail on a seat limit that test never meant to exercise.
+# tests/test_industry_and_plans.py sets the plan it needs, per test.
+os.environ["DEFAULT_PLAN"] = "business"
 
 import pytest  # noqa: E402
 
