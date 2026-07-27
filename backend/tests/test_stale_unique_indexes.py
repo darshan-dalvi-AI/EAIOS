@@ -190,6 +190,26 @@ def test_one_stubborn_index_does_not_block_the_others(own_database, stale_unique
         "a failure on an unrelated table took the real repairs down with it"
 
 
+# ── foreign keys that should cascade ────────────────────────────────────────
+
+def test_a_missing_cascade_is_detected(own_database):
+    """``chunks.document_id`` must cascade, or deleting a document fails
+    whenever a chunk for it exists at that instant."""
+    assert db_module.missing_cascades() == [], "a fresh database is already correct"
+
+    # Rebuild `chunks` the way it was before the cascade was declared.
+    with own_database.begin() as conn:
+        ddl = conn.execute(text(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks'")).scalar()
+        conn.execute(text("DROP TABLE chunks"))
+        conn.execute(text(ddl.replace(" ON DELETE CASCADE", "")))
+
+    gaps = db_module.missing_cascades()
+
+    assert [(g["table"], g["column"], g["parent"]) for g in gaps] == \
+        [("chunks", "document_id", "documents")], gaps
+
+
 # ── the failure as a customer meets it ──────────────────────────────────────
 
 def test_two_workspaces_can_own_an_agent_with_the_same_slug(own_database, stale_unique_index):

@@ -365,23 +365,32 @@ def schema_health():
     credentials: the point is to be readable at the moment something is wrong,
     including from a phone.
     """
-    from app.core.database import stale_global_uniques
+    from app.core import database as db
 
     try:
-        drifted = stale_global_uniques()
+        drifted = db.stale_global_uniques()
+        uncascaded = db.missing_cascades()
     except Exception as exc:  # noqa: BLE001 — a probe must not fail
         return {"status": "unknown", "version": settings.VERSION, "error": str(exc)[:200]}
 
+    problems = []
+    if drifted:
+        problems.append("columns still enforced as globally unique that should be "
+                        "unique per workspace")
+    if uncascaded:
+        problems.append("foreign keys that should cascade on delete but do not, so "
+                        "deleting a parent fails whenever a child exists")
+
     return {
-        "status": "ok" if not drifted else "drifted",
+        "status": "ok" if not problems else "drifted",
         "version": settings.VERSION,
         "stale_global_uniques": drifted,
+        "missing_cascades": uncascaded,
         "detail": (
             "Schema matches the models."
-            if not drifted else
-            "These columns are still enforced as globally unique but should be "
-            "unique per workspace. Restart the service to repair them; the "
-            "repair runs on every boot."
+            if not problems else
+            "Found " + "; and ".join(problems)
+            + ". Restart the service to repair them; the repair runs on every boot."
         ),
     }
 

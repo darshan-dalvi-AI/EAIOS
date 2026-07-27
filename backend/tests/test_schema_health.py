@@ -19,6 +19,7 @@ def test_a_healthy_schema_says_so():
     body = r.json()
     assert body["status"] == "ok", body
     assert body["stale_global_uniques"] == []
+    assert body["missing_cascades"] == []
     assert body["version"]
 
 
@@ -38,6 +39,27 @@ def test_drift_is_reported_with_enough_detail_to_act_on(monkeypatch):
     assert "unique per workspace" in body["detail"]
 
 
+def test_a_foreign_key_that_should_cascade_but_does_not_is_reported(monkeypatch):
+    """The failure that actually took the live demo down.
+
+    It is invisible until a child row happens to exist at the moment a parent
+    is deleted, so it has to be found by looking at the schema rather than by
+    waiting for it to break.
+    """
+    from app.core import database as db_module
+
+    monkeypatch.setattr(db_module, "missing_cascades", lambda: [
+        {"table": "chunks", "column": "document_id", "name": "chunks_document_id_fkey",
+         "parent": "documents", "parent_column": "id"},
+    ])
+
+    body = client.get("/api/health/schema").json()
+
+    assert body["status"] == "drifted"
+    assert body["missing_cascades"][0]["name"] == "chunks_document_id_fkey"
+    assert "cascade on delete" in body["detail"]
+
+
 def test_it_carries_no_data_and_no_configuration():
     """It answers without credentials, so it must not become a leak.
 
@@ -46,7 +68,8 @@ def test_it_carries_no_data_and_no_configuration():
     """
     body = client.get("/api/health/schema").json()
 
-    assert set(body) <= {"status", "version", "stale_global_uniques", "detail", "error"}
+    assert set(body) <= {"status", "version", "stale_global_uniques",
+                         "missing_cascades", "detail", "error"}
     flat = str(body).lower()
     for secret in ("password", "postgres://", "postgresql://", "@", "key=", "token"):
         assert secret not in flat, f"{secret!r} appeared in a public probe"

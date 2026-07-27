@@ -88,14 +88,29 @@ class Document(TenantMixin, Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
     owner: Mapped[User] = relationship(back_populates="documents")
-    chunks: Mapped[list["Chunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    # Deliberately NOT passive_deletes: that would hand every cascade to the
+    # database, and SQLite does not enforce foreign keys unless asked, so a
+    # local run would silently leave orphaned chunks behind. The two mechanisms
+    # cover different paths — the ORM cascade handles ``db.delete(document)``,
+    # the database's ON DELETE CASCADE handles bulk ``DELETE ... WHERE id IN``,
+    # which never loads the children to begin with.
+    chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan")
 
 
 class Chunk(TenantMixin, Base):
     __tablename__ = "chunks"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
-    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    # ON DELETE CASCADE is load-bearing, not tidiness. Starter documents are
+    # indexed in the background, so a chunk can be written moments after the
+    # visitor swaps industry and deletes its document. Deleting chunks first
+    # and documents second leaves a window between the two statements; a chunk
+    # arriving in that window makes the second statement violate this key, and
+    # the visitor sees "a database error occurred". Letting the database remove
+    # the children closes the window — there is no longer a gap to lose.
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True)
     ord: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     section: Mapped[str] = mapped_column(String(255), default="")

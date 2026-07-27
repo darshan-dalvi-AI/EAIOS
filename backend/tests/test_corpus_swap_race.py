@@ -9,13 +9,13 @@ them by default, which is how a migration that PostgreSQL rejected once shipped
 to production green — anything in this file that deletes a parent row is
 checked against the constraint production actually applies.
 
-An honest caveat: this file did **not** reproduce the "a database error
-occurred" seen live after the deferral change. Reproducing that flow against a
-real PostgreSQL instance — including the deployed commit — came back clean, so
-the cause lies somewhere these tests do not reach (most likely contention with
-the boot-time schema hardening, which takes exclusive table locks for about a
-minute after every deploy). These tests are kept because the properties they
-assert are worth holding, not because they caught that.
+The failure this file was written for turned out to be a window of two
+statements wide. ``drop_sample_rows`` deletes chunks, then deletes documents; a
+chunk written by the indexer *between* those two statements makes the second
+one violate ``chunks_document_id_fkey``, and the visitor sees "a database error
+occurred". Threads did not reproduce it reliably — the window is far too narrow
+to hit on purpose — so the test below stops trying to win a race and instead
+writes the chunk in exactly that window, every time.
 """
 import threading
 
@@ -62,6 +62,58 @@ def _demo_workspace() -> tuple[str, str, list]:
         # Read them here: the instance detaches when the session closes.
         uid, oid = user.id, user.org_id
         return uid, oid, jobs
+    finally:
+        db.close()
+
+
+def test_a_chunk_written_mid_swap_does_not_fail_the_request(strict_foreign_keys):
+    """The production failure, made deterministic.
+
+    Rather than start a thread and hope it lands between the two DELETEs, this
+    hooks the second one and writes the chunk itself. That is the same state
+    the indexer produces, arrived at on purpose: a live child row for a parent
+    that is being deleted right now.
+    """
+    uid, oid, _jobs = _demo_workspace()
+
+    done = {"once": False}
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def write_a_chunk_in_the_window(conn, cursor, statement, parameters, context, many):
+        if done["once"] or "DELETE FROM documents" not in statement:
+            return
+        done["once"] = True
+        row = cursor.execute(
+            "SELECT id, org_id FROM documents WHERE tags LIKE '%sample%' LIMIT 1").fetchone()
+        if row is None:                       # nothing to race against
+            return
+        cursor.execute(
+            "INSERT INTO chunks (id, document_id, ord, text, section, page, org_id) "
+            "VALUES ('racechunk00000000000000000000000', ?, 0, 'written mid-swap', '', 0, ?)",
+            (row[0], row[1]))
+
+    try:
+        db = SessionLocal()
+        try:
+            db.info["org_id"] = oid
+            user = db.query(User).filter(User.id == uid).one()
+            org = db.get(Organization, oid)
+            # Without ON DELETE CASCADE this raises IntegrityError on
+            # chunks_document_id_fkey — which is exactly what production did.
+            result = industries.apply(db, org, "healthcare", user, defer=True)
+            assert result["documents_created"], "the healthcare corpus never arrived"
+        finally:
+            db.close()
+    finally:
+        event.remove(engine, "before_cursor_execute", write_a_chunk_in_the_window)
+
+    assert done["once"], "the test never reached the delete it exists to interrupt"
+
+    db = SessionLocal()
+    try:
+        orphan = db.query(Chunk).filter(
+            Chunk.id == "racechunk00000000000000000000000").first()
+        assert orphan is None, "the chunk outlived the document it belonged to"
     finally:
         db.close()
 

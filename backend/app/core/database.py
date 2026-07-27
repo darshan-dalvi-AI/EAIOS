@@ -89,6 +89,7 @@ def init_db() -> None:
     _migrate_add_org_id()
     # Outside the migration's transaction, deliberately: see the note there.
     relax_stale_global_uniques()
+    add_missing_cascades()
     # NOTE: harden_public_schema() is deliberately NOT called here. It issues
     # ~60 statements against a database that may be in another region, which
     # delayed the first health check enough to fail a deploy. main.py runs it
@@ -307,6 +308,84 @@ def stale_global_uniques() -> list[dict[str, str]]:
                               "name": uc["name"], "kind": "constraint"})
 
     return found
+
+
+def missing_cascades() -> list[dict[str, str]]:
+    """Foreign keys the models declare ``ON DELETE CASCADE`` that the database
+    still enforces without it. Read-only: safe to call from a health check.
+
+    Same blind spot as the unique indexes above — ``create_all`` will not alter
+    a constraint on a table that already exists — but this one fails in a way
+    that looks like nothing at all. Deleting a parent row raises only when a
+    child happens to exist at that instant, so it depends on timing: fine in
+    every test, fine by hand, and broken for a visitor whose click lands while
+    a background job is still writing.
+    """
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    present = set(insp.get_table_names())
+    gaps: list[dict[str, str]] = []
+
+    for table in Base.metadata.tables.values():
+        if table.name not in present:
+            continue
+
+        wanted = {
+            col.name: (fk.column.table.name, fk.column.name)
+            for col in table.columns
+            for fk in col.foreign_keys
+            if (fk.ondelete or "").upper() == "CASCADE"
+        }
+        if not wanted:
+            continue
+
+        for existing in insp.get_foreign_keys(table.name):
+            columns = existing.get("constrained_columns") or []
+            if len(columns) != 1 or columns[0] not in wanted:
+                continue
+            if ((existing.get("options") or {}).get("ondelete") or "").upper() == "CASCADE":
+                continue
+            parent, parent_column = wanted[columns[0]]
+            gaps.append({"table": table.name, "column": columns[0],
+                         "name": existing.get("name") or "",
+                         "parent": parent, "parent_column": parent_column})
+
+    return gaps
+
+
+def add_missing_cascades() -> list[str]:
+    """Repair what :func:`missing_cascades` finds. Returns what changed.
+
+    Skipped on SQLite, which cannot alter a constraint — and does not need to,
+    because a SQLite database here is always built fresh from today's models.
+    """
+    import logging
+
+    from sqlalchemy import text
+
+    log = logging.getLogger("eaios")
+    if _is_sqlite:
+        return []
+
+    repaired: list[str] = []
+    for gap in missing_cascades():
+        table, column, name = gap["table"], gap["column"], gap["name"]
+        if not name:
+            continue
+        try:
+            with engine.begin() as conn:      # its own transaction, as above
+                conn.execute(text(f'ALTER TABLE "{table}" DROP CONSTRAINT "{name}"'))
+                conn.execute(text(
+                    f'ALTER TABLE "{table}" ADD CONSTRAINT "{name}" '
+                    f'FOREIGN KEY ("{column}") '
+                    f'REFERENCES "{gap["parent"]}" ("{gap["parent_column"]}") ON DELETE CASCADE'))
+            repaired.append(f"{table}.{column}")
+            log.info("%s.%s now cascades on delete", table, column)
+        except Exception as exc:   # noqa: BLE001 — never block startup
+            log.warning("could not add ON DELETE CASCADE to %s.%s: %s", table, column, exc)
+
+    return repaired
 
 
 def relax_stale_global_uniques() -> list[str]:
