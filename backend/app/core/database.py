@@ -87,6 +87,8 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _migrate_add_org_id()
+    # Outside the migration's transaction, deliberately: see the note there.
+    relax_stale_global_uniques()
     # NOTE: harden_public_schema() is deliberately NOT called here. It issues
     # ~60 statements against a database that may be in another region, which
     # delayed the first health check enough to fail a deploy. main.py runs it
@@ -214,35 +216,6 @@ def _migrate_add_org_id() -> None:
             if "email_verified" not in ucols:
                 conn.execute(text("UPDATE users SET email_verified = TRUE"))
 
-        # ── indexes that outlived their meaning ──────────────────────────
-        # These two columns were declared globally UNIQUE when their tables
-        # were first created, and were later corrected to "unique per org".
-        # ``create_all`` only creates missing tables — it never alters an index
-        # that already exists. So a database created before the correction goes
-        # on enforcing globally what is now supposed to be scoped to a single
-        # workspace: the second company to name an agent "protocol-assistant",
-        # or to mention an entity another company already mentions, gets an
-        # integrity error and a failed request.
-        #
-        # A database created from today's models has no such index, which is
-        # exactly why this was invisible in development and in every test, and
-        # only appeared once two workspaces on the live deployment picked the
-        # same industry.
-        for table, column in (("custom_agents", "slug"), ("entities", "key")):
-            if table not in existing:
-                continue
-            for index in insp.get_indexes(table):
-                if not index.get("unique") or index.get("column_names") != [column]:
-                    continue
-                name = index.get("name")
-                try:
-                    conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
-                    conn.execute(text(
-                        f'CREATE INDEX IF NOT EXISTS "ix_{table}_{column}" ON {table} ("{column}")'))
-                    log.info("dropped stale global unique index %s (now per-tenant)", name)
-                except Exception as exc:   # noqa: BLE001 — a constraint may need different DDL
-                    log.warning("could not relax unique index %s: %s", name, exc)
-
         # The audit trail gained the actor's address so an entry still names a
         # person after that person is removed from the workspace.
         if "audit_logs" in existing:
@@ -270,6 +243,109 @@ def _migrate_add_org_id() -> None:
                 conn.execute(text("UPDATE organizations SET status = 'active' WHERE status IS NULL"))
 
     _backfill_null_orgs(existing, tenant_tables)
+
+
+# ── uniqueness that outlived its meaning ─────────────────────────────────────
+# Several columns were declared globally UNIQUE when their table was first
+# created, and were later corrected to "unique per org". ``create_all`` only
+# creates missing *tables* — it never alters an index that already exists. So a
+# database created before the correction goes on enforcing globally what is now
+# scoped to a single workspace: the second company to name an agent
+# "protocol-assistant", or to mention an entity another company already
+# mentions, gets an integrity error and a failed request.
+#
+# A database created from today's models has no such index, which is why this
+# was invisible in development and in every test, and only surfaced when two
+# workspaces on the live deployment picked the same industry.
+#
+# Nothing here is hardcoded to the two columns that happened to drift first.
+# The database is compared against today's models, so any column that drifts
+# later is repaired the same way without anyone having to notice.
+
+
+def stale_global_uniques() -> list[dict[str, str]]:
+    """Every single-column UNIQUE the database still enforces that today's
+    models do not. Read-only: safe to call from a health check."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    present = set(insp.get_table_names())
+    found: list[dict[str, str]] = []
+
+    for table in Base.metadata.tables.values():
+        if table.name not in present:
+            continue
+
+        def _drifted(columns: list[str]) -> str | None:
+            """The column name, if the database is stricter than the model."""
+            if len(columns) != 1:
+                return None                      # composite (org_id, x) — the fix itself
+            col = table.columns.get(columns[0])
+            if col is None or col.unique or col.primary_key:
+                return None                      # the model agrees, or it is the key
+            return columns[0]
+
+        # A plain UNIQUE INDEX...
+        for index in insp.get_indexes(table.name):
+            if not index.get("unique"):
+                continue
+            column = _drifted(list(index.get("column_names") or []))
+            if column and index.get("name"):
+                found.append({"table": table.name, "column": column,
+                              "name": index["name"], "kind": "index"})
+
+        # ...and a UNIQUE CONSTRAINT, which PostgreSQL reports separately and
+        # which needs ALTER TABLE rather than DROP INDEX to remove.
+        try:
+            constraints = insp.get_unique_constraints(table.name)
+        except NotImplementedError:              # pragma: no cover — older dialects
+            constraints = []
+        for uc in constraints:
+            column = _drifted(list(uc.get("column_names") or []))
+            if column and uc.get("name"):
+                found.append({"table": table.name, "column": column,
+                              "name": uc["name"], "kind": "constraint"})
+
+    return found
+
+
+def relax_stale_global_uniques() -> list[str]:
+    """Repair what :func:`stale_global_uniques` finds. Returns what changed.
+
+    Each repair gets its **own** transaction. On PostgreSQL a single failed
+    statement poisons the entire transaction — every statement after it fails
+    with "current transaction is aborted", and the commit silently becomes a
+    rollback. Sharing one transaction would therefore mean a single awkward
+    index quietly undoing every repair that had already succeeded, which looks
+    exactly like the migration never running at all.
+    """
+    import logging
+
+    from sqlalchemy import text
+
+    log = logging.getLogger("eaios")
+    repaired: list[str] = []
+
+    for item in stale_global_uniques():
+        table, column, name, kind = (item["table"], item["column"],
+                                     item["name"], item["kind"])
+        try:
+            with engine.begin() as conn:
+                if kind == "constraint":
+                    conn.execute(text(f'ALTER TABLE "{table}" DROP CONSTRAINT "{name}"'))
+                else:
+                    conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+                # The column is still looked up constantly — it loses the
+                # uniqueness, not the index.
+                conn.execute(text(
+                    f'CREATE INDEX IF NOT EXISTS "ix_{table}_{column}" ON "{table}" ("{column}")'))
+            repaired.append(f"{table}.{column}")
+            log.info("relaxed stale global unique %s on %s.%s — now unique per workspace",
+                     name, table, column)
+        except Exception as exc:      # noqa: BLE001 — one stubborn index must not stop the rest
+            log.warning("could not relax unique %s on %s.%s: %s", name, table, column, exc)
+
+    return repaired
 
 
 def _backfill_null_orgs(existing: set[str], tenant_tables: list[str]) -> None:

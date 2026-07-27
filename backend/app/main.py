@@ -309,6 +309,44 @@ def health():
     return info
 
 
+@app.get("/api/health/schema")
+def schema_health():
+    """Is the live database's shape still the shape the code expects?
+
+    This exists because of a failure that was invisible from outside. A column
+    that stopped being globally unique in the models went on being globally
+    unique in the deployed database — ``create_all`` creates missing tables but
+    never alters an index that already exists — so the second workspace to pick
+    an industry got "a database error occurred" and nothing else. Every test
+    passed, because a test database is built fresh from today's models and
+    never had the old index. Diagnosing it needed server logs.
+
+    So the schema now reports on itself. The response carries index metadata
+    only — no rows, no configuration, no secrets — which is why it needs no
+    credentials: the point is to be readable at the moment something is wrong,
+    including from a phone.
+    """
+    from app.core.database import stale_global_uniques
+
+    try:
+        drifted = stale_global_uniques()
+    except Exception as exc:  # noqa: BLE001 — a probe must not fail
+        return {"status": "unknown", "version": settings.VERSION, "error": str(exc)[:200]}
+
+    return {
+        "status": "ok" if not drifted else "drifted",
+        "version": settings.VERSION,
+        "stale_global_uniques": drifted,
+        "detail": (
+            "Schema matches the models."
+            if not drifted else
+            "These columns are still enforced as globally unique but should be "
+            "unique per workspace. Restart the service to repair them; the "
+            "repair runs on every boot."
+        ),
+    }
+
+
 # ── single-container mode (Dockerfile.web / Render / HF Spaces) ──────────
 # If a built frontend sits next to the app, serve it from the same process:
 # one URL for UI + API + WebSocket, zero CORS. API routes above win; this
