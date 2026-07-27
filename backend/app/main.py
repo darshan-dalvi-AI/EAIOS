@@ -110,6 +110,25 @@ async def _schedule_loop() -> None:
             log.exception("scheduler tick failed")
 
 
+async def _keepalive_loop() -> None:
+    """Request our own public URL on a timer so a free host never idles out.
+
+    Deliberately its own task rather than another job inside the scheduler
+    tick: the two solve unrelated problems, and turning workflow scheduling off
+    should not silently stop the thing keeping the site reachable.
+    """
+    from app.services import keepalive
+
+    while True:
+        await asyncio.sleep(max(60, settings.KEEPALIVE_INTERVAL_MINUTES * 60))
+        try:
+            # In a worker thread: a hanging network call must not block the
+            # event loop that is answering real requests.
+            await asyncio.to_thread(keepalive.ping_once)
+        except Exception:  # noqa: BLE001 — nothing here is worth taking the app down for
+            log.exception("keep-alive tick failed")
+
+
 def _warm_up() -> None:
     """Slow, idempotent startup work that the app does not need in order to
     serve traffic.
@@ -143,6 +162,20 @@ async def lifespan(app: FastAPI):
 
     warm = asyncio.create_task(asyncio.to_thread(_warm_up))
     task = asyncio.create_task(_schedule_loop()) if settings.SCHEDULER_ENABLED else None
+
+    # Keep-alive: only when a public URL is configured, and never when it is
+    # misconfigured — a keep-alive that silently does nothing is worse than
+    # none, because you stop looking for the real cause.
+    from app.services import keepalive
+
+    problem = keepalive.configuration_problem()
+    if problem:
+        log.warning("keep-alive disabled: %s", problem)
+    alive = asyncio.create_task(_keepalive_loop()) if keepalive.enabled() else None
+    if alive:
+        log.info("keep-alive ON — pinging %s every %d min",
+                 settings.KEEPALIVE_URL, settings.KEEPALIVE_INTERVAL_MINUTES)
+
     log.info("EAIOS %s serving — llm=%s scheduler=%s (warm-up in background)",
              settings.VERSION, settings.LLM_PROVIDER, "on" if task else "off")
     # Say this out loud at boot: whether new signups must prove their address
@@ -155,7 +188,7 @@ async def lifespan(app: FastAPI):
         log.warning("email verification OFF — set RESEND_API_KEY (or SMTP_HOST) + "
                     "MAIL_FROM to require new signups to prove their address")
     yield
-    for t in (task, warm):
+    for t in (task, warm, alive):
         if t:
             t.cancel()
 

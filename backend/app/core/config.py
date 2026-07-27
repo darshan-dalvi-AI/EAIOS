@@ -101,6 +101,14 @@ class Settings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_INTERVAL: int = 60  # seconds between due-checks
 
+    # Keep-alive: the app requests its own PUBLIC url on a timer so a free-tier
+    # host never sees enough idle time to suspend it. Empty = off, which is
+    # right for local development and any host that does not sleep. Must be the
+    # external address — a localhost url never reaches the platform's router
+    # and so does nothing (services/keepalive.py refuses one).
+    KEEPALIVE_URL: str = ""
+    KEEPALIVE_INTERVAL_MINUTES: int = 10   # free hosts idle out around 15
+
     # Compliance: auto-purge conversations older than N days (0 = keep forever)
     RETENTION_DAYS: int = 0
 

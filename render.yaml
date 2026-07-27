@@ -46,6 +46,17 @@ services:
       # SECRET_KEY and hides the API docs.
       - key: ENVIRONMENT
         value: production
+      # Keep-alive. Render's free tier suspends a service after ~15 minutes
+      # with no inbound traffic, and waking it takes 30-50s. The app requests
+      # its own PUBLIC url on a timer, which counts as inbound traffic, so it
+      # never idles out. Must be the external address — a localhost url never
+      # reaches Render's router and the app refuses one.
+      # NOTE: this only keeps a running service running. Pair it with an
+      # external uptime pinger, which can also wake one that has stopped.
+      - key: KEEPALIVE_URL
+        value: https://eaios.onrender.com/api/health
+      - key: KEEPALIVE_INTERVAL_MINUTES
+        value: "10"
       # Public demo sandbox. Anyone can reach this deployment, so a visitor
       # who clicks "Try the live demo" — or signs in with the credentials
       # printed on the sign-in screen — gets a PRIVATE throwaway workspace
