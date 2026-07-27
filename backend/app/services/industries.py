@@ -437,10 +437,16 @@ def index_documents(jobs: list[tuple[str, object]]) -> None:
             pipeline.ingest_document(doc_id, path)
             storage.put(os.path.basename(path), path)
         except Exception as exc:   # noqa: BLE001 — never let onboarding fail on a sample
-            log.warning("starter document %s failed to index: %s", doc_id, exc)
+            # The other half of the swap race: the visitor may have changed
+            # industry while this was running, taking the document out from
+            # under us. That is not a failure — the row is meant to be gone.
             with SessionLocal() as db:
                 doc = db.get(Document, doc_id)
-                if doc is not None and doc.status != "indexed":
+                if doc is None:
+                    log.info("starter document %s was removed while indexing", doc_id)
+                    continue
+                log.warning("starter document %s failed to index: %s", doc_id, exc)
+                if doc.status != "indexed":
                     doc.status = "failed"
                     doc.error = str(exc)[:500]
                     db.commit()
@@ -475,10 +481,27 @@ def drop_sample_rows(db: Session) -> list[tuple[str, str]]:
     entities, the stored file) is slower and invisible, so it is a separate
     step the caller can defer.
     """
+    from sqlalchemy import delete as sql_delete
+
+    from app.models import Chunk
+
     docs = list(db.scalars(select(Document).where(Document.tags.contains(SAMPLE_TAG))))
+    if not docs:
+        return []
     handles = [(d.id, f"{d.id}{os.path.splitext(d.filename)[1].lower()}") for d in docs]
-    for doc in docs:
-        db.delete(doc)          # chunks cascade
+    ids = [d.id for d in docs]
+
+    # Bulk, in this order, in one transaction — deliberately not the ORM's
+    # per-object cascade.
+    #
+    # These documents may still be indexing in the background when a visitor
+    # swaps industry seconds after opening the demo. The ORM cascade loads the
+    # chunks, deletes them, then deletes the document — and a chunk inserted by
+    # the indexer in between makes that final delete violate the foreign key.
+    # PostgreSQL enforces it and rejects the whole request; SQLite does not,
+    # which is why this only ever appeared in production.
+    db.execute(sql_delete(Chunk).where(Chunk.document_id.in_(ids)))
+    db.execute(sql_delete(Document).where(Document.id.in_(ids)))
     db.commit()
     return handles
 
