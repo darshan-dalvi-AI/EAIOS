@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -121,16 +121,27 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 
 
 @router.post("/demo")
-def start_demo(request: Request, db: Session = Depends(get_db)):
+def start_demo(request: Request, tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Hand a visitor a private throwaway workspace — no password, no signup.
 
     Everything inside is real. It is deleted when it expires, and a reload
     starts a new one, so nothing a stranger does here survives into anyone
     else's session.
+
+    The starter corpus is *staged* here and indexed after the response: parsing
+    and embedding three documents is hundreds of round trips to a database in
+    another region, and nobody should watch a spinner for that. The rows exist
+    immediately, so the workspace is complete the moment it opens; the
+    documents finish indexing a few seconds later while the visitor reads.
     """
     if not settings.DEMO_SANDBOX:
         raise HTTPException(404, "The demo sandbox isn't enabled on this deployment")
-    user = demo.start_session(db)
+    pending: list = []
+    user = demo.start_session(db, defer=pending)
+    if pending:
+        from app.services import industries
+
+        tasks.add_task(industries.index_documents, pending)
     org = db.get(Organization, user.org_id)
     audit.log(db, "demo.start", user.id, org.slug if org else "",
               request.client.host if request.client else "")
@@ -138,13 +149,19 @@ def start_demo(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+def login(body: LoginIn, request: Request, tasks: BackgroundTasks,
+          db: Session = Depends(get_db)):
     # The credentials printed on the sign-in screen are an invitation, not an
     # account: on a public deployment they open a private sandbox instead of a
     # workspace every visitor would share. Checked before the password so a
     # stranger never needs the real one.
     if demo.is_demo_login(body.email):
-        user = demo.start_session(db, body.email)
+        pending: list = []
+        user = demo.start_session(db, body.email, defer=pending)
+        if pending:
+            from app.services import industries
+
+            tasks.add_task(industries.index_documents, pending)
         org = db.get(Organization, user.org_id)
         audit.log(db, "demo.start", user.id, org.slug if org else "",
                   request.client.host if request.client else "")

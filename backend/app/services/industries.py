@@ -14,6 +14,7 @@ so it is org-scoped, editable, deletable, and carries no special privileges.
 """
 import json
 import logging
+import os
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -343,24 +344,30 @@ def get(industry_id: str) -> dict | None:
 SAMPLE_TAG = "sample"
 
 
-def seed_starter_documents(db: Session, industry_id: str, user: User) -> list[str]:
-    """Ingest the industry's starter corpus so the suggested questions answer.
+def stage_starter_documents(db: Session, industry_id: str, user: User) -> tuple[list[str], list[tuple[str, str]]]:
+    """Create the corpus rows and write the files — the fast half.
 
-    A configured workspace with an empty knowledge base still says "I couldn't
-    find that in your documents" to every question in the picker — which reads
-    as a broken product rather than an empty one. These are tagged ``sample``
-    and can be removed in one click.
+    Split from indexing because of where this runs. The database is in another
+    region, so *every statement is a round trip*; parsing three documents into
+    chunks and entities is a few hundred of them, and uploading each file to
+    object storage adds more. Doing all that inside the request meant a visitor
+    watched a spinner for twenty seconds before their workspace appeared.
+
+    So this half — insert the rows, write the files, one commit — happens now,
+    and ``index_documents`` finishes the slow part behind the response. The
+    interface already polls while anything is ``queued``, and the caller still
+    learns the exact titles, so nothing has to lie about what was created.
+
+    Returns ``(titles, pending)`` where pending is what ``index_documents`` needs.
     """
     import os
 
-    from app.core import storage
     from app.core.config import settings
-    from app.rag import pipeline
     from app.services import industry_packs
 
     docs = industry_packs.for_industry(industry_id)
     if not docs:
-        return []
+        return [], []
 
     # Never seed twice — re-running the wizard must not duplicate the corpus.
     # But choosing a *different* field should swap it: a clinic that started on
@@ -369,11 +376,12 @@ def seed_starter_documents(db: Session, industry_id: str, user: User) -> list[st
     already = db.scalar(select(Document).where(Document.tags.contains(SAMPLE_TAG)))
     if already:
         if industry_id in (already.tags or "").split(","):
-            return []
+            return [], []
         remove_samples(db, user)
 
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     titles: list[str] = []
+    pending: list[tuple[str, str]] = []
     for title, text in docs:
         # A comma-separated first line with no markdown heading is tabular data:
         # ingesting it as CSV makes it a real table the SQL agent can chart.
@@ -385,20 +393,52 @@ def seed_starter_documents(db: Session, industry_id: str, user: User) -> list[st
             tags=f"{SAMPLE_TAG},{industry_id}",
         )
         db.add(doc)
-        db.commit()
-        db.refresh(doc)
+        db.flush()          # assigns the id without a round trip of its own
 
         dest = os.path.join(settings.UPLOAD_DIR, f"{doc.id}.{dtype}")
         with open(dest, "w", encoding="utf-8") as fh:
             fh.write(text)
         doc.size_bytes = os.path.getsize(dest)
-        db.commit()
-        try:
-            pipeline.ingest_document(doc.id, dest)   # synchronous: the count must be true
-            storage.put(f"{doc.id}.{dtype}", dest)
-        except Exception as exc:   # noqa: BLE001 — a failed sample must not fail onboarding
-            log.warning("sample document %r failed to index: %s", title, exc)
+
         titles.append(title)
+        pending.append((doc.id, dest))
+    db.commit()             # one commit for the whole corpus, not two per file
+    return titles, pending
+
+
+def index_documents(pending: list[tuple[str, str]]) -> None:
+    """The slow half: parse, chunk, embed, index, and mirror to object storage.
+
+    Runs after the response has gone out, on its own session — the request's
+    session is closed by then. Failures are logged and dropped: a starter
+    document that will not index is a worse demo, not a broken workspace.
+    """
+    if not pending:
+        return
+
+    from app.core import storage
+    from app.core.database import SessionLocal
+    from app.rag import pipeline
+
+    for doc_id, path in pending:
+        try:
+            pipeline.ingest_document(doc_id, path)
+            storage.put(os.path.basename(path), path)
+        except Exception as exc:   # noqa: BLE001 — never let onboarding fail on a sample
+            log.warning("starter document %s failed to index: %s", doc_id, exc)
+            with SessionLocal() as db:
+                doc = db.get(Document, doc_id)
+                if doc is not None and doc.status != "indexed":
+                    doc.status = "failed"
+                    doc.error = str(exc)[:500]
+                    db.commit()
+
+
+def seed_starter_documents(db: Session, industry_id: str, user: User) -> list[str]:
+    """Stage and index in one go — for callers with no response to get out of
+    the way of (the seed script, tests, anything not serving a request)."""
+    titles, pending = stage_starter_documents(db, industry_id, user)
+    index_documents(pending)
     return titles
 
 
@@ -444,7 +484,7 @@ def remove_samples(db: Session, user: User) -> int:
 
 
 def apply(db: Session, org: Organization, industry_id: str, user: User,
-          with_samples: bool = True) -> dict:
+          with_samples: bool = True, defer: bool = False) -> dict:
     """Configure a workspace for its industry. Idempotent — re-running the
     wizard refines the workspace rather than duplicating it."""
     profile = INDUSTRIES.get(industry_id)
@@ -478,9 +518,16 @@ def apply(db: Session, org: Organization, industry_id: str, user: User,
 
     tasks_created = _seed_checklist(db, industry_id, user)
     db.commit()
-    # Indexing last: it is the slow step, and everything above should be
-    # committed even if the corpus has trouble.
-    docs_created = seed_starter_documents(db, industry_id, user) if with_samples else []
+    # Corpus last: it is the slow step, and everything above should be
+    # committed even if it has trouble. When `defer` is set the caller takes
+    # the indexing away to run after the response — the rows and files still
+    # exist by the time this returns, so the reported titles are true either way.
+    docs_created: list[str] = []
+    pending: list[tuple[str, str]] = []
+    if with_samples:
+        docs_created, pending = stage_starter_documents(db, industry_id, user)
+        if not defer:
+            index_documents(pending)
 
     log.info("workspace %s configured for %s (%d agents, %d workflows, %d docs, %d tasks)",
              org.slug, industry_id, len(created_agents), len(created_flows),
@@ -497,4 +544,7 @@ def apply(db: Session, org: Organization, industry_id: str, user: User,
         "prompts": profile["prompts"],
         "analyzer": profile["analyzer"],
         "compliance_note": profile.get("compliance_note", ""),
+        # Returned rather than stashed in module state: the caller schedules it
+        # after the response, and two concurrent signups can't collide.
+        "_pending_index": pending,
     }

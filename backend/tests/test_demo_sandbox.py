@@ -191,6 +191,103 @@ def test_a_visitor_can_upload_and_the_upload_is_real():
             db.close()
 
 
+def test_opening_a_demo_costs_only_a_handful_of_database_round_trips():
+    """The thing that made this slow was distance, not code.
+
+    Supabase is in another region, so every statement is a round trip. Parsing
+    and embedding three starter documents inside the request was ~380 of them —
+    twenty seconds of a visitor watching a spinner before their workspace
+    appeared. Staging the rows now and indexing after the response cuts what
+    they wait for to a couple of dozen.
+
+    This asserts the *shape* of the fix rather than a wall-clock time, because a
+    timing test on shared CI hardware fails for reasons that have nothing to do
+    with the code.
+    """
+    from sqlalchemy import event
+
+    from app.core.database import engine
+
+    counted = {"statements": 0}
+    listener = lambda *a, **k: counted.__setitem__("statements", counted["statements"] + 1)  # noqa: E731
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        with client() as c:
+            session = _start(c)
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+
+    assert session["demo"] is True
+    # TestClient runs background tasks before returning, so this figure includes
+    # the deferred indexing. The budget is generous; the point is to catch a
+    # change that puts hundreds of statements back into the request path.
+    assert counted["statements"] < 600, (
+        f"{counted['statements']} statements to open a demo — something moved "
+        "back into the request that should be deferred"
+    )
+
+
+def test_the_starter_corpus_is_staged_before_the_response_and_indexed_after():
+    """Both halves matter. The rows must exist immediately, or the reveal
+    screen and the document list would lie about what was created; the indexing
+    must not be in the request, or the visitor waits for it."""
+    from app.services import demo as demo_service
+
+    db = SessionLocal()
+    try:
+        deferred: list = []
+        user = demo_service.start_session(db, defer=deferred)
+        db.info["org_id"] = user.org_id
+
+        staged = db.query(Document).filter(Document.org_id == user.org_id).all()
+        assert staged, "no documents existed when the response would have gone out"
+        assert deferred, "nothing was handed to the background task"
+        assert len(deferred) == len(staged)
+        # Staged but not yet searchable — that is the deal.
+        assert all(d.status == "queued" for d in staged)
+
+        demo_service_industries = __import__("app.services.industries", fromlist=["x"])
+        demo_service_industries.index_documents(deferred)
+
+        db.expire_all()
+        after = db.query(Document).filter(Document.org_id == user.org_id).all()
+        assert any(d.status == "indexed" and d.chunk_count > 0 for d in after), \
+            "the deferred half never made the corpus searchable"
+    finally:
+        db.close()
+
+
+def test_a_starter_document_that_will_not_index_is_marked_not_hidden():
+    """A sample that fails should show as failed in the document list rather
+    than sitting on 'queued' forever, which reads as a hung workspace."""
+    from app.services import industries
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == "admin@eaios.dev").one()
+        db.info["org_id"] = user.org_id
+        doc = Document(filename="broken.txt", title="Broken Sample", doc_type="txt",
+                       owner_id=user.id, status="queued", tags="sample,general",
+                       org_id=user.org_id)
+        db.add(doc)
+        db.commit()
+        doc_id = doc.id
+    finally:
+        db.close()
+
+    industries.index_documents([(doc_id, "/nonexistent/path/broken.txt")])
+
+    db = SessionLocal()
+    try:
+        db.info["org_id"] = db.query(User).filter(User.email == "admin@eaios.dev").one().org_id
+        after = db.get(Document, doc_id)
+        assert after.status == "failed" and after.error
+        db.delete(after)
+        db.commit()
+    finally:
+        db.close()
+
+
 def test_the_demo_personas_are_roles_rather_than_real_people():
     """The sign-in screen is public, so anyone who opens the site sees these
     names. They should describe a job, not identify a person — and the roster

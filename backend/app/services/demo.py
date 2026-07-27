@@ -79,11 +79,16 @@ def _expiry() -> datetime:
     return datetime.now(timezone.utc) + timedelta(minutes=settings.DEMO_TTL_MINUTES)
 
 
-def start_session(db: Session, as_email: str = "admin@eaios.dev") -> User:
+def start_session(db: Session, as_email: str = "admin@eaios.dev",
+                  defer: list | None = None) -> User:
     """Create a private throwaway workspace and the account that owns it.
 
     The account is an admin so the visitor can see the whole product — hiring,
     plans, the industry setup. It is an admin of nothing but this tenant.
+
+    Pass ``defer`` a list and the slow document indexing is appended to it
+    instead of run here, so the caller can finish it after the response has
+    gone out. The rows and files exist either way.
     """
     from app.services import tenancy
 
@@ -92,7 +97,6 @@ def start_session(db: Session, as_email: str = "admin@eaios.dev") -> User:
     org = tenancy.create_org(db, "Demo Workspace")
     org.is_demo = True
     org.expires_at = _expiry()
-    db.commit()
 
     # This request arrived without a session, so nothing has scoped it to a
     # tenant yet. Everything created below — and every query run below, which
@@ -101,21 +105,24 @@ def start_session(db: Session, as_email: str = "admin@eaios.dev") -> User:
     # other tenant's documents, and anything created lands unstamped.
     db.info["org_id"] = org.id
 
+    # One password derivation, reused across the throwaway accounts. Each one
+    # costs 600k PBKDF2 rounds on a shared CPU, nobody is ever given these
+    # passwords, and they die with the tenant in two hours — deriving four
+    # separate ones only makes a visitor wait longer for the same secret.
+    throwaway = hash_password(secrets.token_urlsafe(32))
+
     # A unique address per session: the published one is a label on the sign-in
-    # screen, not an account anyone shares. Nobody ever signs in with this
-    # address, and the password is never issued to anyone, so it is random.
+    # screen, not an account anyone shares.
     user = User(
         email=f"demo-{secrets.token_hex(8)}@demo.invalid",
         full_name=full_name,
-        hashed_password=hash_password(secrets.token_urlsafe(32)),
+        hashed_password=throwaway,
         role=role,
         avatar_hue=hue,
         org_id=org.id,
         email_verified=True,      # there is no inbox to prove; the tenant is disposable
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
 
     # A demo admin needs colleagues to be worth showing: hiring, roles and the
     # people list are all empty and pointless with a single account.
@@ -124,10 +131,11 @@ def start_session(db: Session, as_email: str = "admin@eaios.dev") -> User:
             continue
         db.add(User(
             email=f"demo-{secrets.token_hex(8)}@demo.invalid",
-            full_name=name, hashed_password=hash_password(secrets.token_urlsafe(32)),
+            full_name=name, hashed_password=throwaway,
             role=r, avatar_hue=h, org_id=org.id, email_verified=True, is_active=True,
         ))
-    db.commit()
+    db.commit()             # the workspace and everyone in it, in one round trip
+    db.refresh(user)
 
     # Something to ask questions about from the first second. The industry
     # picker still runs (org.industry stays empty) and swaps this for the
@@ -136,7 +144,11 @@ def start_session(db: Session, as_email: str = "admin@eaios.dev") -> User:
     from app.services import industries
 
     try:
-        industries.seed_starter_documents(db, "general", user)
+        _, pending = industries.stage_starter_documents(db, "general", user)
+        if defer is None:
+            industries.index_documents(pending)
+        else:
+            defer.extend(pending)
     except Exception:   # noqa: BLE001 — a demo without its corpus still beats no demo
         log.warning("demo corpus failed to seed", exc_info=True)
 

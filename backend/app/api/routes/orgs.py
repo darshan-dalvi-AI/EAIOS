@@ -12,7 +12,7 @@ Two audiences, deliberately separated:
 Suspension is owner-only on purpose: a company admin suspending their own
 workspace would lock everyone out with no way back in.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -129,7 +129,7 @@ def list_industries(_: User = Depends(get_current_user)):
 
 
 @router.post("/self/industry")
-def set_industry(body: IndustryIn, db: Session = Depends(get_db),
+def set_industry(body: IndustryIn, tasks: BackgroundTasks, db: Session = Depends(get_db),
                  user: User = Depends(require_admin)):
     """Configure this workspace for its industry.
 
@@ -142,10 +142,16 @@ def set_industry(body: IndustryIn, db: Session = Depends(get_db),
     if org is None:
         raise HTTPException(404, "Workspace not found")
     try:
+        # Indexing the new corpus is the slow part — hundreds of round trips to
+        # a database in another region. It happens after the response, so "Set
+        # up my workspace" returns as soon as the workspace exists.
         result = industries.apply(db, org, body.industry, user,
-                                  with_samples=body.with_samples)
+                                  with_samples=body.with_samples, defer=True)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+    pending = result.pop("_pending_index", [])
+    if pending:
+        tasks.add_task(industries.index_documents, pending)
     audit.log(db, "org.industry", user.id, f"{org.slug} → {body.industry}")
     return result
 
