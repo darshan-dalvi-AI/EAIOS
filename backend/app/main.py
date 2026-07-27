@@ -226,6 +226,44 @@ async def _unhandled(request: Request, exc: Exception):
     )
 
 
+def database_error_shape(exc: BaseException) -> dict[str, str]:
+    """What went wrong, in terms safe to hand to whoever is looking at it.
+
+    "A database error occurred. Quote reference 7f85584033d2" is useless to
+    everyone: the person reading it cannot act, and whoever has to fix it needs
+    server logs to learn anything at all. That cost real time on a failure that
+    was reproducible in one click.
+
+    So the response now names the exception class and the database object the
+    error was about — a constraint, index or column. Those are structural: the
+    same category of fact the schema health probe already returns. The *values*
+    are what would be sensitive, and PostgreSQL puts those in a DETAIL line
+    ("Key (email)=(someone@example.com) already exists"), which is dropped.
+    """
+    import re
+
+    shape = {"cause": type(exc).__name__}
+    original = getattr(exc, "orig", None) or exc
+
+    # Everything up to DETAIL/HINT: the statement-level complaint, no row data.
+    text = str(original).split("DETAIL:")[0].split("HINT:")[0].strip()
+    text = re.sub(r"\s+", " ", text)[:200]
+    if text:
+        shape["cause_detail"] = text
+
+    # The object the database named, if it named one. Most specific first —
+    # "column X of relation Y" is a complaint about Y, and taking whichever
+    # match came first in the string would report the column instead.
+    whole = str(original)
+    for kind in ("constraint", "index", "relation", "table", "column"):
+        named = re.search(rf'{kind} "([^"]+)"', whole)
+        if named:
+            shape["database_object"] = named.group(1)
+            break
+
+    return shape
+
+
 @app.exception_handler(SQLAlchemyError)
 async def _db_error(request: Request, exc: SQLAlchemyError):
     ref = uuid.uuid4().hex[:12]
@@ -233,7 +271,8 @@ async def _db_error(request: Request, exc: SQLAlchemyError):
     return JSONResponse(
         status_code=500,
         content={"detail": "A database error occurred. "
-                           f"Quote reference {ref} if you contact support.", "ref": ref},
+                           f"Quote reference {ref} if you contact support.",
+                 "ref": ref, **database_error_shape(exc)},
     )
 
 
