@@ -186,8 +186,11 @@ def _migrate_add_org_id() -> None:
     """Add the ``org_id`` column to any existing tenant table that predates
     multi-tenancy (create_all only creates missing tables, not columns).
     Idempotent; safe on Postgres and SQLite."""
+    import logging
+
     from sqlalchemy import inspect, text
 
+    log = logging.getLogger("eaios")
     insp = inspect(engine)
     existing = set(insp.get_table_names())
     tenant_tables = [t.name for t in Base.metadata.tables.values() if "org_id" in t.columns]
@@ -210,6 +213,35 @@ def _migrate_add_org_id() -> None:
             # the gap it closes. New signups are gated from here on.
             if "email_verified" not in ucols:
                 conn.execute(text("UPDATE users SET email_verified = TRUE"))
+
+        # ── indexes that outlived their meaning ──────────────────────────
+        # These two columns were declared globally UNIQUE when their tables
+        # were first created, and were later corrected to "unique per org".
+        # ``create_all`` only creates missing tables — it never alters an index
+        # that already exists. So a database created before the correction goes
+        # on enforcing globally what is now supposed to be scoped to a single
+        # workspace: the second company to name an agent "protocol-assistant",
+        # or to mention an entity another company already mentions, gets an
+        # integrity error and a failed request.
+        #
+        # A database created from today's models has no such index, which is
+        # exactly why this was invisible in development and in every test, and
+        # only appeared once two workspaces on the live deployment picked the
+        # same industry.
+        for table, column in (("custom_agents", "slug"), ("entities", "key")):
+            if table not in existing:
+                continue
+            for index in insp.get_indexes(table):
+                if not index.get("unique") or index.get("column_names") != [column]:
+                    continue
+                name = index.get("name")
+                try:
+                    conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+                    conn.execute(text(
+                        f'CREATE INDEX IF NOT EXISTS "ix_{table}_{column}" ON {table} ("{column}")'))
+                    log.info("dropped stale global unique index %s (now per-tenant)", name)
+                except Exception as exc:   # noqa: BLE001 — a constraint may need different DDL
+                    log.warning("could not relax unique index %s: %s", name, exc)
 
         # The audit trail gained the actor's address so an entry still names a
         # person after that person is removed from the workspace.
