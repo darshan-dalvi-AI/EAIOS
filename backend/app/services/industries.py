@@ -344,7 +344,7 @@ def get(industry_id: str) -> dict | None:
 SAMPLE_TAG = "sample"
 
 
-def stage_starter_documents(db: Session, industry_id: str, user: User) -> tuple[list[str], list[tuple[str, str]]]:
+def stage_starter_documents(db: Session, industry_id: str, user: User) -> tuple[list[str], list[tuple[str, object]]]:
     """Create the corpus rows and write the files — the fast half.
 
     Split from indexing because of where this runs. The database is in another
@@ -373,15 +373,20 @@ def stage_starter_documents(db: Session, industry_id: str, user: User) -> tuple[
     # But choosing a *different* field should swap it: a clinic that started on
     # the general pack, or a workspace correcting a mis-click, must not be left
     # answering questions out of the wrong industry's documents.
+    stale: list[str] = []
     already = db.scalar(select(Document).where(Document.tags.contains(SAMPLE_TAG)))
     if already:
         if industry_id in (already.tags or "").split(","):
             return [], []
-        remove_samples(db, user)
+        # Rows go now — the list must be honest the moment the response lands.
+        # Their vectors, tables, entities and stored files are torn down with
+        # the indexing, behind the response: three deletes against object
+        # storage in another region is not something to make anyone watch.
+        stale = drop_sample_rows(db)
 
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     titles: list[str] = []
-    pending: list[tuple[str, str]] = []
+    jobs: list[tuple[str, object]] = []
     for title, text in docs:
         # A comma-separated first line with no markdown heading is tabular data:
         # ingesting it as CSV makes it a real table the SQL agent can chart.
@@ -401,26 +406,33 @@ def stage_starter_documents(db: Session, industry_id: str, user: User) -> tuple[
         doc.size_bytes = os.path.getsize(dest)
 
         titles.append(title)
-        pending.append((doc.id, dest))
+        jobs.append(("index", (doc.id, dest)))
     db.commit()             # one commit for the whole corpus, not two per file
-    return titles, pending
+    if stale:
+        # Carried alongside the indexing so the caller defers both together.
+        jobs.insert(0, ("cleanup", stale))
+    return titles, jobs
 
 
-def index_documents(pending: list[tuple[str, str]]) -> None:
+def index_documents(jobs: list[tuple[str, object]]) -> None:
     """The slow half: parse, chunk, embed, index, and mirror to object storage.
 
     Runs after the response has gone out, on its own session — the request's
     session is closed by then. Failures are logged and dropped: a starter
     document that will not index is a worse demo, not a broken workspace.
     """
-    if not pending:
+    if not jobs:
         return
 
     from app.core import storage
     from app.core.database import SessionLocal
     from app.rag import pipeline
 
-    for doc_id, path in pending:
+    for kind, payload in jobs:
+        if kind == "cleanup":
+            cleanup_sample_artifacts(payload)   # type: ignore[arg-type]
+            continue
+        doc_id, path = payload                  # type: ignore[misc]
         try:
             pipeline.ingest_document(doc_id, path)
             storage.put(os.path.basename(path), path)
@@ -437,8 +449,8 @@ def index_documents(pending: list[tuple[str, str]]) -> None:
 def seed_starter_documents(db: Session, industry_id: str, user: User) -> list[str]:
     """Stage and index in one go — for callers with no response to get out of
     the way of (the seed script, tests, anything not serving a request)."""
-    titles, pending = stage_starter_documents(db, industry_id, user)
-    index_documents(pending)
+    titles, jobs = stage_starter_documents(db, industry_id, user)
+    index_documents(jobs)
     return titles
 
 
@@ -454,33 +466,53 @@ def _seed_checklist(db: Session, industry_id: str, user: User) -> list[str]:
     return items
 
 
-def remove_samples(db: Session, user: User) -> int:
-    """Delete the seeded starter corpus. Their workspace, their call.
+def drop_sample_rows(db: Session) -> list[tuple[str, str]]:
+    """Remove the sample documents from the workspace — rows only, one commit.
 
-    Mirrors the document delete route: vectors, materialised tables and the
-    stored file all go, not just the row — a half-deleted sample would keep
-    turning up in answers after the customer thought it was gone.
+    Deleting the *rows* is what the customer sees, and it has to happen before
+    the response so the count and the document list tell the truth. Tearing
+    down the artefacts behind them (vectors, materialised tables, graph
+    entities, the stored file) is slower and invisible, so it is a separate
+    step the caller can defer.
     """
-    import os
+    docs = list(db.scalars(select(Document).where(Document.tags.contains(SAMPLE_TAG))))
+    handles = [(d.id, f"{d.id}{os.path.splitext(d.filename)[1].lower()}") for d in docs]
+    for doc in docs:
+        db.delete(doc)          # chunks cascade
+    db.commit()
+    return handles
+
+
+def cleanup_sample_artifacts(handles: list[tuple[str, str]]) -> None:
+    """The invisible half of removing a sample: vectors, tables, graph entities
+    and the stored file. Safe to run after the response, on its own session."""
+    if not handles:
+        return
 
     from app.core import storage
+    from app.core.database import SessionLocal
     from app.rag import pipeline
     from app.rag import tables as dtables
     from app.services import kgraph
 
-    docs = list(db.scalars(select(Document).where(Document.tags.contains(SAMPLE_TAG))))
-    for doc in docs:
-        try:
-            pipeline.delete_document_vectors(doc.id)
-            dtables.drop_for_document(db, doc.id)
-            kgraph.forget_document(db, doc.id)
-            storage.remove(f"{doc.id}{os.path.splitext(doc.filename)[1].lower()}")
-        except Exception:   # noqa: BLE001 — removal must succeed even if artefacts are already gone
-            log.warning("partial cleanup for sample document %s", doc.id)
-        db.delete(doc)
-    db.commit()
-    log.info("removed %d sample document(s) for %s", len(docs), user.email)
-    return len(docs)
+    with SessionLocal() as db:
+        for doc_id, key in handles:
+            try:
+                pipeline.delete_document_vectors(doc_id)
+                dtables.drop_for_document(db, doc_id)
+                kgraph.forget_document(db, doc_id)
+                storage.remove(key)
+            except Exception:   # noqa: BLE001 — the row is already gone; this is tidying
+                log.warning("partial cleanup for sample document %s", doc_id)
+        db.commit()
+
+
+def remove_samples(db: Session, user: User) -> int:
+    """Delete the seeded starter corpus, artefacts and all. Their call."""
+    handles = drop_sample_rows(db)
+    cleanup_sample_artifacts(handles)
+    log.info("removed %d sample document(s) for %s", len(handles), user.email)
+    return len(handles)
 
 
 def apply(db: Session, org: Organization, industry_id: str, user: User,
@@ -523,7 +555,7 @@ def apply(db: Session, org: Organization, industry_id: str, user: User,
     # the indexing away to run after the response — the rows and files still
     # exist by the time this returns, so the reported titles are true either way.
     docs_created: list[str] = []
-    pending: list[tuple[str, str]] = []
+    pending: list[tuple[str, object]] = []
     if with_samples:
         docs_created, pending = stage_starter_documents(db, industry_id, user)
         if not defer:

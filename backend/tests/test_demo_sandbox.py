@@ -275,7 +275,7 @@ def test_a_starter_document_that_will_not_index_is_marked_not_hidden():
     finally:
         db.close()
 
-    industries.index_documents([(doc_id, "/nonexistent/path/broken.txt")])
+    industries.index_documents([("index", (doc_id, "/nonexistent/path/broken.txt"))])
 
     db = SessionLocal()
     try:
