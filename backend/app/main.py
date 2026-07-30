@@ -22,28 +22,72 @@ log = logging.getLogger("eaios")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
 
+_BOOTSTRAP_EMAIL = "admin@eaios.dev"
+_BOOTSTRAP_DEV_PASSWORD = "admin12345"  # dev convenience ONLY — never in production
+
+
 def _bootstrap_admin() -> None:
-    """Create a first admin if the user table is empty, so a fresh clone is usable immediately."""
-    from app.core.security import hash_password
+    """Make a fresh clone usable — WITHOUT shipping a login anyone can use.
+
+    The convenience of a known admin/admin password is fine on a developer's
+    laptop and a disaster on a public URL: the password is in this repository,
+    so anyone who reads it can sign in as admin. So:
+
+      * In production the known-password admin is never created. The first real
+        user arrives through signup (which makes them their workspace's admin)
+        or through PLATFORM_OWNER_EMAILS.
+      * If a previous build already created that account with the shipped
+        password, this rotates it to a random value on every boot — so simply
+        deploying this change closes the hole on an existing database.
+      * On a non-production machine the old convenience is unchanged.
+    """
+    import secrets
+
+    from app.core.security import hash_password, verify_password
     from app.models import User
 
     with SessionLocal() as db:
-        if db.query(User).count() == 0:
-            from app.services.tenancy import default_org
+        existing = db.query(User).filter(User.email == _BOOTSTRAP_EMAIL).one_or_none()
 
-            db.add(User(
-                email="admin@eaios.dev",
-                full_name="System Administrator",
-                hashed_password=hash_password("admin12345"),
-                role="admin",
-                avatar_hue=265,
-                org_id=default_org(db).id,
-                # Created by the platform, not by a signup — there is no
-                # address to prove, and gating it would lock the demo out.
-                email_verified=True,
-            ))
+        # Close an account a prior build left with the source-controlled password.
+        # Runs every boot; only fires while the default still works, so it is a
+        # no-op once rotated.
+        if (existing is not None and settings.is_production
+                and verify_password(_BOOTSTRAP_DEV_PASSWORD, existing.hashed_password)):
+            existing.hashed_password = hash_password(secrets.token_urlsafe(24))
             db.commit()
-            log.info("Bootstrapped admin → admin@eaios.dev / admin12345 (change this!)")
+            log.warning(
+                "Rotated %s off the shipped default password. Sign in via signup "
+                "or PLATFORM_OWNER_EMAILS; that account is now inaccessible.",
+                _BOOTSTRAP_EMAIL)
+            return
+
+        if existing is not None or db.query(User).count() > 0:
+            return  # already initialised — nothing to bootstrap
+
+        if settings.is_production:
+            # A public deployment must not seed a password that lives in git.
+            log.warning(
+                "Empty user table in production — not seeding a default admin. "
+                "Create your workspace via signup, or set PLATFORM_OWNER_EMAILS.")
+            return
+
+        from app.services.tenancy import default_org
+
+        db.add(User(
+            email=_BOOTSTRAP_EMAIL,
+            full_name="System Administrator",
+            hashed_password=hash_password(_BOOTSTRAP_DEV_PASSWORD),
+            role="admin",
+            avatar_hue=265,
+            org_id=default_org(db).id,
+            # Created by the platform, not by a signup — there is no address to
+            # prove, and gating it would lock the local demo out.
+            email_verified=True,
+        ))
+        db.commit()
+        log.info("Bootstrapped dev admin → %s / %s (development only)",
+                 _BOOTSTRAP_EMAIL, _BOOTSTRAP_DEV_PASSWORD)
 
 
 def _seed_if_empty() -> None:

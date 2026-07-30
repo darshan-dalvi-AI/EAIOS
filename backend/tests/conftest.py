@@ -43,3 +43,42 @@ def _cleanup():
     import shutil
 
     shutil.rmtree(_TMP, ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
+def _ensure_dev_admin():
+    """Guarantee admin@eaios.dev / admin12345 for every test.
+
+    22 test files log in as this account. It used to be created purely as a
+    side effect of the app's first-boot bootstrap, which was fine until that
+    bootstrap became production-aware: a security fix means it now skips the
+    known-password admin in production and rotates an existing one — and
+    ``test_hsts_only_in_production`` flips the global ENVIRONMENT to
+    "production" and starts a client, which rotated the shared admin out from
+    under every test that ran afterwards.
+
+    So the account tests depend on is now provisioned here, explicitly, instead
+    of relying on bootstrap timing. Runs before each test; ``init_db`` is
+    idempotent, and the upsert also undoes any rotation a prior test triggered.
+    """
+    from app.core.database import SessionLocal, init_db
+    from app.core.security import hash_password
+    from app.models import User
+    from app.services.tenancy import default_org
+
+    init_db()
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.email == "admin@eaios.dev").one_or_none()
+        if admin is None:
+            db.add(User(
+                email="admin@eaios.dev", full_name="System Administrator",
+                hashed_password=hash_password("admin12345"), role="admin",
+                avatar_hue=265, org_id=default_org(db).id, email_verified=True))
+        else:
+            admin.hashed_password = hash_password("admin12345")
+            admin.email_verified = True
+        db.commit()
+    finally:
+        db.close()
+    yield

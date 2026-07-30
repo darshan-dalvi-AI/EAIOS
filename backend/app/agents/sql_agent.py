@@ -41,7 +41,17 @@ _SAFE_FOLLOWERS = {
     "", "where", "group", "order", "limit", "having", "union", "join",
     "inner", "left", "right", "full", "cross", "on", "offset",
 }
-_TABLE_REF = re.compile(r'\b(from|join)\s+"?([a-zA-Z_][\w]*)"?', re.I)
+# Matches FROM/JOIN and the table reference that follows. Deliberately broader
+# than "keyword + space + name":
+#   * ``\s*`` (not ``\s+``) so ``FROM"users"`` with no space is still seen —
+#     otherwise the reference is invisible to the guard and passes UNSCOPED.
+#   * group 3 captures a schema qualifier (``public.users``,
+#     ``pg_catalog.pg_tables``). A regex cannot scope a qualified name, so the
+#     guard rejects any it finds rather than letting it through unscoped.
+# Both forms bypassed the previous ``\s+"?name"?`` pattern and leaked every
+# other workspace's rows; see tests/test_sql_tenant_isolation.py.
+_TABLE_REF = re.compile(
+    r'\b(from|join)\b\s*("?[a-zA-Z_]\w*"?)(\s*\.\s*"?[a-zA-Z_]\w*"?)?', re.I)
 
 
 class _GuardReject(Exception):
@@ -207,7 +217,14 @@ class SQLAgent(BaseAgent):
         # valid and injected text is never re-scanned (handles self-joins).
         edits = []
         for m in _TABLE_REF.finditer(sql):
-            table = m.group(2)
+            # A schema-qualified reference (public.users, pg_catalog.pg_tables)
+            # cannot be scoped by rewriting the bare name, so refuse it. The app's
+            # own queries never qualify — schema_description() lists bare names —
+            # so this rejects only evasion, never legitimate use.
+            if m.group(3):
+                raise _GuardReject(
+                    "Schema-qualified table names aren't allowed in workspace-scoped queries.")
+            table = m.group(2).strip('"')
             tl = table.lower()
             if tl in SENSITIVE_DENY:
                 raise _GuardReject(f"The '{table}' table isn't available in workspace-scoped queries.")

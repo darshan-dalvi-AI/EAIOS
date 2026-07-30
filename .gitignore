@@ -26,3 +26,4 @@ dist/
 
 # Stray nested repo skeleton (leftover from the 2026-07-06 publish saga)
 Enterprise AI Operating System/
+backend/tests/test_zzz_probe.py
