@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -68,8 +68,16 @@ def upload(
 
 
 @router.get("", response_model=list[DocumentOut])
-def list_documents(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return db.scalars(select(Document).order_by(Document.created_at.desc())).all()
+def list_documents(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    # Bounded by default — a mature workspace can hold thousands of documents,
+    # and returning all of them in one unpaginated payload grows without limit.
+    return list(db.scalars(
+        select(Document).order_by(Document.created_at.desc()).limit(limit).offset(offset)))
 
 
 @router.get("/{doc_id}/chunks", response_model=list[ChunkOut])

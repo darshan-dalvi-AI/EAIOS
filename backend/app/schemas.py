@@ -119,6 +119,10 @@ class ChatOut(BaseModel):
     message: MessageOut
     plan: list[str] = []            # agents invoked, in order
     retrieved: list[Citation] = []
+    # True when the language model was unreachable and the answer came from the
+    # grounded fallback instead — so the UI can say so rather than pass off a
+    # degraded reply as a normal one.
+    degraded: bool = False
 
 
 # ── Agents ───────────────────────────────────────────────────────

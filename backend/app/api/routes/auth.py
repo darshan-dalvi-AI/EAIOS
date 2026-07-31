@@ -198,6 +198,20 @@ def me(user: User = Depends(get_current_user)):
     return user
 
 
+@router.post("/logout")
+def logout(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Sign out everywhere. Tokens are stateless, so dropping the copy in one
+    browser doesn't stop a copy that leaked elsewhere. Bumping the account's
+    token epoch retires every token issued so far — the current one included —
+    which is the revocation a stolen JWT otherwise has no answer for."""
+    import time as _time
+
+    user.token_epoch = _time.time()
+    db.commit()
+    audit.log(db, "auth.logout", user.id, user.email)
+    return {"detail": "Signed out of all sessions."}
+
+
 @router.get("/config")
 def auth_config():
     """What the sign-in screen needs before anyone has signed in.

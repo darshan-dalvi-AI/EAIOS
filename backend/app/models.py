@@ -2,8 +2,16 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# A timezone-aware UTC timestamp. Postgres stores it as ``timestamptz`` and
+# hands it back tz-aware, so a value read from the database can be compared to
+# ``datetime.now(timezone.utc)`` directly — no per-read normalisation, no
+# "can't compare naive and aware" surprise waiting for the next caller.
+_UTCDateTime = DateTime(timezone=True)
 
 from app.core.database import Base
 
@@ -34,7 +42,9 @@ class Organization(Base):
     # whole tenant is deleted when it expires, so nothing a stranger does
     # survives into the next visitor's session or into the database long-term.
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
-    expires_at: Mapped[datetime | None] = mapped_column(default=None)
+    # Compared against now() to expire demo workspaces — tz-aware so the
+    # comparison never depends on the reader remembering to attach UTC.
+    expires_at: Mapped[datetime | None] = mapped_column(_UTCDateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
@@ -48,6 +58,13 @@ class TenantMixin:
 
 class User(TenantMixin, Base):
     __tablename__ = "users"
+    # Role drives every authorization decision, so the set of legal values is
+    # enforced by the database itself — not only by the API's Literal type. A
+    # stray write (a bug, a migration, a console fix) can't mint role='owner'.
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'hr', 'manager', 'employee')",
+                        name="ck_users_role"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
@@ -63,8 +80,14 @@ class User(TenantMixin, Base):
     email_verified: Mapped[bool] = mapped_column(default=False)
     auth_provider: Mapped[str] = mapped_column(String(20), default="password")  # password | google
     verify_code_hash: Mapped[str | None] = mapped_column(String(200), default=None)
-    verify_expires_at: Mapped[datetime | None] = mapped_column(default=None)
+    # Compared against now() when a code is entered — tz-aware, same reason.
+    verify_expires_at: Mapped[datetime | None] = mapped_column(_UTCDateTime, default=None)
     verify_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    # Tokens are stateless, so "log out everywhere" needs a server-side epoch:
+    # any token whose ``iat`` predates this value is refused. Logout (and a
+    # future password reset) bumps it, instantly retiring every token already
+    # issued for this account — the break-glass a stateless JWT otherwise lacks.
+    token_epoch: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     last_login: Mapped[datetime | None] = mapped_column(default=None)
 
@@ -84,7 +107,7 @@ class Document(TenantMixin, Base):
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     page_count: Mapped[int] = mapped_column(Integer, default=0)
     tags: Mapped[str] = mapped_column(String(500), default="")  # comma-separated
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
     owner: Mapped[User] = relationship(back_populates="documents")
@@ -135,7 +158,8 @@ class Message(TenantMixin, Base):
     __tablename__ = "messages"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
-    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), index=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True)
     role: Mapped[str] = mapped_column(String(12))               # user | assistant | system
     content: Mapped[str] = mapped_column(Text)
     agent: Mapped[str] = mapped_column(String(40), default="")  # which agent produced it
@@ -151,7 +175,7 @@ class AgentRun(TenantMixin, Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
     agent: Mapped[str] = mapped_column(String(40), index=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(20), default="ok")  # ok | error
     input: Mapped[str] = mapped_column(Text, default="")
     output: Mapped[str] = mapped_column(Text, default="")
@@ -204,8 +228,10 @@ class EntityEdge(TenantMixin, Base):
     __tablename__ = "entity_edges"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
-    source_id: Mapped[str] = mapped_column(ForeignKey("entities.id"), index=True)
-    target_id: Mapped[str] = mapped_column(ForeignKey("entities.id"), index=True)
+    source_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), index=True)
     weight: Mapped[int] = mapped_column(Integer, default=1)   # co-occurrence count
     doc_id: Mapped[str | None] = mapped_column(String(32), default=None, index=True)
 
@@ -214,7 +240,8 @@ class EntityMention(TenantMixin, Base):
     __tablename__ = "entity_mentions"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
-    entity_id: Mapped[str] = mapped_column(ForeignKey("entities.id"), index=True)
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"), index=True)
     chunk_id: Mapped[str] = mapped_column(String(32), index=True)
     document_id: Mapped[str] = mapped_column(String(32), index=True)
 
@@ -226,7 +253,7 @@ class Workflow(TenantMixin, Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str] = mapped_column(String(300), default="")
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     trigger: Mapped[str] = mapped_column(String(20), default="manual")  # manual | upload | schedule
     nodes: Mapped[str] = mapped_column(Text, default="[]")  # JSON [{id,type,x,y,data}]
     edges: Mapped[str] = mapped_column(Text, default="[]")  # JSON [{from,to}]
@@ -241,7 +268,8 @@ class WorkflowRun(TenantMixin, Base):
     __tablename__ = "workflow_runs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
-    workflow_id: Mapped[str] = mapped_column(ForeignKey("workflows.id"), index=True)
+    workflow_id: Mapped[str] = mapped_column(
+        ForeignKey("workflows.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(12), default="running")  # running | ok | error
     trigger: Mapped[str] = mapped_column(String(20), default="manual")
     input: Mapped[str] = mapped_column(Text, default="")
@@ -303,7 +331,7 @@ class CustomAgent(TenantMixin, Base):
     tools: Mapped[str] = mapped_column(String(200), default="[]")  # JSON list: ["rag","web"]
     hue: Mapped[int] = mapped_column(Integer, default=265)
     enabled: Mapped[bool] = mapped_column(default=True)
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     run_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
@@ -322,7 +350,7 @@ class Connector(TenantMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="disconnected")  # disconnected | connected | syncing | error
     detail: Mapped[str] = mapped_column(Text, default="")     # last sync summary / error
     synced_count: Mapped[int] = mapped_column(Integer, default=0)
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     last_sync_at: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
@@ -352,7 +380,8 @@ class Task(TenantMixin, Base):
     title: Mapped[str] = mapped_column(String(400))
     status: Mapped[str] = mapped_column(String(12), default="todo")  # todo | doing | done
     source: Mapped[str] = mapped_column(String(20), default="manual")  # manual | meeting
-    assignee_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), default=None)
+    assignee_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), default=None, index=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)

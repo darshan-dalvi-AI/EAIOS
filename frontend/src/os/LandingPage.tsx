@@ -85,6 +85,25 @@ export default function LandingPage() {
     }
   }
   const [legal, setLegal] = useState<null | "privacy" | "terms" | "contact">(null);
+
+  // A dialog a mouse user can dismiss by clicking the backdrop must also be
+  // dismissible by keyboard, or a keyboard user is trapped in it (WCAG 2.1.1).
+  useEffect(() => {
+    if (!legal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLegal(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [legal]);
+
+  // The page is dense with lucide icons that sit beside their own text labels —
+  // decorative, so a screen reader should skip them rather than announce dozens
+  // of unnamed "graphic"s. Mark every SVG that carries no label or <title> as
+  // hidden, in one pass, instead of touching each of ~40 call sites.
+  useEffect(() => {
+    document
+      .querySelectorAll("svg:not([aria-label]):not([aria-hidden])")
+      .forEach((s) => { if (!s.querySelector("title")) s.setAttribute("aria-hidden", "true"); });
+  }, []);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {

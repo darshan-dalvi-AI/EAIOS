@@ -10,6 +10,14 @@ export default function InstallButton({ className = "btn", label = "Download app
   const [help, setHelp] = useState(false);
   useEffect(() => onPwaChange(() => setTick((t) => t + 1)), []);
 
+  // Backdrop-click dismisses the help dialog; Escape must too (WCAG 2.1.1).
+  useEffect(() => {
+    if (!help) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setHelp(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [help]);
+
   if (isStandalone()) return null; // already running as an installed app
 
   async function click() {
@@ -23,7 +31,7 @@ export default function InstallButton({ className = "btn", label = "Download app
         <Download size={15} /> {label}
       </button>
       {help && (
-        <div className="tour-overlay" style={{ background: "rgba(2,4,10,.6)", zIndex: 100002, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setHelp(false)}>
+        <div className="tour-overlay" style={{ background: "rgba(2,4,10,.6)", zIndex: 100002, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setHelp(false)} role="dialog" aria-modal="true">
           <div className="tour-card" style={{ maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <Download size={16} style={{ color: "var(--accent)" }} />

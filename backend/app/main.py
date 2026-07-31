@@ -452,5 +452,23 @@ _static_dir = _os.environ.get(
 if _os.path.isdir(_static_dir):
     from fastapi.staticfiles import StaticFiles
 
-    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="spa")
+    class _CachingStatic(StaticFiles):
+        """Cache the fingerprinted bundle forever, never the HTML shell.
+
+        Vite emits content-hashed filenames under ``/assets`` — the name changes
+        whenever the bytes do, so a repeat visitor can reuse them without
+        re-validating (this was a full 861 KB re-check on every load). index.html
+        is the opposite: it points at whichever hashes are current, so it must be
+        revalidated every time or a deploy would serve stale asset references.
+        """
+
+        async def get_response(self, path: str, scope):
+            resp = await super().get_response(path, scope)
+            if path.startswith("assets/") or "/assets/" in path:
+                resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif path in ("", ".", "index.html") or path.endswith(".html"):
+                resp.headers["Cache-Control"] = "no-cache"
+            return resp
+
+    app.mount("/", _CachingStatic(directory=_static_dir, html=True), name="spa")
     log.info("Single-container mode: serving frontend from %s", _static_dir)

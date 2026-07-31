@@ -72,6 +72,7 @@ interface OSStore {
   minimize: (id: AppId) => void;
   toggleMax: (id: AppId) => void;
   setRect: (id: AppId, rect: Rect) => void;
+  reclampWindows: () => void;
 
   paletteOpen: boolean;
   setPalette: (b: boolean) => void;
@@ -176,6 +177,31 @@ export const useOS = create<OSStore>((set, get) => ({
       }),
     })),
   setRect: (id, rect) => set((s) => ({ windows: s.windows.map((w) => (w.id === id ? { ...w, rect } : w)) })),
+
+  // After a viewport change (resize, phone rotation) an open window can be left
+  // wider than the screen or pushed off the edge, with no way to drag it back.
+  // Re-clamp every window into the new bounds; a maximized one just re-fills.
+  reclampWindows: () => set((s) => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const minW = Math.min(420, vw - 24);
+    const minH = Math.min(280, vh - 80);
+    return {
+      windows: s.windows.map((w) => {
+        if (w.maximized) return { ...w, rect: { x: 0, y: 34, w: vw, h: vh - 34 } };
+        const width = Math.min(w.rect.w, vw - 24);
+        const height = Math.min(w.rect.h, vh - 80);
+        return {
+          ...w,
+          rect: {
+            w: Math.max(minW, width),
+            h: Math.max(minH, height),
+            x: Math.min(Math.max(12, w.rect.x), Math.max(12, vw - width - 12)),
+            y: Math.min(Math.max(34, w.rect.y), Math.max(34, vh - height - 12)),
+          },
+        };
+      }),
+    };
+  }),
 
   paletteOpen: false,
   setPalette: (paletteOpen) => set({ paletteOpen }),

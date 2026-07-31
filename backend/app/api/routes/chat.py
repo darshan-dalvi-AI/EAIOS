@@ -10,6 +10,7 @@ from app.agents.orchestrator import Orchestrator
 from app.api.deps import get_current_user, get_db
 from app.core.events import hub
 from app.core.tracing import end_trace, start_trace
+from app.llm import provider
 from app.services import budget
 from app.models import Conversation, Message, UsageEvent, User
 from app.schemas import ChatIn, ChatOut, ConversationOut, MessageOut
@@ -74,6 +75,7 @@ def send(body: ChatIn, db: Session = Depends(get_db), user: User = Depends(get_c
     db.commit()
 
     start_trace(text, user=user.email, kind="chat")
+    provider.reset_llm_degraded()
     try:
         result = Orchestrator(db, user).handle(text, force_agent=body.agent, thread_id=conv.id)
         end_trace("ok")
@@ -103,6 +105,7 @@ def send(body: ChatIn, db: Session = Depends(get_db), user: User = Depends(get_c
         message=MessageOut.model_validate(reply),
         plan=result.plan,
         retrieved=result.citations,
+        degraded=provider.llm_degraded(),
     )
 
 

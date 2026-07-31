@@ -44,8 +44,17 @@ def _r(name: str, cap_default: int, per_default: int, **kw) -> Rule:
     (a public demo wants different numbers from an internal deployment)
     without editing code. Env names follow RL_<NAME>_CAPACITY / _WINDOW.
     """
-    cap = getattr(settings, f"RL_{name.upper().replace('-', '_')}_CAPACITY", 0) or cap_default
-    per = getattr(settings, f"RL_{name.upper().replace('-', '_')}_WINDOW", 0) or per_default
+    raw_cap = int(getattr(settings, f"RL_{name.upper().replace('-', '_')}_CAPACITY", 0))
+    raw_per = int(getattr(settings, f"RL_{name.upper().replace('-', '_')}_WINDOW", 0))
+    # Sentinels, so "turn this limit off" and "leave it at the default" are
+    # different instructions and neither is a silent surprise:
+    #   -1  → explicitly UNLIMITED (the guard skips the rule)
+    #    0  → unset, use the code default below
+    #   >0  → that exact value
+    if raw_cap < 0:
+        return Rule(name, -1, per_default, **kw)
+    cap = raw_cap or cap_default
+    per = raw_per or per_default
     return Rule(name, int(cap), int(per), **kw)
 
 
@@ -241,7 +250,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not settings.RATE_LIMIT_ENABLED:
             return await call_next(request)
         rule = _match(request.method, request.url.path)
-        if rule is None:
+        if rule is None or rule.capacity < 0:   # no rule, or explicitly unlimited
             return await call_next(request)
 
         backend = get_backend()

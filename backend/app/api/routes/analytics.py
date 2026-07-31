@@ -4,14 +4,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_db, require_admin_or_hr
 from app.models import AgentRun, Document, Message, User
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+# Analytics expose workspace-wide activity — message volumes, cost, agent
+# usage. That's a management view, so it sits behind the same admin/HR gate as
+# the rest of the oversight surface, not merely "any authenticated user".
+
 
 @router.get("/usage")
-def usage(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def usage(db: Session = Depends(get_db), user: User = Depends(require_admin_or_hr)):
     since = datetime.now(timezone.utc) - timedelta(days=14)
 
     daily = db.execute(
@@ -44,7 +48,7 @@ def _cost(model: str, tokens: int) -> float:
 
 
 @router.get("/ai-usage")
-def ai_usage(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def ai_usage(db: Session = Depends(get_db), user: User = Depends(require_admin_or_hr)):
     """Metering for Admin: requests + estimated tokens/cost per user and per model (30 days)."""
     from app.models import UsageEvent
 
@@ -84,7 +88,7 @@ _EVAL_SET = [
 
 
 @router.get("/rag-eval")
-def rag_eval(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def rag_eval(db: Session = Depends(get_db), user: User = Depends(require_admin_or_hr)):
     """Live retrieval-quality snapshot: hit-rate@3 + MRR of canned queries whose
     expected document title contains the given keyword. Same method as the CI gate."""
     from app.rag.retrieval import hybrid_search

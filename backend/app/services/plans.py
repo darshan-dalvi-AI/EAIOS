@@ -194,8 +194,18 @@ def enforce(db: Session, org: Organization | None, limit: str, adding: int = 1) 
     Called immediately before the thing it guards, never at request entry —
     checking early and acting later is how you end up refusing an action that
     would have been fine, or allowing one that isn't.
+
+    The count-then-insert is a check-then-act, so two uploads racing at the last
+    free slot could both count "24" and both insert — 26 documents on a 25 cap.
+    Taking a row lock on the workspace here serialises them: the second waits
+    until the first has committed (lock released) and then counts the real 25.
+    On SQLite the lock is a no-op (the whole database is already serialised),
+    which is fine — the race only exists on Postgres.
     """
     plan = get(org.plan if org else None)
+    if org is not None:
+        db.execute(select(Organization.id).where(
+            Organization.id == org.id).with_for_update())
     _check(plan, limit, usage(db).get(limit, 0), adding)
 
 

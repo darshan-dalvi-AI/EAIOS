@@ -61,8 +61,12 @@ def create_org(db: Session, name: str) -> Organization:
     org = Organization(name=name.strip()[:160] or "Company", slug=slug,
                        plan=settings.DEFAULT_PLAN)
     db.add(org)
-    db.commit()
-    db.refresh(org)
+    # flush, NOT commit: the org's id is assigned here, but it does not become
+    # permanent until the caller commits — together with the first user. If the
+    # user step then fails, the whole signup rolls back instead of leaving an
+    # orphaned workspace with nobody in it. Every caller (auth signup, google
+    # signup, demo) adds a user and commits immediately after.
+    db.flush()
     return org
 
 

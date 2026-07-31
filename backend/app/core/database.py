@@ -81,15 +81,31 @@ def _stamp_writes(session, _flush_context, _instances):  # pragma: no cover
             obj.org_id = org_id
 
 
+_migrated_urls: set[str] = set()
+
+
 def init_db() -> None:
     # Import models so metadata is populated before create_all.
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+
+    # The schema-reconciling migrations below each inspect every table, which is
+    # a real cost (dozens of round trips) and pointless to repeat: a database's
+    # shape does not change under us within one process. Production calls init_db
+    # once at boot, so it always runs; a test harness that spins the app up many
+    # times against the same database runs them once and then skips — the runs
+    # are idempotent, so skipping an already-reconciled database changes nothing.
+    url = str(engine.url)
+    if url in _migrated_urls:
+        return
     _migrate_add_org_id()
     # Outside the migration's transaction, deliberately: see the note there.
     relax_stale_global_uniques()
     add_missing_cascades()
+    create_missing_indexes()
+    harden_column_types_and_checks()
+    _migrated_urls.add(url)
     # NOTE: harden_public_schema() is deliberately NOT called here. It issues
     # ~60 statements against a database that may be in another region, which
     # delayed the first health check enough to fail a deploy. main.py runs it
@@ -182,6 +198,9 @@ USER_VERIFY_COLUMNS: tuple[tuple[str, str], ...] = (
     ("verify_code_hash", "verify_code_hash VARCHAR(200)"),
     ("verify_expires_at", "verify_expires_at TIMESTAMP"),
     ("verify_attempts", "verify_attempts INTEGER DEFAULT 0"),
+    # Server-side token revocation epoch (logout / sign-out-everywhere).
+    # Double precision: it holds a sub-second timestamp, matching the token iat.
+    ("token_epoch", "token_epoch DOUBLE PRECISION DEFAULT 0"),
 )
 
 
@@ -386,6 +405,115 @@ def add_missing_cascades() -> list[str]:
             log.warning("could not add ON DELETE CASCADE to %s.%s: %s", table, column, exc)
 
     return repaired
+
+
+def create_missing_indexes() -> list[str]:
+    """Create any index the models declare that the live table is missing.
+
+    ``create_all`` builds indexes only for tables it creates; it never adds one
+    to a table that already exists. So a column that gains ``index=True`` after
+    its table shipped stays unindexed in production — full scans on every lookup
+    and on the foreign-key checks a parent delete triggers. This closes that gap
+    the same way the cascade repair does: compare models to the database, apply
+    the difference, each in its own transaction, never fatal.
+    """
+    import logging
+
+    from sqlalchemy import inspect, text
+
+    log = logging.getLogger("eaios")
+    insp = inspect(engine)
+    present = set(insp.get_table_names())
+    created: list[str] = []
+
+    for table in Base.metadata.tables.values():
+        if table.name not in present:
+            continue
+        have = {tuple(ix.get("column_names") or []) for ix in insp.get_indexes(table.name)}
+        # a unique constraint already indexes its columns
+        have |= {tuple(uc.get("column_names") or [])
+                 for uc in insp.get_unique_constraints(table.name)}
+        pk = tuple(insp.get_pk_constraint(table.name).get("constrained_columns") or [])
+        for index in table.indexes:
+            cols = tuple(c.name for c in index.columns)
+            if not cols or cols in have or cols == pk:
+                continue
+            try:
+                with engine.begin() as conn:
+                    unique = "UNIQUE " if index.unique else ""
+                    collist = ", ".join(f'"{c}"' for c in cols)
+                    conn.execute(text(
+                        f'CREATE {unique}INDEX IF NOT EXISTS "{index.name}" '
+                        f'ON "{table.name}" ({collist})'))
+                created.append(f"{table.name}({', '.join(cols)})")
+                log.info("created missing index %s on %s", index.name, table.name)
+            except Exception as exc:  # noqa: BLE001 — an index is an optimisation, never fatal
+                log.warning("could not create index %s on %s: %s", index.name, table.name, exc)
+
+    return created
+
+
+def harden_column_types_and_checks() -> list[str]:
+    """Bring an existing database up to the models' constraints and types.
+
+    Two things ``create_all`` won't retrofit onto a live table:
+
+      * the ``ck_users_role`` CHECK — so the database, not only the API, refuses
+        an out-of-set role. Adding it validates existing rows; every real role
+        is already in the set, so this is safe.
+      * ``expires_at`` / ``verify_expires_at`` as ``timestamptz`` — the values
+        were written as UTC, so we convert interpreting them ``AT TIME ZONE
+        'UTC'``, and the app stops depending on each reader re-attaching UTC.
+
+    Postgres-only (SQLite builds fresh from the models), idempotent, never fatal.
+    """
+    import logging
+
+    from sqlalchemy import inspect, text
+
+    if _is_sqlite:
+        return []
+
+    log = logging.getLogger("eaios")
+    insp = inspect(engine)
+    existing = set(insp.get_table_names())
+    done: list[str] = []
+
+    # ── role CHECK ──────────────────────────────────────────────────────────
+    if "users" in existing:
+        have = {c.get("name") for c in insp.get_check_constraints("users")}
+        if "ck_users_role" not in have:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE users ADD CONSTRAINT ck_users_role "
+                        "CHECK (role IN ('admin', 'hr', 'manager', 'employee'))"))
+                done.append("ck_users_role")
+                log.info("added CHECK constraint ck_users_role")
+            except Exception as exc:  # noqa: BLE001
+                log.warning("could not add ck_users_role: %s", exc)
+
+    # ── tz-aware expiry columns ─────────────────────────────────────────────
+    for table, column in (("organizations", "expires_at"), ("users", "verify_expires_at")):
+        if table not in existing:
+            continue
+        col = next((c for c in insp.get_columns(table) if c["name"] == column), None)
+        if col is None:
+            continue
+        # only convert if it isn't already timezone-aware
+        if getattr(col["type"], "timezone", False):
+            continue
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    f'ALTER TABLE {table} ALTER COLUMN {column} TYPE TIMESTAMPTZ '
+                    f"USING {column} AT TIME ZONE 'UTC'"))
+            done.append(f"{table}.{column}=timestamptz")
+            log.info("converted %s.%s to timestamptz", table, column)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("could not convert %s.%s to timestamptz: %s", table, column, exc)
+
+    return done
 
 
 def relax_stale_global_uniques() -> list[str]:

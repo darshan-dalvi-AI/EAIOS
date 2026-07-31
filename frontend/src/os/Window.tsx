@@ -47,8 +47,10 @@ export default function Window({ win, children }: { win: Win; children: ReactNod
       const dh = dir !== "e" ? ev.clientY - startY : 0;
       setRect(win.id, {
         ...origin,
-        w: Math.max(420, origin.w + dw),
-        h: Math.max(280, origin.h + dh),
+        // Floor the minimum at the viewport width on small screens, so a phone
+        // (≈320–400px) isn't forced to a 420px window it can't fit or drag.
+        w: Math.max(Math.min(420, window.innerWidth - 24), origin.w + dw),
+        h: Math.max(Math.min(280, window.innerHeight - 80), origin.h + dh),
       });
     };
     const up = () => {

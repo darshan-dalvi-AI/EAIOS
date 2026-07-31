@@ -28,7 +28,7 @@ export default function TerminalApp() {
 
   function execute(raw: string) {
     const cmd = raw.trim();
-    print(`<span class='p'>${user?.email.split("@")[0]}@eaios</span><span class='dim'>:~$</span> ${escapeHtml(cmd)}`);
+    print(`<span class='p'>${escapeHtml(user?.email.split("@")[0] ?? "")}@eaios</span><span class='dim'>:~$</span> ${escapeHtml(cmd)}`);
     if (!cmd) return;
     setHistory((h) => [cmd, ...h]);
     setHistIndex(-1);
@@ -54,7 +54,7 @@ export default function TerminalApp() {
           "<span class='vi'>     ██  ◉   ◉  ██     </span> Agents: 8 registered · planner warm",
           "<span class='vi'>     ██    ▽    ██     </span> Vectors: qdrant <span class='dim'>(in-memory fallback)</span>",
           "<span class='vi'>      ▀█▄▄▄▄▄▄▄█▀      </span> LLM: mock <span class='dim'>· ollama-ready</span>",
-          `<span class='vi'>        ▀▀▀▀▀▀▀        </span> Session: ${user?.role} · ${user?.email}`
+          `<span class='vi'>        ▀▀▀▀▀▀▀        </span> Session: ${escapeHtml(user?.role ?? "")} · ${escapeHtml(user?.email ?? "")}`
         );
         break;
       case "agents":
@@ -73,7 +73,7 @@ export default function TerminalApp() {
         );
         break;
       case "whoami":
-        print(`${user?.full_name} <span class='dim'>&lt;${user?.email}&gt;</span> · role=<span class='cy'>${user?.role}</span> · jwt=<span class='p'>valid</span>`);
+        print(`${escapeHtml(user?.full_name ?? "")} <span class='dim'>&lt;${escapeHtml(user?.email ?? "")}&gt;</span> · role=<span class='cy'>${escapeHtml(user?.role ?? "")}</span> · jwt=<span class='p'>valid</span>`);
         break;
       case "open": {
         const app = (args[0] || "") as AppId;

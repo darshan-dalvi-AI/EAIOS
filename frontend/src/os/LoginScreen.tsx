@@ -167,14 +167,14 @@ export default function LoginScreen() {
     <div className="login">
       <div className="boot-logo" style={{ fontSize: 30 }}>EAIOS</div>
       <form className="login-card" onSubmit={submit} noValidate>
-        <div className="login-title">{isSignup ? "Create your company workspace" : "Sign in to your workspace"}</div>
+        <h1 className="login-title">{isSignup ? "Create your company workspace" : "Sign in to your workspace"}</h1>
 
         {googleId && (
           <>
             {isSignup && (
               <label className={fieldCls("company")}>
-                <Building2 size={14} className="faint" />
-                <input value={company} placeholder="Company name" data-testid="google-company"
+                <Building2 size={14} className="faint" aria-hidden />
+                <input value={company} placeholder="Company name" aria-label="Company name" data-testid="google-company"
                        aria-invalid={!!errors.company}
                        onChange={(e) => { setCompany(e.target.value); clear("company"); }} />
               </label>
@@ -189,7 +189,11 @@ export default function LoginScreen() {
           </>
         )}
 
-        {!isSignup && (
+        {/* The persona shortcuts pre-fill the seeded sample accounts. That's a
+            convenience on a demo deployment and an information disclosure on a
+            real one (it names accounts and roles to anyone at the sign-in
+            screen), so it only appears where a demo sandbox actually exists. */}
+        {!isSignup && demoOffered && (
           <div className="login-users">
             {MOCK_USERS.map((u) => (
               <button
@@ -213,8 +217,8 @@ export default function LoginScreen() {
             {!googleId && (
               <>
                 <label className={fieldCls("company")}>
-                  <Building2 size={14} className="faint" />
-                  <input value={company} placeholder="Company name" autoFocus
+                  <Building2 size={14} className="faint" aria-hidden />
+                  <input value={company} placeholder="Company name" aria-label="Company name" autoFocus
                          aria-invalid={!!errors.company}
                          onChange={(e) => { setCompany(e.target.value); clear("company"); }} />
                 </label>
@@ -241,10 +245,10 @@ export default function LoginScreen() {
         {hint("email")}
 
         <label className={fieldCls("password")}>
-          <Lock size={14} className="faint" />
+          <Lock size={14} className="faint" aria-hidden />
           <input
             type={showPassword ? "text" : "password"}
-            placeholder="Password"
+            placeholder="Password" aria-label="Password"
             value={password}
             autoComplete={isSignup ? "new-password" : "current-password"}
             aria-invalid={!!errors.password}

@@ -76,13 +76,16 @@ def needs_rehash(hashed: str) -> bool:
 # ── JWT (HS256) ──────────────────────────────────────────────────
 
 def create_token(sub: str, role: str, minutes: int | None = None) -> str:
-    now = int(time.time())
+    # Sub-second issued-at: token revocation (see User.token_epoch) compares
+    # this against the logout time, and integer seconds would leave a one-second
+    # window where a just-issued token and a just-logged-out epoch look equal.
+    now = time.time()
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "sub": sub,
         "role": role,
         "iat": now,
-        "exp": now + 60 * (minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": int(now) + 60 * (minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     signing_input = f"{_b64(json.dumps(header).encode())}.{_b64(json.dumps(payload).encode())}"
     signature = hmac.new(settings.SECRET_KEY.encode(), signing_input.encode(), hashlib.sha256).digest()

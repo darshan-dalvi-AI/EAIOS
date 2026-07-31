@@ -30,6 +30,11 @@ def get_current_user(
     user = db.get(User, payload["sub"])
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or disabled")
+    # Revocation: a token issued before the account's current epoch has been
+    # retired (logout / "sign out everywhere"), even though its signature and
+    # expiry are still valid.
+    if payload.get("iat", 0) < (user.token_epoch or 0):
+        raise HTTPException(status_code=401, detail="Session ended. Please sign in again.")
     # Every authenticated route must prove email ownership — not just the
     # role-guarded ones. The endpoints that finish verification (/auth/verify
     # and /auth/verify/resend) are unauthenticated by design, so they stay

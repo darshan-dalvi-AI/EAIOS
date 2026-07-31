@@ -1,22 +1,28 @@
-import { useEffect, useState } from "react";
-import AdminApp from "../apps/AdminApp";
-import AgentsApp from "../apps/AgentsApp";
-import AnalyticsApp from "../apps/AnalyticsApp";
-import AutomationsApp from "../apps/AutomationsApp";
-import ChatApp from "../apps/ChatApp";
-import ConnectorsApp from "../apps/ConnectorsApp";
-import DashboardsApp from "../apps/DashboardsApp";
-import GraphApp from "../apps/GraphApp";
-import KnowledgeApp from "../apps/KnowledgeApp";
-import MeetingApp from "../apps/MeetingApp";
-import SearchApp from "../apps/SearchApp";
-import SettingsApp from "../apps/SettingsApp";
-import StudioApp from "../apps/StudioApp";
-import SQLApp from "../apps/SQLApp";
-import TasksApp from "../apps/TasksApp";
-import TerminalApp from "../apps/TerminalApp";
-import TracesApp from "../apps/TracesApp";
-import VideoApp from "../apps/VideoApp";
+import {
+  lazy, Suspense, useEffect, useState,
+  type ComponentType, type LazyExoticComponent,
+} from "react";
+// Each app is a separate chunk, fetched the first time its window opens rather
+// than baked into the initial bundle. The OS shell no longer ships all 18 apps
+// up front (~860 KB of JS); it ships the desktop, and the app you open.
+const AdminApp = lazy(() => import("../apps/AdminApp"));
+const AgentsApp = lazy(() => import("../apps/AgentsApp"));
+const AnalyticsApp = lazy(() => import("../apps/AnalyticsApp"));
+const AutomationsApp = lazy(() => import("../apps/AutomationsApp"));
+const ChatApp = lazy(() => import("../apps/ChatApp"));
+const ConnectorsApp = lazy(() => import("../apps/ConnectorsApp"));
+const DashboardsApp = lazy(() => import("../apps/DashboardsApp"));
+const GraphApp = lazy(() => import("../apps/GraphApp"));
+const KnowledgeApp = lazy(() => import("../apps/KnowledgeApp"));
+const MeetingApp = lazy(() => import("../apps/MeetingApp"));
+const SearchApp = lazy(() => import("../apps/SearchApp"));
+const SettingsApp = lazy(() => import("../apps/SettingsApp"));
+const StudioApp = lazy(() => import("../apps/StudioApp"));
+const SQLApp = lazy(() => import("../apps/SQLApp"));
+const TasksApp = lazy(() => import("../apps/TasksApp"));
+const TerminalApp = lazy(() => import("../apps/TerminalApp"));
+const TracesApp = lazy(() => import("../apps/TracesApp"));
+const VideoApp = lazy(() => import("../apps/VideoApp"));
 import { connectRealtime, disconnectRealtime } from "../lib/ws";
 import { useOS } from "../store";
 import type { AppId } from "../types";
@@ -33,7 +39,7 @@ import Tour from "./Tour";
 import WakeWord from "./WakeWord";
 import Window from "./Window";
 
-const COMPONENTS: Record<AppId, () => JSX.Element> = {
+const COMPONENTS: Record<AppId, LazyExoticComponent<ComponentType>> = {
   chat: ChatApp,
   knowledge: KnowledgeApp,
   agents: AgentsApp,
@@ -55,7 +61,7 @@ const COMPONENTS: Record<AppId, () => JSX.Element> = {
 };
 
 export default function Desktop() {
-  const { windows, paletteOpen, setPalette, open } = useOS();
+  const { windows, paletteOpen, setPalette, open, reclampWindows } = useOS();
   const [tour, setTour] = useState(() => localStorage.getItem("eaios-tour-done") !== "1");
   const [wake, setWake] = useState(() => localStorage.getItem("eaios-wake") === "1");
 
@@ -86,6 +92,24 @@ export default function Desktop() {
     return () => disconnectRealtime();
   }, []);
 
+  // Keep windows inside the viewport after a resize or a phone rotation —
+  // otherwise a window can end up wider than, or off, the screen with no way
+  // to drag it back. Debounced so a drag-resize doesn't thrash the layout.
+  useEffect(() => {
+    let t: number | undefined;
+    const onResize = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(reclampWindows, 150);
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, [reclampWindows]);
+
   // First-run: open the chat app front and center
   useEffect(() => {
     if (useOS.getState().windows.length === 0) open("chat");
@@ -96,6 +120,7 @@ export default function Desktop() {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <MenuBar />
       {(windows.length === 0 || allMinimized) && (
         <div className="empty" style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
@@ -106,7 +131,7 @@ export default function Desktop() {
           <div className="show-on-phone">Tap an app below to get started</div>
         </div>
       )}
-      <div style={{ position: "fixed", inset: 0, zIndex: "var(--z-window)" as unknown as number }}>
+      <main id="main-content" style={{ position: "fixed", inset: 0, zIndex: "var(--z-window)" as unknown as number }}>
         {windows.map((win) => {
           const Component = COMPONENTS[win.id];
           // Unknown app id (stale session state from an older/newer bundle):
@@ -114,11 +139,13 @@ export default function Desktop() {
           if (!Component) return null;
           return (
             <Window key={win.id} win={win}>
-              <Component />
+              <Suspense fallback={<div className="app-loading" style={{ padding: 24, opacity: 0.6 }}>Loading…</div>}>
+                <Component />
+              </Suspense>
             </Window>
           );
         })}
-      </div>
+      </main>
       <Dock />
       <MobileTabBar />
       <DemoBanner />

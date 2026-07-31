@@ -256,12 +256,42 @@ def get_llm():
     return _llm
 
 
+import contextvars
+
+# Per-request degradation flag. The agents fan out across a ThreadPoolExecutor
+# (agents/graph.py), so a plain thread-local set inside a worker would never be
+# seen by the request thread. The box below is a one-element list held in a
+# ContextVar: the request resets it, the executor copies the *same* list object
+# into each worker's context (agents/graph copies the context per branch), and a
+# worker that falls back mutates that shared object — which the request thread
+# then reads. One honest "did the real model answer?" signal, aggregated across
+# every branch.
+_degraded_box: contextvars.ContextVar[list[bool] | None] = contextvars.ContextVar(
+    "llm_degraded_box", default=None)
+
+
+def reset_llm_degraded() -> None:
+    _degraded_box.set([False])
+
+
+def llm_degraded() -> bool:
+    box = _degraded_box.get()
+    return bool(box and box[0])
+
+
+def _mark_degraded() -> None:
+    box = _degraded_box.get()
+    if box is not None:
+        box[0] = True
+
+
 def safe_complete(system: str, prompt: str) -> str:
     """Never let a provider outage break the request path — degrade to mock."""
     try:
         return get_llm().complete(system, prompt)
     except Exception as exc:  # noqa: BLE001
         log.warning("LLM call failed (%s) — falling back to mock", exc)
+        _mark_degraded()
         return MockLLM().complete(system, prompt)
 
 
