@@ -42,20 +42,37 @@ def _headers() -> dict[str, str]:
 
 
 def ensure_bucket() -> None:
-    """Create the storage bucket once (idempotent) — called on app startup."""
+    """Create the storage bucket (idempotent) AND enforce that it is private —
+    called on app startup.
+
+    Creating with ``public: False`` only helps the first time. If the bucket
+    already exists — perhaps created public in the dashboard before this code, or
+    by an older build — the create call just errors and the bucket keeps whatever
+    visibility it had. So we also PUT ``public: False`` every boot: the code, not
+    a dashboard toggle, is the source of truth, and a bucket can never silently
+    drift to public. Uploaded files are fetched with the service key
+    (``ensure_local``), never a public URL, so private is the correct setting.
+    """
     if not enabled():
         return
+    base = settings.SUPABASE_URL.rstrip("/")
+    headers = {**_headers(), "Content-Type": "application/json"}
+    body = {"id": settings.STORAGE_BUCKET, "name": settings.STORAGE_BUCKET, "public": False}
     try:
-        base = settings.SUPABASE_URL.rstrip("/")
-        r = httpx.post(
-            f"{base}/storage/v1/bucket",
-            headers={**_headers(), "Content-Type": "application/json"},
-            json={"id": settings.STORAGE_BUCKET, "name": settings.STORAGE_BUCKET, "public": False},
-            timeout=15, trust_env=False,
-        )
-        if r.status_code < 300:
-            log.info("Supabase Storage bucket '%s' ready", settings.STORAGE_BUCKET)
+        httpx.post(f"{base}/storage/v1/bucket", headers=headers, json=body,
+                   timeout=15, trust_env=False)
     except Exception:  # noqa: BLE001 — bucket likely already exists; never block boot
+        pass
+    # Enforce private even if the bucket pre-existed (create above is a no-op then).
+    try:
+        r = httpx.put(f"{base}/storage/v1/bucket/{settings.STORAGE_BUCKET}",
+                      headers=headers, json={"public": False}, timeout=15, trust_env=False)
+        if r.status_code < 300:
+            log.info("Supabase Storage bucket '%s' ready and private", settings.STORAGE_BUCKET)
+        else:
+            log.warning("Could not enforce private bucket (%s): %s",
+                        settings.STORAGE_BUCKET, r.status_code)
+    except Exception:  # noqa: BLE001 — never block boot
         pass
 
 

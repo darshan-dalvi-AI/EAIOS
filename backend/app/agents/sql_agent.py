@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.agents.base import AgentResult, BaseAgent
-from app.core.database import Base
+from app.core.database import Base, engine, rls_enabled
 from app.llm.provider import safe_complete
 from app.schemas import SQLOut
 
@@ -88,9 +88,7 @@ class SQLAgent(BaseAgent):
                 return SQLOut(sql=sql, explanation="Query rejected by workspace isolation.", warning=str(rej))
 
             try:
-                result = self.db.execute(text(scoped), params)
-                columns = list(result.keys())
-                rows = [[_cell(v) for v in row] for row in result.fetchmany(MAX_ROWS)]
+                columns, rows = self._run_query(scoped, params)
                 corrected = f" Self-corrected after {attempt} failed attempt(s)." if attempt else ""
                 return SQLOut(
                     sql=sql,
@@ -114,6 +112,31 @@ class SQLAgent(BaseAgent):
             "The query could not be executed. Try rephrasing the question."
         log.warning("sql agent failed after retries: %s", errors.redact(last_error)[:400])
         return SQLOut(sql=sql, explanation="Execution failed (after self-correction attempts).", warning=safe)
+
+    def _run_query(self, scoped: str, params: dict) -> tuple[list, list]:
+        """Execute the guard-scoped query and return (columns, rows).
+
+        On Postgres the query runs *as* ``eaios_restricted`` inside its own
+        transaction, with ``eaios.org_id`` set to the caller's workspace, so
+        Row-Level Security filters every row to that workspace — a second, non-
+        bypassable enforcement of the isolation the regex guard also applies.
+        A separate connection keeps the role switch off the request session; the
+        read-only transaction is discarded, resetting the role. If RLS isn't
+        available (SQLite, or setup failed) it falls back to the request session,
+        where the guard is still the control.
+        """
+        org_id = self.db.info.get("org_id")
+        if rls_enabled() and org_id:
+            with engine.connect() as conn, conn.begin():
+                conn.execute(text("SET LOCAL ROLE eaios_restricted"))
+                conn.execute(text("SELECT set_config('eaios.org_id', :o, true)"),
+                             {"o": str(org_id)})
+                result = conn.execute(text(scoped), params)
+                columns = list(result.keys())
+                rows = [[_cell(v) for v in row] for row in result.fetchmany(MAX_ROWS)]
+            return columns, rows
+        result = self.db.execute(text(scoped), params)
+        return list(result.keys()), [[_cell(v) for v in row] for row in result.fetchmany(MAX_ROWS)]
 
     def _reflect(self, question: str, failed_sql: str, error: str) -> str | None:
         """Reflection loop: ask the LLM to repair its own query. No-op on mock."""

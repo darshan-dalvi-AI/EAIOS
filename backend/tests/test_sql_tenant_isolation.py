@@ -120,6 +120,29 @@ def test_one_tenant_never_sees_another_through_the_sql_agent(two_tenants, payloa
         db.close()
 
 
+def test_rls_backstop_is_a_safe_noop_on_sqlite(two_tenants):
+    """The RLS backstop is Postgres-only. On the SQLite suite it must disable
+    itself cleanly so the SQL agent falls back to the regex guard — which is
+    exactly what every other test in this file exercises. (The real RLS
+    enforcement is verified against PostgreSQL, where a role can be switched.)
+    """
+    from app.core import database as db_module
+
+    assert db_module.setup_sql_agent_rls() is False, "RLS setup must no-op on SQLite"
+    assert db_module.rls_enabled() is False, "the agent must use the fallback path on SQLite"
+
+    # And a query still runs and stays scoped through the fallback.
+    agent, db = _agent_for(two_tenants["iso-alpha"])
+    try:
+        out = agent._run_query(
+            "SELECT * FROM (SELECT * FROM tasks WHERE org_id = :org) AS tasks",
+            {"org": two_tenants["iso-alpha"]})
+        columns, rows = out
+        assert not any("BETA-ISOLATION-SECRET" in str(cell) for row in rows for cell in row)
+    finally:
+        db.close()
+
+
 def test_legitimate_queries_still_work(two_tenants):
     """The fix must not turn ordinary formatting into a rejection."""
     agent, db = _agent_for(two_tenants["iso-alpha"])

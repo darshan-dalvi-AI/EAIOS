@@ -185,9 +185,10 @@ def _warm_up() -> None:
     it runs in a worker thread while the app is already up.
     """
     from app.core import storage
-    from app.core.database import harden_public_schema
+    from app.core.database import harden_public_schema, setup_sql_agent_rls
 
     for step, fn in (("schema hardening", harden_public_schema),
+                     ("sql-agent RLS", setup_sql_agent_rls),
                      ("seed", _seed_if_empty),
                      ("storage bucket", storage.ensure_bucket)):
         try:

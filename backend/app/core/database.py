@@ -185,6 +185,100 @@ def harden_public_schema(only_table: str | None = None) -> None:
         log.warning("Public schema hardening skipped: %s", exc)
 
 
+# ── Row-Level-Security backstop for the SQL agent ─────────────────────────────
+# The SQL agent runs model-generated SQL. A regex guard rewrites it to stay in
+# one workspace (agents/sql_agent.py), and that guard is the first line — but a
+# regex can never enumerate every lexical form Postgres accepts (a
+# schema-qualified name once slipped past it and leaked across tenants). So the
+# database itself becomes the second, unbypassable line:
+#
+#   * ``eaios_restricted`` — a NOLOGIN role the agent's query runs *as*. It is
+#     neither a table owner nor BYPASSRLS, so Row-Level Security applies to it.
+#   * A policy on every ``org_id`` table: a row is visible only when its
+#     ``org_id`` equals ``current_setting('eaios.org_id')``, which the agent sets
+#     to the caller's workspace for the duration of that one query.
+#
+# The upshot: even a query the regex guard fails to scope returns only the
+# caller's rows, because the role executing it can physically see nothing else.
+# ``organizations`` (the tenant registry, no org_id) gets no policy at all, so
+# the role can't read it. ``dt_*`` extracted tables have no org_id and are
+# already scoped by the guard's ownership allowlist, so they get a permissive
+# policy — the guard remains their control; RLS is the backstop for the rest.
+#
+# Idempotent, Postgres-only, never fatal. If it can't be set up (no permission,
+# SQLite), the agent simply keeps using the regex guard alone, as before.
+_rls_ready = False
+
+
+def rls_enabled() -> bool:
+    """Whether the SQL agent can run its query under the restricted RLS role."""
+    return _rls_ready and not _is_sqlite
+
+
+def setup_sql_agent_rls(only_table: str | None = None) -> bool:
+    """Create/refresh the restricted role and its per-table policies."""
+    global _rls_ready
+    if _is_sqlite:
+        return False
+
+    import logging
+
+    from sqlalchemy import text
+
+    log = logging.getLogger("eaios")
+    tenant_tables = {t.name for t in Base.metadata.tables.values() if "org_id" in t.columns}
+
+    # The role + schema-wide grants, in their own transaction. Everything after
+    # gets its OWN transaction per table: on Postgres one failed statement
+    # aborts the whole transaction it's in, so a single awkward table sharing a
+    # transaction with the role setup would silently undo the role too.
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='eaios_restricted') "
+                "THEN CREATE ROLE eaios_restricted NOLOGIN; END IF; END $$;"))
+            conn.execute(text("GRANT USAGE ON SCHEMA public TO eaios_restricted"))
+            conn.execute(text(
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO eaios_restricted"))
+    except Exception as exc:  # noqa: BLE001 — never block startup; agent falls back to the guard
+        log.warning("SQL-agent RLS role unavailable (regex guard still active): %s", exc)
+        return False
+
+    if only_table:
+        names = [only_table]
+    else:
+        try:
+            with engine.connect() as conn:
+                names = [row[0] for row in conn.execute(text(
+                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"))]
+        except Exception:  # noqa: BLE001
+            names = list(tenant_tables)
+
+    covered = 0
+    for name in names:
+        is_tenant = name in tenant_tables
+        if not (is_tenant or name.startswith("dt_")):
+            continue  # e.g. organizations — RLS with no policy hides it entirely
+        ident = f'public."{name}"'
+        using = ("org_id::text = current_setting('eaios.org_id', true)" if is_tenant else "true")
+        try:
+            with engine.begin() as conn:      # its own transaction, per table
+                conn.execute(text(f"GRANT SELECT ON {ident} TO eaios_restricted"))
+                conn.execute(text(f"ALTER TABLE {ident} ENABLE ROW LEVEL SECURITY"))
+                conn.execute(text(f'DROP POLICY IF EXISTS eaios_agent_read ON {ident}'))
+                conn.execute(text(
+                    f"CREATE POLICY eaios_agent_read ON {ident} "
+                    f"FOR SELECT TO eaios_restricted USING ({using})"))
+            covered += 1
+        except Exception as exc:  # noqa: BLE001 — one table must not stop the rest
+            log.warning("RLS policy skipped for %s: %s", name, exc)
+
+    if not only_table:
+        log.info("SQL-agent RLS backstop ready: eaios_restricted + policies on %d table(s)", covered)
+    _rls_ready = True
+    return True
+
+
 # Columns added to `users` when email verification shipped.
 #
 # The literals matter: SQLite accepts 0/1 for a BOOLEAN, PostgreSQL does not

@@ -44,6 +44,16 @@ def _harden(db: Session, table_name: str) -> None:
         return
     stmts = [f'ALTER TABLE public."{table_name}" ENABLE ROW LEVEL SECURITY']
     stmts += [f'REVOKE ALL ON public."{table_name}" FROM {r}' for r in _API_ROLES]
+    # Let the SQL agent's restricted role read this extracted table. It carries
+    # no org_id, so it can't be RLS-scoped — the agent's ownership allowlist is
+    # its control (only the caller's own dt_* tables are ever referenced), and
+    # this permissive policy simply lets that owned read succeed under the role.
+    tbl = f'public."{table_name}"'
+    stmts += [
+        f'GRANT SELECT ON {tbl} TO eaios_restricted',
+        f'DROP POLICY IF EXISTS eaios_agent_read ON {tbl}',
+        f'CREATE POLICY eaios_agent_read ON {tbl} FOR SELECT TO eaios_restricted USING (true)',
+    ]
     for sql in stmts:
         try:
             with db.begin_nested():
