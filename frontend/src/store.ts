@@ -18,6 +18,7 @@ const SIZES: Record<AppId, { w: number; h: number }> = {
   meeting: { w: 900, h: 620 },
   video: { w: 980, h: 660 },
   admin: { w: 880, h: 600 },
+  code: { w: 1020, h: 660 },
   terminal: { w: 660, h: 440 },
   settings: { w: 680, h: 540 },
 };

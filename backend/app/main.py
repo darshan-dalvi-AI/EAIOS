@@ -12,7 +12,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes import (
     admin, agents, analytics, auth, chat, connectors, dashboards, documents,
-    graph, me, orgs, reports, search, studio, tasks, traces, users, workflows, ws,
+    graph, me, orgs, projects, reports, search, studio, tasks, traces, users,
+    workflows, ws,
 )
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
@@ -217,6 +218,13 @@ async def lifespan(app: FastAPI):
     if problem:
         log.warning("keep-alive disabled: %s", problem)
     alive = asyncio.create_task(_keepalive_loop()) if keepalive.enabled() else None
+    # Flushes idle collaborative editing rooms back to the database.
+    from app.core.collab import collab as _collab
+    sweep = asyncio.create_task(_collab.sweeper())
+    # Cross-instance realtime. No-op without REDIS_URL, so a single-instance
+    # deployment behaves exactly as before.
+    from app.core.events import hub as _hub
+    await _hub.start_redis()
     if alive:
         log.info("keep-alive ON — pinging %s every %d min",
                  settings.KEEPALIVE_URL, settings.KEEPALIVE_INTERVAL_MINUTES)
@@ -233,7 +241,7 @@ async def lifespan(app: FastAPI):
         log.warning("email verification OFF — set RESEND_API_KEY (or SMTP_HOST) + "
                     "MAIL_FROM to require new signups to prove their address")
     yield
-    for t in (task, warm, alive):
+    for t in (task, warm, alive, sweep):
         if t:
             t.cancel()
 
@@ -368,6 +376,7 @@ for router in (
     admin.router, analytics.router, graph.router, workflows.router, traces.router,
     reports.router, dashboards.router, studio.router, connectors.router,
     tasks.router, search.router, me.router, orgs.router, ws.router,
+    projects.router,
 ):
     app.include_router(router, prefix="/api")
 

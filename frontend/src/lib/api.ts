@@ -1160,3 +1160,41 @@ export async function apiAuthConfig(): Promise<AuthConfig> {
     return { google_client_id: "", demo_sandbox: false };
   }
 }
+
+// ── Code app: projects, files, versions ───────────────────────────────
+import type { CodeFile, CodeProject, FileVersionInfo } from "../types";
+
+export const apiProjects = () => request<CodeProject[]>("/projects");
+
+export const apiCreateProject = (name: string, description = "", language = "python") =>
+  request<CodeProject>("/projects", {
+    method: "POST", body: JSON.stringify({ name, description, language }),
+  });
+
+export const apiDeleteProject = (id: string) =>
+  request<void>(`/projects/${id}`, { method: "DELETE" });
+
+export const apiProjectFiles = (projectId: string) =>
+  request<CodeFile[]>(`/projects/${projectId}/files`);
+
+export const apiCreateFile = (projectId: string, path: string, content = "") =>
+  request<CodeFile>(`/projects/${projectId}/files`, {
+    method: "POST", body: JSON.stringify({ path, content }),
+  });
+
+export const apiReadFile = (fileId: string) =>
+  request<CodeFile>(`/projects/files/${fileId}`);
+
+export const apiSaveFile = (fileId: string, content: string, note = "") =>
+  request<CodeFile>(`/projects/files/${fileId}`, {
+    method: "PUT", body: JSON.stringify({ content, note }),
+  });
+
+export const apiDeleteFile = (fileId: string) =>
+  request<void>(`/projects/files/${fileId}`, { method: "DELETE" });
+
+export const apiFileVersions = (fileId: string) =>
+  request<FileVersionInfo[]>(`/projects/files/${fileId}/versions`);
+
+export const apiRestoreVersion = (fileId: string, versionId: string) =>
+  request<CodeFile>(`/projects/files/${fileId}/restore/${versionId}`, { method: "POST" });

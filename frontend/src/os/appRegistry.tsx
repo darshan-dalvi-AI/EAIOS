@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bot,
   Cloud,
+  Code2,
   Database,
   FolderSearch,
   LayoutDashboard,
@@ -37,6 +38,7 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
   connectors:  { name: "Connectors",  hue: 175, Icon: Cloud,          tagline: "Gmail, Drive & more → knowledge" },
   meeting:     { name: "Meeting",     hue: 15,  Icon: Mic,            tagline: "Record → transcript → minutes" },
   video:       { name: "Video Call",  hue: 340, Icon: Video,          tagline: "AI video calls — captions, MoM, effects" },
+  code:        { name: "Code",        hue: 205, Icon: Code2,          tagline: "Collaborative code editing, live" },
   admin:       { name: "Admin",       hue: 350, Icon: ShieldCheck,    tagline: "Users, audit, models" },
   terminal:    { name: "Terminal",    hue: 220, Icon: TerminalSquare, tagline: "EAIOS shell" },
   settings:    { name: "Settings",    hue: 285, Icon: Settings,       tagline: "System preferences" },
@@ -44,7 +46,7 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
 
 export const APP_ORDER: AppId[] = [
   "chat", "search", "knowledge", "connectors", "agents", "studio", "graph", "automations", "traces",
-  "sql", "analytics", "dashboards", "tasks", "meeting", "video", "admin", "terminal", "settings",
+  "sql", "analytics", "dashboards", "tasks", "code", "meeting", "video", "admin", "terminal", "settings",
 ];
 
 export function AppTile({ id, size = "" }: { id: AppId; size?: "" | "sm" | "md" }) {

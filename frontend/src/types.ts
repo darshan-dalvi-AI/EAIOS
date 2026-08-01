@@ -14,9 +14,47 @@ export type AppId =
   | "connectors"
   | "meeting"
   | "video"
+  | "code"
   | "admin"
   | "terminal"
   | "settings";
+
+// ── Code app ──────────────────────────────────────────────────────────
+export interface CodeProject {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  owner_id: string;
+  files: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CodeFile {
+  id: string;
+  project_id: string;
+  path: string;
+  language: string;
+  size_bytes: number;
+  updated_by: string | null;
+  updated_at: string;
+  content?: string;
+}
+
+export interface FileVersionInfo {
+  id: string;
+  author_name: string;
+  note: string;
+  size: number;
+  created_at: string;
+}
+
+export interface CollabPeer {
+  user_id: string;
+  name: string;
+  hue: number;
+}
 
 export interface Rect {
   x: number;

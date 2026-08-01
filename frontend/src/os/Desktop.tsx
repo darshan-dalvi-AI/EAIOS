@@ -10,6 +10,7 @@ const AgentsApp = lazy(() => import("../apps/AgentsApp"));
 const AnalyticsApp = lazy(() => import("../apps/AnalyticsApp"));
 const AutomationsApp = lazy(() => import("../apps/AutomationsApp"));
 const ChatApp = lazy(() => import("../apps/ChatApp"));
+const CodeApp = lazy(() => import("../apps/CodeApp"));
 const ConnectorsApp = lazy(() => import("../apps/ConnectorsApp"));
 const DashboardsApp = lazy(() => import("../apps/DashboardsApp"));
 const GraphApp = lazy(() => import("../apps/GraphApp"));
@@ -55,6 +56,7 @@ const COMPONENTS: Record<AppId, LazyExoticComponent<ComponentType>> = {
   connectors: ConnectorsApp,
   meeting: MeetingApp,
   video: VideoApp,
+  code: CodeApp,
   admin: AdminApp,
   terminal: TerminalApp,
   settings: SettingsApp,

@@ -27,12 +27,29 @@ MAX_SQL_RETRIES = 2  # reflection loop: error → LLM rewrite → retry
 # tenant table referenced is transparently rewritten into an org-scoped
 # subquery, and anything the guard can't prove is isolated is rejected
 # (fail-closed). Result: a user in one workspace can never read another's rows.
+# Seed list, kept explicit so the intent is readable and greppable. The guard
+# does NOT rely on it alone: tenant_tables() below unions this with every table
+# the models declare with an org_id, so a table added later is scoped from the
+# moment it exists rather than the moment someone remembers to edit this set.
 TENANT_TABLES = {
     "users", "documents", "chunks", "conversations", "messages", "agent_runs",
     "memory_entries", "audit_logs", "entities", "entity_edges", "entity_mentions",
     "workflows", "workflow_runs", "data_tables", "graph_checkpoints",
     "custom_agents", "connectors", "saved_charts", "tasks", "usage_events",
+    "projects", "project_files", "file_versions",
 }
+
+
+def tenant_tables() -> set[str]:
+    """Every table the guard must scope: the seed set above, plus anything the
+    models carry an ``org_id`` on. Derived at call time so a newly added tenant
+    table can never be silently unprotected."""
+    try:
+        from app import models  # noqa: F401 — ensures metadata is populated
+        derived = {t.name for t in Base.metadata.tables.values() if "org_id" in t.columns}
+    except Exception:  # noqa: BLE001 — fall back to the explicit set
+        derived = set()
+    return TENANT_TABLES | derived
 SENSITIVE_DENY = {"organizations"}  # the tenant registry itself — never exposed
 # Tokens that may legally follow a table name (i.e. NOT an alias). Anything
 # else after a table (an alias, or a comma-join) means we can't safely inject
@@ -227,6 +244,8 @@ class SQLAgent(BaseAgent):
         if not org_id:
             return sql, {}
 
+        scoped_tables = tenant_tables()
+
         # dt_* tables the caller legitimately owns (this query is ORM-scoped,
         # so it already only returns THIS workspace's extracted tables).
         allowed_dt = set()
@@ -255,7 +274,7 @@ class SQLAgent(BaseAgent):
                 if table not in allowed_dt:
                     raise _GuardReject(f"Table '{table}' isn't in your workspace.")
                 continue  # owned extracted table — safe as-is
-            if tl not in TENANT_TABLES:
+            if tl not in scoped_tables:
                 continue  # non-tenant / unknown table — nothing to scope
             # Refuse if an alias or comma-join follows (can't inject safely).
             rest = sql[m.end():].lstrip()

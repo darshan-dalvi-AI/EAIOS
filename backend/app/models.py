@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text,
+    Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, LargeBinary,
+    String, Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -368,6 +369,80 @@ class SavedChart(TenantMixin, Base):
     sql: Mapped[str] = mapped_column(Text, default="")
     spec: Mapped[str] = mapped_column(Text, default="{}")     # JSON {type,x,y,columns,rows}
     created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+# ── Collaborative code workspace (Code app) ─────────────────────────────
+class Project(TenantMixin, Base):
+    """A code project inside a workspace — the unit several people edit together.
+
+    Deliberately a first-class tenant object: a project belongs to exactly one
+    organization, so the same isolation that protects documents protects source
+    code, including the database-level RLS policy (which is derived from every
+    model carrying ``org_id``)."""
+
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(400), default="")
+    language: Mapped[str] = mapped_column(String(30), default="python")
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+
+    files: Mapped[list["ProjectFile"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan")
+
+
+class ProjectFile(TenantMixin, Base):
+    """One file. ``content`` is the last persisted text; ``ydoc`` is the binary
+    CRDT state that lets concurrent editors converge without overwriting each
+    other. Text is kept alongside so search, diffing and the agents can read a
+    file without a CRDT client."""
+
+    __tablename__ = "project_files"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    path: Mapped[str] = mapped_column(String(300))          # e.g. "src/main.py"
+    language: Mapped[str] = mapped_column(String(30), default="plaintext")
+    content: Mapped[str] = mapped_column(Text, default="")
+    # Yjs document state vector — binary, written by the collaboration server.
+    ydoc: Mapped[bytes | None] = mapped_column(LargeBinary, default=None)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    updated_by: Mapped[str | None] = mapped_column(String(32), default=None)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+
+    project: Mapped[Project] = relationship(back_populates="files")
+    # Same two-mechanism cascade as Document→Chunk: the ORM relationship handles
+    # a delete that goes through the session (deleting a project deletes its
+    # files, which must delete their history), and the ON DELETE CASCADE on the
+    # column above handles a bulk `DELETE ... WHERE id IN`, which never loads
+    # the children. Relying on only one of them orphans rows — on SQLite,
+    # silently, because it does not enforce foreign keys by default.
+    versions: Mapped[list["FileVersion"]] = relationship(
+        back_populates="file", cascade="all, delete-orphan")
+
+
+class FileVersion(TenantMixin, Base):
+    """An immutable snapshot of a file's text. Written on explicit save and
+    periodically during a collaborative session, so concurrent editing can never
+    lose work permanently — there is always a point to roll back to."""
+
+    __tablename__ = "file_versions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    file_id: Mapped[str] = mapped_column(
+        ForeignKey("project_files.id", ondelete="CASCADE"), index=True)
+    content: Mapped[str] = mapped_column(Text, default="")
+    author_id: Mapped[str | None] = mapped_column(String(32), default=None)
+    author_name: Mapped[str] = mapped_column(String(120), default="")
+    note: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+    file: Mapped[ProjectFile] = relationship(back_populates="versions")
 
 
 class Task(TenantMixin, Base):

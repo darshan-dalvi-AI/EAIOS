@@ -4,6 +4,23 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Monaco is large and almost never changes; the Code app around it changes
+    // often. Splitting them means shipping a fix to the editor UI does not make
+    // every user re-download the whole editor — the Monaco chunk stays cached.
+    // It is loaded lazily either way, so none of this touches first paint.
+    chunkSizeWarningLimit: 3600,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("node_modules/monaco-editor")) return "monaco";
+          if (id.includes("node_modules/yjs") || id.includes("node_modules/y-monaco")
+              || id.includes("node_modules/y-protocols")) return "crdt";
+          return undefined;
+        },
+      },
+    },
+  },
   // Component tests run against a real DOM. Server tests can't see a button
   // that never became clickable, which is exactly how a broken verification
   // screen passed an API-level check once.

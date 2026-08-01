@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import threading
+import uuid
 from collections import deque
 from datetime import datetime, timezone
 from typing import Any
@@ -35,6 +36,55 @@ class Hub:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._lock = threading.Lock()
         self.recent: deque[dict] = deque(maxlen=100)
+        # Cross-instance fan-out. With one instance this stays None and every
+        # broadcast is a local loop, exactly as before. With REDIS_URL set, each
+        # instance publishes to a channel and re-broadcasts what it receives, so
+        # two users on different instances still see each other.
+        self._redis: Any = None
+        self._redis_task: asyncio.Task | None = None
+        self._instance_id = uuid.uuid4().hex[:12]
+
+    CHANNEL = "eaios:events"
+
+    async def start_redis(self) -> bool:
+        """Attach the hub to Redis pub/sub if one is configured. Never fatal —
+        without it the hub simply remains single-instance."""
+        from app.core.config import settings
+
+        if not settings.REDIS_URL or self._redis is not None:
+            return False
+        try:
+            import redis.asyncio as aioredis
+
+            self._redis = aioredis.from_url(settings.REDIS_URL, socket_timeout=2)
+            await self._redis.ping()
+            self._redis_task = asyncio.create_task(self._redis_listener())
+            log.info("realtime hub: Redis fan-out active (instance %s)", self._instance_id)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("realtime hub: Redis unavailable, staying single-instance (%s)", exc)
+            self._redis = None
+            return False
+
+    async def _redis_listener(self) -> None:
+        """Re-broadcast events published by OTHER instances to our own sockets."""
+        try:
+            pubsub = self._redis.pubsub()
+            await pubsub.subscribe(self.CHANNEL)
+            async for message in pubsub.listen():
+                if message.get("type") != "message":
+                    continue
+                try:
+                    envelope = json.loads(message["data"])
+                except Exception:  # noqa: BLE001
+                    continue
+                if envelope.get("src") == self._instance_id:
+                    continue          # our own publish, already delivered locally
+                await self._broadcast_local(envelope.get("event") or {})
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — a dropped subscription must not kill the app
+            log.exception("realtime hub: Redis listener stopped")
 
     # ── connection lifecycle (async, called from the ws route) ──────────
     async def connect(self, ws: WebSocket, user: dict) -> None:
@@ -81,6 +131,16 @@ class Hub:
             pass
 
     async def _broadcast(self, event: dict) -> None:
+        """Deliver locally, then hand to Redis so other instances deliver too."""
+        await self._broadcast_local(event)
+        if self._redis is not None:
+            try:
+                await self._redis.publish(self.CHANNEL, json.dumps(
+                    {"src": self._instance_id, "event": event}))
+            except Exception:  # noqa: BLE001 — local delivery already happened
+                pass
+
+    async def _broadcast_local(self, event: dict) -> None:
         data = json.dumps(event)
         with self._lock:
             targets = [c["ws"] for c in self._clients.values()]
