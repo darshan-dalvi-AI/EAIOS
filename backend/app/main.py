@@ -12,8 +12,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes import (
     admin, agents, analytics, auth, chat, connectors, dashboards, documents,
-    graph, me, orgs, projects, reports, search, studio, tasks, traces, users,
-    workflows, ws,
+    graph, me, orgs, projects, reports, runner, search, studio, tasks, traces,
+    users, workflows, ws,
 )
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
@@ -376,7 +376,7 @@ for router in (
     admin.router, analytics.router, graph.router, workflows.router, traces.router,
     reports.router, dashboards.router, studio.router, connectors.router,
     tasks.router, search.router, me.router, orgs.router, ws.router,
-    projects.router,
+    projects.router, runner.router,
 ):
     app.include_router(router, prefix="/api")
 

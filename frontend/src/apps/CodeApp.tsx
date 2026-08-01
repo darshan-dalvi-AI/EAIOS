@@ -8,10 +8,13 @@
  *
  * Monaco is bundled, not loaded from a CDN: the app's Content-Security-Policy
  * allows scripts from 'self' only, so a CDN loader would be blocked.
+ *
+ * Running code happens in a sandboxed iframe with an opaque origin, never on
+ * the server and never in this document — see lib/runCode.ts.
  */
 import {
   ChevronRight, Code2, FilePlus, FileText, GitBranch as GitBranchIcon, GitCommitVertical, History,
-  Loader2, Plus, Save, Sparkles, Trash2, Users, X,
+  Loader2, Play, Plus, Save, Sparkles, Square, Terminal, Trash2, Users, X,
 } from "lucide-react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -28,6 +31,7 @@ import {
   apiGitCreateBranch, apiGitHistory, apiGitStatus, apiGitWorkingDiff,
   apiProjectFiles, apiProjects, apiReadFile, apiRestoreVersion, apiSaveFile,
 } from "../lib/api";
+import { disposeSandbox, runCode, runtimeFor, stopCode } from "../lib/runCode";
 import { useOS } from "../store";
 import type {
   CodeFile, CodeProject, CollabPeer, FileVersionInfo,
@@ -70,6 +74,12 @@ export default function CodeApp() {
   const [diff, setDiff] = useState<{ title: string; files: GitDiffFile[] } | null>(null);
   // ── editor tabs: the files currently open, in the order they were opened ──
   const [openTabs, setOpenTabs] = useState<string[]>([]);
+  // ── output console ──
+  const [showOut, setShowOut] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runLine, setRunLine] = useState("");          // "Loading runtime…" etc.
+  const [out, setOut] = useState<{ stream: "stdout" | "stderr"; text: string }[]>([]);
+  const [lastRun, setLastRun] = useState<{ ok: boolean; ms: number } | null>(null);
   // ── AI assistant ──
   const [showAI, setShowAI] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
@@ -81,8 +91,50 @@ export default function CodeApp() {
   const hostRef = useRef<HTMLDivElement>(null);
   const edRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const teardown = useRef<(() => void) | null>(null);
+  const outRef = useRef<HTMLDivElement>(null);
 
   const activeFile = files.find((f) => f.id === fileId) || null;
+  const runtime = runtimeFor(activeFile?.language);
+
+  /* ── running the code ─────────────────────────────────────────────────
+   * Nothing here executes anything. The text goes to a sandboxed iframe with
+   * an opaque origin (lib/runCode.ts) and only its printed output comes back.
+   * The editor's live text is used rather than the saved file, so you can try
+   * a change without committing to it first. */
+  async function run() {
+    if (!runtime || running) return;
+    const code = edRef.current?.getValue() ?? "";
+    setOut([]); setLastRun(null); setRunning(true); setShowOut(true); setErr("");
+    setRunLine(runtime === "python" ? "Starting Python…" : "Running…");
+    try {
+      await runCode(runtime, code, (e) => {
+        if (e.type === "out") {
+          setOut((prev) => {
+            const next = [...prev, { stream: e.stream ?? "stdout", text: e.text ?? "" }];
+            // A print-in-a-loop can emit thousands of chunks; React does not
+            // need to hold all of them to show the person what happened.
+            return next.length > 2000 ? next.slice(next.length - 2000) : next;
+          });
+        } else if (e.type === "status") {
+          setRunLine(e.text ?? "");
+        } else if (e.type === "done") {
+          setLastRun({ ok: !!e.ok, ms: e.ms ?? 0 });
+          setRunLine("");
+        }
+      });
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally { setRunning(false); }
+  }
+
+  // Follow the output as it arrives, the way a terminal does.
+  useEffect(() => {
+    const el = outRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [out, runLine]);
+
+  // A warm Pyodide holds ~100 MB. Give it back when the window closes.
+  useEffect(() => disposeSandbox, []);
 
   // Opening a file adds a tab; tabs never reorder underneath the user.
   useEffect(() => {
@@ -231,6 +283,10 @@ export default function CodeApp() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); void save(); }
+      // Ctrl/⌘+Enter runs — the binding every notebook and REPL already uses,
+      // so nobody has to learn it. This effect has no dependency array, so the
+      // handler always closes over the current file and run state.
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void run(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -441,6 +497,22 @@ export default function CodeApp() {
               {peers.length > 4 && <span className="faint">+{peers.length - 4}</span>}
             </span>
           )}
+          {running ? (
+            <button className="btn sm" onClick={stopCode} title="Stop the running program">
+              <Square size={11} /> Stop
+            </button>
+          ) : (
+            <button className="btn sm" onClick={run} disabled={!runtime}
+                    title={runtime
+                      ? `Run this ${runtime === "python" ? "Python" : "JavaScript"} file in your browser`
+                      : "Only Python and JavaScript files can be run"}>
+              <Play size={12} /> Run
+            </button>
+          )}
+          <button className={`btn sm ${showOut ? "primary" : ""}`}
+                  onClick={() => setShowOut((v) => !v)} title="Output console">
+            <Terminal size={12} /> Output
+          </button>
           <button className={`btn sm ${showAI ? "primary" : ""}`}
                   onClick={() => setShowAI((v) => !v)} disabled={!fileId} title="AI assistant">
             <Sparkles size={12} /> AI
@@ -491,7 +563,68 @@ export default function CodeApp() {
         )}
 
         <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-          <div ref={hostRef} style={{ flex: 1, minWidth: 0, minHeight: 0 }} />
+          {/* editor above, output below — the side panels stay full height */}
+          <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <div ref={hostRef} style={{ flex: 1, minWidth: 0, minHeight: 0 }} />
+
+            {showOut && (
+              <div style={{ height: 200, borderTop: "1px solid var(--line)", display: "flex",
+                            flexDirection: "column", minHeight: 0, background: "#0a1018" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px",
+                              borderBottom: "1px solid var(--line)" }}>
+                  <Terminal size={12} aria-hidden />
+                  <b style={{ fontSize: 11.5 }}>Output</b>
+                  {running && (
+                    <span className="faint" style={{ fontSize: 10.5, display: "flex",
+                                                     alignItems: "center", gap: 5 }}>
+                      <Loader2 size={11} className="spin" /> {runLine || "Running…"}
+                    </span>
+                  )}
+                  {!running && lastRun && (
+                    <span style={{ fontSize: 10.5,
+                                   color: lastRun.ok ? "var(--ok, #34d399)" : "var(--bad, #f87171)" }}>
+                      {lastRun.ok ? "Finished" : "Failed"} in {lastRun.ms} ms
+                    </span>
+                  )}
+                  <div style={{ flex: 1 }} />
+                  <span className="faint" style={{ fontSize: 10 }}
+                        title="Your code runs in a sandboxed frame in this browser — never on the server, and with no access to your session.">
+                    sandboxed in your browser
+                  </span>
+                  <button className="btn sm ghost" onClick={() => { setOut([]); setLastRun(null); }}
+                          disabled={running || out.length === 0}>Clear</button>
+                  <button className="btn sm ghost" onClick={() => setShowOut(false)}
+                          aria-label="Close output">✕</button>
+                </div>
+                <div ref={outRef} role="log" aria-live="polite" aria-label="Program output"
+                     style={{ flex: 1, overflowY: "auto", padding: "8px 10px", fontSize: 11.5,
+                              fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+                              whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}>
+                  {out.length === 0 && !running && (
+                    <span className="faint">
+                      {runtime === "python" ? (
+                        <>Press Run. Python 3.13 with 340+ packages (numpy, pandas, …) —
+                          {" "}<code>import</code> installs them automatically. The first run
+                          downloads the runtime; later ones are instant.
+                          {"\n"}No network and no file access from inside the sandbox, so
+                          {" "}<code>requests</code> and <code>open()</code> will not work.</>
+                      ) : runtime === "javascript" ? (
+                        <>Press Run. Top-level <code>await</code> works. No network and no
+                          {" "}DOM from inside the sandbox.</>
+                      ) : (
+                        <>Open a <code>.py</code> or <code>.js</code> file to run it.</>
+                      )}
+                    </span>
+                  )}
+                  {out.map((chunk, i) => (
+                    <span key={i} style={{ color: chunk.stream === "stderr" ? "#f87171" : undefined }}>
+                      {chunk.text}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* AI assistant */}
           {showAI && (
