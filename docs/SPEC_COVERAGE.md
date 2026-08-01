@@ -70,8 +70,21 @@ Streaming (SSE) ✅ · Stop ✅ · Regenerate ✅ · Export ✅ · Citations ✅
 
 ## Bonus features
 
-Done: real-time collab ✅ · WebSocket notifications ✅ (bell + toasts) · semantic search ✅ · dark/light ✅ · PWA/offline ✅ · knowledge-graph explorer ✅ · AI data-viz (Analytics) ✅ · AI Excel analysis (xlsx ingest + Q&A + table→SQL) ✅ · **resume/contract/invoice analyzers ✅ (quick-action scorecards in Knowledge)** · **AI meeting assistant ✅** · **model comparison ✅ (Model Arena)** · scheduled automations ✅ · **AI video calls ✅ (WebRTC + live captions + auto MoM + virtual backgrounds + screen share)** · diagram/mind-map generators, avatar, live cursors, workspaces, version control, prompt library 🔜.
+Done: real-time collab ✅ · WebSocket notifications ✅ (bell + toasts) · semantic search ✅ · dark/light ✅ · PWA/offline ✅ · knowledge-graph explorer ✅ · AI data-viz (Analytics) ✅ · AI Excel analysis (xlsx ingest + Q&A + table→SQL) ✅ · **resume/contract/invoice analyzers ✅ (quick-action scorecards in Knowledge)** · **AI meeting assistant ✅** · **model comparison ✅ (Model Arena)** · scheduled automations ✅ · **AI video calls ✅ (WebRTC + live captions + auto MoM + virtual backgrounds + screen share)** · **multi-tenant workspaces ✅** · **live cursors + simultaneous editing ✅ (Yjs CRDT, Code app)** · **version control ✅ (content-addressed commits, branches, diffs, restore)** · **in-browser code execution ✅ (Python + JS, opaque-origin sandbox)** · diagram/mind-map generators, avatar, prompt library 🔜.
+
+## Collaborative coding (Code app)
+
+| Requirement | Status |
+|---|---|
+| Real editor (Monaco): file tree, tabs, syntax highlighting | ✅ bundled locally — the app's CSP is `script-src 'self'`, so a CDN loader would be blocked |
+| Several people editing one file at once | ✅ Yjs CRDT over a WS relay; server relays and persists but never merges |
+| Peer presence / cursors in the editor | ✅ awareness frames on the same socket |
+| Version control | ✅ `services/vcs.py` — content-addressed blobs, snapshot commits, branches, diffs, restore |
+| Merge / conflict resolution | ✖ deliberate: a half-working merge is worse than none. Branches diverge, compare and restore; the UI says so |
+| AI assistance in the editor | ✅ explain / find bugs / write tests / document / refactor on the selection |
+| Run the code and see output | ✅ Python (CPython→WASM) + JavaScript, in an opaque-origin sandboxed frame |
+| Server-side code execution | ✖ **deliberate** — that is remote code execution on a shared container |
 
 ## Verified quality gates
 
-42/42 pytest (incl. structured tables, PII flagging, checkpointer resume, RAG eval, semantic routing) · tsc clean · vite + single-file builds clean · headless-browser QA (landing → boot → login → SQL Studio schema tree → NL query result) · load-tested 100 users / 0 errors · OpenAPI docs at `/docs`.
+385 backend tests (incl. structured tables, PII flagging, checkpointer resume, RAG eval, semantic routing, cross-tenant isolation, five concurrent editors, code-sandbox CSP) · tsc clean · vite + single-file builds clean · headless-browser QA (landing → boot → login → SQL Studio schema tree → NL query result) · live-browser QA of the sandbox against production (opaque origin confirmed; cookie/storage/parent-DOM/API-call escapes all fail; infinite loop killed on time) · load-tested 100 users / 0 errors · OpenAPI docs at `/docs`.

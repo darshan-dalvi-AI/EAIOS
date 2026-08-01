@@ -2,7 +2,7 @@
    Premium-SaaS look: animated aurora hero, feature grid, tech stack,
    live architecture diagram, footer. "Get Started" boots the OS. */
 import {
-  Activity, ArrowRight, BarChart3, Bot, BookOpen, Briefcase, Building2, Cloud, Copy, Cpu, Database,
+  Activity, ArrowRight, BarChart3, Bot, BookOpen, Briefcase, Building2, Cloud, Code2, Copy, Cpu, Database,
   Download, FileText, FolderSearch, Github, Image as ImageIcon, Landmark, LayoutDashboard, Mail, Mic,
   Loader2, Minus, Moon, PlayCircle, Share2, ShieldCheck, Sparkles, Square, Sun, Table2, TrendingUp, UserCog,
   Users, Video, Wand2, Workflow, X,
@@ -36,12 +36,13 @@ const FEATURES = [
   { Icon: Wand2, hue: 285, title: "Agent Studio", text: "Compose custom AI agents with no code — a system prompt plus knowledge-base and web-search tools. They appear in Chat's route picker instantly." },
   { Icon: LayoutDashboard, hue: 260, title: "NL-to-BI Dashboards", text: "Describe a chart in plain English; the SQL agent writes the query and it renders as a bar, line or pie chart you can pin to a dashboard." },
   { Icon: Video, hue: 340, title: "AI Video Calls", text: "Built-in WebRTC mesh calls with live captions, virtual backgrounds, screen share, and Minutes-of-Meeting generated live or on hang-up." },
+  { Icon: Code2, hue: 190, title: "Collaborative Code Editor", text: "A real editor inside the OS: several people type in the same file at once over a CRDT, with commits, branches and diffs, an AI assistant that works on your selection, and a Run button that executes Python and JavaScript in a sandboxed frame in your own browser — never on the server." },
 ];
 
 /* Target market: mid-size, document-heavy teams (50–500 people) —
    enterprise knowledge problems without enterprise budgets. */
 const VERTICALS = [
-  { Icon: Briefcase, hue: 200, title: "IT services & consultancies", text: "Client docs, runbooks and policies become one cited brain. Chat answers from them, the Coding agent drafts scripts, and Traces proves exactly what ran for every request." },
+  { Icon: Briefcase, hue: 200, title: "IT services & consultancies", text: "Client docs, runbooks and policies become one cited brain. Chat answers from them, the Code app lets the delivery team pair on the same file with version control and an AI assistant, and Traces proves exactly what ran for every request." },
   { Icon: Users, hue: 150, title: "HR & staffing teams", text: "Leave policies and handbooks answered with citations instead of email chains. The Resume analyzer scores candidates, and every access to personal data is flagged in the audit log." },
   { Icon: Landmark, hue: 38, title: "Finance & accounting firms", text: "Invoices and contracts get instant scorecards, tables inside documents become real SQL, and “revenue by region as a bar chart” is a sentence, not a BI ticket." },
   { Icon: TrendingUp, hue: 340, title: "Sales & operations teams", text: "Spreadsheets turn into NL-to-BI dashboards, meetings end with auto-generated minutes, and upload-triggered workflows handle the busywork." },
@@ -58,6 +59,7 @@ const TECH = [
   "React 18", "TypeScript", "Vite", "Zustand", "FastAPI", "Python 3.12", "SQLAlchemy 2",
   "StateGraph", "Supabase Postgres", "Supabase Storage", "SQLite WAL", "Qdrant", "Redis", "Ollama", "OpenRouter · 7 families",
   "Llama 3.3", "OpenAI", "Anthropic", "WebSockets", "OpenTelemetry", "Docker", "Kubernetes · Helm", "GitHub Actions", "MCP", "PWA", "Multi-tenant RLS",
+  "Monaco", "Yjs CRDT", "WebAssembly · Pyodide",
 ];
 
 export default function LandingPage() {
@@ -148,14 +150,14 @@ export default function LandingPage() {
 
       {/* ── hero ── */}
       <header className="land-hero">
-        <div className="land-badge"><span className="dot pulse" style={{ background: "var(--good)" }} /> v0.4 — multi-tenant workspaces · installable app · parallel agents · table→SQL · audited</div>
+        <div className="land-badge"><span className="dot pulse" style={{ background: "var(--good)" }} /> v0.5 — multi-tenant workspaces · installable app · parallel agents · table→SQL · collaborative code · audited</div>
         <h1>
           The AI <span className="land-grad">Operating System</span><br />for your enterprise
         </h1>
         <p>
           Hybrid multimodal RAG, nine parallel AI agents, structured table-to-SQL extraction, enterprise
-          search, automations and observability — running inside a full desktop OS in your browser.
-          Create a workspace for your company in seconds; your data stays yours.
+          search, automations, observability and a collaborative code editor — running inside a full
+          desktop OS in your browser. Create a workspace for your company in seconds; your data stays yours.
           Grounded. Cited. Audited. Isolated.
         </p>
         <div className="land-ctas">
@@ -193,7 +195,7 @@ export default function LandingPage() {
       {/* ── features ── */}
       <section className="land-section" id="features">
         <h2>Everything an enterprise brain needs</h2>
-        <p className="land-sub">One OS, nineteen subsystems — every card below is a working feature, not a mockup.</p>
+        <p className="land-sub">One OS, twenty subsystems — every card below is a working feature, not a mockup.</p>
         <div className="feature-grid">
           {FEATURES.map(({ Icon, hue, title, text }) => (
             <div key={title} className="feature-card" style={{ "--hue": hue } as React.CSSProperties}>
@@ -393,6 +395,28 @@ export default function LandingPage() {
               document, SQL, research, email, report, analytics, memory and coding — which run in parallel where
               possible. Their results are merged into one cited answer, and every run is checkpointed so an
               interrupted request resumes where it stopped.
+            </p>
+          </details>
+          <details>
+            <summary>Can my team write code inside EAIOS?</summary>
+            <p>
+              Yes. The Code app is a full editor with a file tree, tabs and syntax highlighting, and several
+              people can hold the same file open and type at once — the text is a CRDT, so edits arrive in any
+              order and still converge to identical text for everyone. It has its own version control with
+              commits, branches, diffs and restore, and an AI assistant that will explain, review, document,
+              refactor or write tests for whatever you have selected.
+            </p>
+          </details>
+          <details>
+            <summary>Where does my code actually run when I press Run?</summary>
+            <p>
+              In your own browser, never on the server. Python and JavaScript run inside a frame that is
+              sandboxed to an opaque origin, which means the running code has no cookies, no storage, no access
+              to the page around it and no way to call the EAIOS API as you — a deliberate choice, because in a
+              shared editor the code you press Run on may have been typed by a colleague. Python is real CPython
+              compiled to WebAssembly, so <code>import numpy</code> or <code>pandas</code> works; a program that
+              never finishes is stopped by a time limit instead of freezing the tab. Nothing your team writes is
+              ever executed on EAIOS infrastructure.
             </p>
           </details>
           <details>

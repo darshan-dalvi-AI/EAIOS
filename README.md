@@ -4,7 +4,7 @@
 
 **A hybrid multimodal RAG, multi-agent AI platform for enterprise knowledge — presented as a literal operating system in the browser.**
 
-Boot screen → login → desktop with a taskbar, draggable windows, and a Ctrl+K command palette. Eleven "apps" (AI Chat, Knowledge, Agents, **Graph**, **Automations**, **Traces**, SQL Studio, Analytics, Admin, Terminal, Settings) run as windows on top of a FastAPI + multi-agent + hybrid-RAG backend with realtime WebSocket presence.
+Boot screen → login → desktop with a taskbar, draggable windows, and a Ctrl+K command palette. Nineteen "apps" (AI Chat, Knowledge, Agents, **Graph**, **Automations**, **Traces**, Search, Tasks, SQL Studio, Analytics, Dashboards, Agent Studio, Connectors, Meeting, Video, **Code**, Admin, Terminal, Settings) run as windows on top of a FastAPI + multi-agent + hybrid-RAG backend with realtime WebSocket presence. Which apps sit on the taskbar adapts to the workspace's industry; the rest stay one click away in the drawer.
 
 > Final-year B.E. Computer Engineering capstone · React + TypeScript + FastAPI + Qdrant + PostgreSQL · runs fully offline with zero API keys
 
@@ -16,7 +16,7 @@ Most "enterprise chatbot" projects are a chat box over an API call. EAIOS is:
 
 - **An OS metaphor UI** — window manager, dock with magnification, boot sequence, command palette, faux shell. No enterprise tool ships like this; it demos unforgettably.
 - **Genuinely grounded RAG** — hybrid retrieval (dense vectors + BM25, fused with Reciprocal Rank Fusion), citation chips with relevance meters, per-answer confidence scores.
-- **A real multi-agent system** — a Planning Agent decomposes compound requests and routes subtasks across 8 agents (Document, SQL, Research, Email, Report, Analytics, Memory, Planning), each recorded in an observability table.
+- **A real multi-agent system** — a Planning Agent decomposes compound requests and routes subtasks across 9 agents (Planning, Document, SQL, Research, Email, Report, Analytics, Memory, Coding), each recorded in an observability table.
 - **Zero-dependency dev mode** — SQLite + in-memory vector store + a deterministic extractive "mock LLM" mean the entire platform runs with no Docker, no GPU, no keys. Swap one env var to move to Postgres + Qdrant + Ollama/GPT/Claude.
 - **Multi-tenant SaaS** — any company can self-serve: "Create your workspace" on the login screen spins up an isolated tenant with its own admin, users and data. Isolation is enforced at the ORM layer (auto-scoped reads + auto-stamped writes), so one company can never see another's documents, chats, tasks or search results — proven by a dedicated `test_tenancy.py` suite. The SQL agent, which runs raw SQL, gets its own fail-closed guard that rewrites every tenant table into an org-scoped subquery. One deploy, many companies.
 - **Guided onboarding** — a new company admin lands on a Setup Guide checklist (invite team → add knowledge → connect tools → ask the AI → install the app), reopenable from Settings.
@@ -25,6 +25,8 @@ Most "enterprise chatbot" projects are a chat box over an API call. EAIOS is:
 - **A knowledge graph that builds itself** — entities + co-occurrence edges extracted at ingest, explored in a force-directed constellation (Graph app), and used to answer "how are X and Y related?" with paths + cited evidence.
 - **Visual automations** — drag-and-drop workflow canvas (trigger → agents → conditions → notify) executed by the same agent runtime, with live-streamed runs; fires automatically on document upload.
 - **Realtime presence** — WebSocket hub pushes who's online + live agent activity to every window.
+- **Real collaborative editing, not a shared textarea** — the Code app holds the file as a Yjs CRDT, so several people can type in the same file at once and every browser converges to identical text regardless of the order updates arrive in. The server relays binary updates and never merges anything. On top of it: content-addressed version control (commits, branches, diffs, restore), an AI assistant scoped to your selection, and a Run button.
+- **Code execution that cannot touch the server** — Python and JavaScript run in a frame sandboxed to an *opaque origin*: no cookies, no storage, no parent DOM, and CORS rejects any call to the EAIOS API. That isolation is the point, because in a shared editor the code you press Run on may have been typed by a colleague. Python is CPython on WebAssembly, so `import numpy` works; runaway programs are killed by a timeout rather than freezing the tab.
 
 ## Quickstart
 
@@ -71,15 +73,19 @@ The frontend auto-detects the backend. If it's down, every app still works in **
 
 ```
 React 18 + TS (OS shell: windows/dock/palette)
-        │  REST /api
-FastAPI ──► Orchestrator ──► Planning Agent ──► 8 specialist agents
+        │  REST /api   WS /api/ws (presence · CRDT relay)
+FastAPI ──► Orchestrator ──► Planning Agent ──► 9 specialist agents
         │                         │
         │                  Hybrid RAG engine
         │            (parse→chunk→embed→index)
         │                 │              │
    PostgreSQL/SQLite   Qdrant / in-mem   LLM layer
    (users, docs,       (vectors, RRF     (mock │ Ollama │
-    chats, audit)       + BM25 fusion)    OpenAI │ Anthropic)
+    chats, audit,       + BM25 fusion)    OpenAI │ Anthropic)
+    code, commits)
+
+   Code execution is deliberately NOT in this diagram: it happens in a
+   sandboxed opaque-origin frame in the user's browser, never server-side.
 ```
 
 Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · API: [docs/API_REFERENCE.md](docs/API_REFERENCE.md) · Plan: [docs/ROADMAP.md](docs/ROADMAP.md)
@@ -88,19 +94,29 @@ Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · API: [docs/API_REFE
 
 ```
 backend/app/
-  core/        config · JWT + PBKDF2 security · database · events (WS hub) · tracing (spans)
-  api/routes/  auth · users · documents · chat · agents · admin · analytics · graph · workflows · traces · ws
-  rag/         parsers · chunking · embeddings · vectorstore · hybrid retrieval · pipeline
-  agents/      base · registry · graph (StateGraph runtime) · orchestrator · 8 agent implementations
-  services/    kgraph (entity extraction + graph queries) · workflows (DAG executor) · audit
+  core/        config · JWT + PBKDF2 security · database (+RLS) · events (WS hub) · collab (CRDT relay)
+               · headers (CSP) · storage · tracing (spans)
+  api/routes/  auth · users · documents · chat · agents · admin · analytics · graph · workflows · traces
+               · search · tasks · me · orgs · projects (code + VCS) · runner (execution sandbox)
+               · dashboards · studio · connectors · reports · ws
+  rag/         parsers · chunking · embeddings · vectorstore · hybrid retrieval · tables · pipeline
+  agents/      base · registry · graph (StateGraph runtime) · orchestrator · checkpointer
+               · 9 agent implementations
+  services/    kgraph · workflows (DAG executor) · vcs (content-addressed commits) · industries
+               · connectors · charts · analyze · reports · audit
   llm/         provider abstraction (mock/ollama/openai/anthropic)
   seed.py      demo users + documents through the real pipeline
-backend/tests/ auth flow · RBAC · JWT · chunking · SQL guardrails · graph engine · KG · workflows · WS
+backend/tests/ 385 tests — auth · RBAC · JWT · tenancy isolation · chunking · SQL guardrails
+               · graph engine · KG · workflows · WS · concurrent editing · code-runner sandbox
 frontend/src/
-  os/          BootScreen · LoginScreen · Desktop · MenuBar · Dock · Window · CommandPalette
-  apps/        Chat · Knowledge · Agents · Graph · Automations · Traces · SQLStudio · Analytics · Admin · Terminal · Settings
-  lib/         api client (live/demo fallback) · ws realtime client · mock data layer
-docs/          architecture · API reference · 16-week roadmap · demo script
+  os/          BootScreen · LoginScreen · Desktop · MenuBar · Dock (industry-aware) · Window
+               · CommandPalette · LandingPage
+  apps/        Chat · Knowledge · Agents · Graph · Automations · Traces · Search · Tasks · SQLStudio
+               · Analytics · Dashboards · Studio · Connectors · Meeting · Video · Code · Admin
+               · Terminal · Settings
+  lib/         api client (live/demo fallback) · ws realtime client · runCode (sandbox client)
+               · mock data layer
+docs/          architecture · API reference · roadmap · demo script · deploy · viva kit
 ```
 
 ## Feature checklist (spec coverage)
@@ -109,7 +125,7 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 |---|---|
 | JWT auth + RBAC + audit log | ✅ implemented |
 | Hybrid multimodal RAG (PDF/DOCX/PPTX/XLSX/CSV/images) | ✅ implemented (OCR pluggable) |
-| Multi-agent system (8 agents + planner) | ✅ implemented |
+| Multi-agent system (9 agents, planner included) | ✅ implemented |
 | NL→SQL with safety guardrails | ✅ implemented |
 | Long-term memory | ✅ implemented |
 | Internet search agent | ✅ implemented (DuckDuckGo IA) |
@@ -163,16 +179,28 @@ docs/          architecture · API reference · 16-week roadmap · demo script
 | **Confidential Computing (TEE) design** — threat model + AMD SEV-SNP attestation architecture for data-in-use protection | 📋 design doc ([docs/CONFIDENTIAL_COMPUTING.md](docs/CONFIDENTIAL_COMPUTING.md)) |
 | **HR role** — people-ops console: hire/manage staff (managers/employees), scoped RBAC (no model keys / can't touch admins) | ✅ implemented (`require_admin_or_hr`) |
 | **Installable app (PWA)** — one-click 'Download app' installs EAIOS as a standalone app on Windows/Mac/Android (PNG icons, manifest, offline shell) | ✅ implemented (`lib/pwa.ts`, `InstallButton`) |
+| **Code app** — Monaco editor, file tree, tabs, syntax highlighting (19th app) | ✅ implemented (`apps/CodeApp.tsx`, `routes/projects.py`) |
+| **CRDT collaborative editing** — several people in one file at once (Yjs over a WS relay; server never merges) | ✅ implemented (`core/collab.py`, `y-monaco`) — proven by a 5-concurrent-editor test |
+| **Version control** — content-addressed blobs, commits, branches, diffs, restore-with-rescue-branch | ✅ implemented (`services/vcs.py`) |
+| **AI coding assistant** — explain / find bugs / write tests / document / refactor on your selection | ✅ implemented (`/projects/{id}/assist`, deliberately bypasses RAG) |
+| **Browser code execution** — Python + JavaScript in an opaque-origin sandboxed frame; CPython on WASM, timeout-killed, zero server-side execution | ✅ implemented (`routes/runner.py`, `lib/runCode.ts`) |
+| **Industry-adaptive workspaces** — the taskbar and starter content change with the workspace's field | ✅ implemented (`services/industries.py`, `os/Dock.tsx`) |
+| **Row-Level Security backstop** — Postgres RLS under a NOLOGIN role, beneath the ORM filter and SQL guard | ✅ implemented (`core/database.py`) |
 | MIT licensed | ✅ LICENSE |
-| CRDT shared notes, LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
+| LoRA fine-tuning | 🔜 stretch (see docs/ROADMAP.md) |
 
 ## Testing
 
 ```bash
-cd backend && pytest -q
+cd backend && pytest -q                       # 385 tests
+cd backend && pytest -q -n 4 --dist loadfile  # ~4x faster (pytest-xdist)
 ```
 
-Covers the auth flow, RBAC enforcement, JWT tamper resistance, chunking behavior, and SQL injection guardrails.
+Covers the auth flow, RBAC enforcement, JWT tamper resistance, chunking behaviour, SQL injection
+guardrails, cross-tenant isolation, five people editing one file concurrently, and the code
+sandbox's security headers — the last of these asserts that the sandbox is granted **no** `'self'`
+in any CSP directive, because that single word is what stands between a colleague's code and your
+session.
 
 ---
 

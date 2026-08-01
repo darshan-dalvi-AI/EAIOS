@@ -93,6 +93,66 @@ Uploads with tabular content (docx/pptx tables incl. nested, xlsx sheets, csv, p
 
 Node types: `trigger` · `agent {agent, prompt}` (`{{input}}` = upstream output) · `condition {contains}` · `notify {message}`.
 
+## Code projects (Code app)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /projects | ✓ | Workspace's code projects with file counts |
+| POST | /projects | ✓ | `{name, description?, language?}` → 201 |
+| PATCH | /projects/{id} | ✓ | Rename / re-describe |
+| DELETE | /projects/{id} | owner/admin | Cascades to files, versions and commits |
+| GET | /projects/{id}/files | ✓ | File tree (path, language, size, last editor) |
+| POST | /projects/{id}/files | ✓ | `{path, content?}` → 201; language inferred from the extension |
+| GET | /projects/files/{file_id} | ✓ | File with `content` |
+| PUT | /projects/files/{file_id} | ✓ | `{content, note?}` → saves and snapshots a version |
+| DELETE | /projects/files/{file_id} | ✓ | Remove file + its versions |
+| GET | /projects/files/{file_id}/versions | ✓ | Version history (author, note, size) |
+| POST | /projects/files/{file_id}/restore/{version_id} | ✓ | Roll a file back |
+
+### Version control
+
+Git's model — content-addressed blobs, snapshot commits, a parent chain — stored in Postgres.
+Blob ids are `sha256(org_id \0 content)`: salting with the workspace keeps deduplication inside a
+tenant, so two workspaces committing the same boilerplate cannot collide on a shared primary key.
+Merging is deliberately absent; branches diverge, compare and restore, and the UI says so.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /projects/{id}/status | ✓ | `git status`: `{branch, head, added[], modified[], removed[], clean}` |
+| POST | /projects/{id}/commits | ✓ | `{message, branch?}` → 201, or 409 when nothing changed |
+| GET | /projects/{id}/commits | ✓ | History (newest first, ≤100) |
+| GET | /projects/{id}/commits/{commit_id} | ✓ | One commit + its diff against its parent |
+| GET | /projects/{id}/diff | ✓ | Uncommitted changes against the branch tip |
+| POST | /projects/{id}/checkout/{commit_id} | ✓ | Restore files to a commit. Uncommitted work is auto-committed to a `rescue-*` branch first, so restoring can never silently discard it |
+| GET | /projects/{id}/branches | ✓ | Branches with commit counts |
+| POST | /projects/{id}/branches | ✓ | `{name, from?}` → 201 |
+
+### AI assistance
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /projects/assist/actions | ✓ | Available actions |
+| POST | /projects/files/{file_id}/assist | ✓ | `{action: explain\|fix\|test\|document\|refactor, selection?}` → `{action, answer, degraded}` |
+
+This endpoint deliberately **bypasses the Coding Agent's retrieval step.** Routed through RAG, "explain
+this function" came back quoting a liability clause from a contract in the knowledge base — the
+retriever cannot tell that a code question wants code context, not company documents.
+
+### Execution sandbox
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /code/runner | — | HTML document embedded as a sandboxed iframe. Carries its own CSP |
+
+Unauthenticated because it is a static shell holding no workspace data; everything it runs is posted
+in by the parent frame, which *is* authenticated. It is framed with `sandbox="allow-scripts"` and
+**without** `allow-same-origin`, giving it an opaque origin: no cookies, no storage, no parent DOM,
+and CORS rejects any call back to this API. Its CSP grants `'self'` in no directive except
+`frame-ancestors` — in an opaque origin `'self'` matches nothing anyway, so granting it would only
+mislead whoever edits the policy next. Python (CPython/WebAssembly, pinned Pyodide) and JavaScript run
+in a terminable Web Worker inside that frame; there is no cooperative way to stop `while True: pass`,
+so `terminate()` on a timeout is the only mechanism that works. **No user code executes server-side.**
+
 ## Observability
 
 | Method | Path | Auth | Description |
@@ -106,6 +166,13 @@ Node types: `trigger` · `agent {agent, prompt}` (`{{input}}` = upstream output)
 | Protocol | Path | Description |
 |---|---|---|
 | WebSocket | /ws?token=<jwt> | Presence + live events: `presence`, `agent.step`, `chat.message`, `doc.status` (incl. `tables`), `workflow.run`, `workflow.notify`, `workflow.approval`, `security.pii`. Send `ping` for keep-alive |
+| WebSocket | /ws/collab/{file_id}?token=<jwt> | Collaborative editing relay for one file |
+
+**Collaborative editing:** the document is a Yjs CRDT. The socket carries opaque binary updates that
+the server relays to the other editors of that file and periodically persists — it never parses or
+merges the document, because CRDT convergence is a property of the data structure, not of the
+transport. Updates may therefore arrive in any order and every client still lands on identical text.
+Peer cursors and names ride the same socket as awareness frames.
 
 **WebRTC signaling (Video Call):** `rtc.*` frames sent over the same socket carry a `{to: <user_id>}` field and are relayed point-to-point to that user only (never broadcast, never buffered). Types: `rtc.ring` / `rtc.accept` / `rtc.decline` / `rtc.offer` / `rtc.answer` / `rtc.ice` / `rtc.caption` / `rtc.end`; the server replies `rtc.unavailable` to the caller if the target has no open socket. Media is peer-to-peer (STUN only) and never touches the server.
 

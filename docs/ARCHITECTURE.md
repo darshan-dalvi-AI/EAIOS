@@ -8,13 +8,17 @@ EAIOS is a three-tier platform with an AI middle layer. The design principle thr
 ┌─────────────────────────────────────────────────────────────┐
 │ FRONTEND · React 18 + TypeScript + Vite                     │
 │ OS shell: Boot → Login → Desktop (MenuBar · Dock · Windows  │
-│ · ⌘K Palette) hosting 8 window apps. Zustand state.         │
+│ · ⌘K Palette) hosting 19 window apps; the dock adapts to    │
+│ the workspace's industry. Zustand state.                    │
 │ api.ts auto-detects backend; falls back to demo data.       │
+│ Code runs in a sandboxed opaque-origin frame, never server- │
+│ side (§12).                                                 │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ REST /api (JWT bearer)
+                            │ REST /api (JWT bearer) · WS (presence · CRDT)
 ┌───────────────────────────▼─────────────────────────────────┐
 │ BACKEND · FastAPI                                           │
 │ auth · users · documents · chat · agents · admin · analytics│
+│ search · tasks · projects (code + VCS) · dashboards · …     │
 │ deps.py: get_db / get_current_user / require_role           │
 ├─────────────────────────────────────────────────────────────┤
 │ ORCHESTRATOR (LangGraph-style state machine)                │
@@ -22,15 +26,16 @@ EAIOS is a three-tier platform with an AI middle layer. The design principle thr
 │ → execute agents sequentially, chain outputs                │
 │ → merge answers + citations + min(confidence)               │
 ├──────────────┬──────────────────────┬───────────────────────┤
-│ RAG ENGINE   │ AGENTS (8)           │ LLM LAYER             │
+│ RAG ENGINE   │ AGENTS (9)           │ LLM LAYER             │
 │ parsers      │ document · sql       │ MockLLM (extractive)  │
 │ chunking     │ research · email     │ OllamaLLM             │
 │ embeddings   │ report · analytics   │ OpenAILLM             │
 │ vectorstore  │ memory · planning    │ AnthropicLLM          │
+│ tables→SQL   │ coding               │ OpenRouter            │
 │ retrieval    │ (AgentRun telemetry) │ safe_complete fallback│
 ├──────────────┴──────────┬───────────┴───────────────────────┤
 │ PostgreSQL / SQLite     │ Qdrant / in-memory vector store   │
-│ 8 tables (below)        │ cosine · payload {doc_id, page}   │
+│ 27 tables · RLS backstop│ cosine · payload {doc_id, page}   │
 └─────────────────────────┴───────────────────────────────────┘
 ```
 
@@ -92,8 +97,26 @@ Workflows (Automations app) execute on the same agent runtime via `services/work
 | entity_mentions | evidence anchors | entity_id, chunk_id, document_id |
 | workflows | automations | name, trigger, nodes(JSON), edges(JSON), enabled, run_count |
 | workflow_runs | run history | workflow_id, status, log(JSON per node), duration_ms |
+| projects | code projects | name, description, language, owner_id |
+| project_files | working tree | project_id, path, language, content, ydoc (CRDT state), updated_by |
+| file_versions | per-file snapshots | file_id, content, author_name, note |
+| blobs | content-addressed store | id = sha256(org_id ‖ content), content, size_bytes |
+| commits | snapshot history | project_id, branch, message, author, parent_id, file_count |
+| commit_files | commit → tree | commit_id, path, blob_id, language |
 
 IDs are UUID hex strings; SQLite in dev (WAL + busy-timeout pragmas, load-test informed pool sizing), Postgres in compose/K8s (same SQLAlchemy 2.0 models).
+
+Two schema lessons the code encodes, both learned from production failures:
+
+- **`create_all` never alters an existing table.** New indexes, constraints and cascades on tables that
+  already exist need explicit migration, which `core/database.py` performs on boot.
+- **Postgres aborts the whole transaction on any failed statement.** A `try/except` around one DDL
+  statement catches the exception but leaves the transaction poisoned, so every later repair fails too.
+  Each repair therefore gets its own `engine.begin()`.
+
+`ProjectFile → chunks`-style parent/child deletes carry cascades at *both* levels — ORM
+`cascade="all, delete-orphan"` **and** DB `ondelete="CASCADE"` — because SQLite does not enforce foreign
+keys by default, so an ORM-only cascade passes the test suite and fails on Postgres.
 
 ## 5. Security model
 
@@ -101,6 +124,16 @@ IDs are UUID hex strings; SQLite in dev (WAL + busy-timeout pragmas, load-test i
 - **Tokens**: HS256 JWT built on stdlib hmac (no third-party crypto), exp/iat claims, tamper-verified.
 - **RBAC**: `require_role("admin")` dependency; roles admin/manager/employee; UI mirrors the matrix in Admin → Access.
 - **SQL safety**: allowlist + blocklist + LIMIT injection (see §3).
+- **Tenant isolation, three layers deep**: an ORM `with_loader_criteria` filter scopes every read and
+  stamps every write; the NL→SQL agent has a regex guard that rejects any statement it cannot prove
+  stays in one workspace (a qualified `SELECT * FROM public.tasks` once slipped past a narrower
+  version of it); and Postgres Row-Level Security under a `eaios_restricted` NOLOGIN role sits
+  underneath both, so a bug in either upper layer still cannot return another tenant's rows.
+- **Untrusted code execution**: user code runs in an iframe sandboxed to an opaque origin — no
+  cookies, no storage, no parent DOM, CORS-blocked from this API — and inside a terminable Web
+  Worker. The threat is not a malicious visitor but a *collaborator*: the Code app is shared, so the
+  code you press Run on may have been typed by someone else. A same-origin Web Worker would have run
+  it with your session. See §12.
 - **Audit**: append-only log on login (success/fail with IP), uploads, deletions, role changes, model config views.
 - **Rate limiting**: token buckets per user/IP (`core/ratelimit.py` middleware) — login 20/min, chat 60/min, upload 60/hr; 429 + Retry-After; in-memory by default, Redis-backed across replicas when `REDIS_URL` is set.
 - **Prod checklist**: HTTPS via ingress + cert-manager (Helm values), SECRET_KEY rotation, CORS pinned per environment, nightly `pg_dump` CronJob with retention.
@@ -127,6 +160,11 @@ IDs are UUID hex strings; SQLite in dev (WAL + busy-timeout pragmas, load-test i
 | Rate limiting | token buckets, Redis slot-in | core/ratelimit.py |
 | K8s | Helm chart (HPA, Qdrant STS, TLS ingress, backup CronJob) + raw manifests | deploy/helm/eaios, deploy/k8s.yaml |
 | CI/CD | pytest + builds + GHCR push on main + gated Helm deploy | .github/workflows/ci.yml |
+| CRDT collaborative editing | Yjs over a WS relay; server never merges | core/collab.py, Code app |
+| Code version control | content-addressed blobs, commits, branches, diffs | services/vcs.py |
+| Sandboxed code execution | opaque-origin iframe → blob worker → Pyodide/JS | api/routes/runner.py |
+| Row-Level Security | `eaios_restricted` NOLOGIN role beneath the ORM filter | core/database.py |
+| Industry-adaptive workspaces | per-field app sets, agents, starter content | services/industries.py |
 
 ## 8. Observability
 
@@ -145,6 +183,64 @@ IDs are UUID hex strings; SQLite in dev (WAL + busy-timeout pragmas, load-test i
 
 The run exposed and fixed a real defect: default SQLAlchemy pool (5+10) exhausted under 60 concurrent chats → widened pool + SQLite WAL/busy-timeout pragmas. Postgres + HPA raises the ceiling further.
 
-## 11. Remaining stretch
+## 11. Collaborative editing (Code app)
 
-CRDT (Yjs) shared notes · LoRA fine-tuning from thumbs-up answers · LLM-based entity extraction (`kgraph.extract_entities` is the seam) · Neo4j graph backend. Each lands behind an existing interface — no rewrites, which is the point of the architecture.
+`core/collab.py` · `apps/CodeApp.tsx` · `services/vcs.py`
+
+**The document is a CRDT, so the server does not have to be clever.** Each keystroke becomes a small
+binary Yjs update. The server keeps one room per file, relays updates to the other editors and
+persists the merged state on a 3-second debounce — it never parses or merges the document. Convergence
+is a property of the data structure, not of the transport, so updates can arrive out of order, a
+client can reconnect after a drop, and everyone still lands on identical text. Operational transform
+would have required the server to understand and rewrite every edit; this does not.
+
+The editor is Monaco, **bundled, not CDN-loaded** — the app's CSP allows `script-src 'self'`, so a CDN
+loader would simply be blocked. It lands in its own lazy Vite chunk (~3.9 MB) that only downloads when
+someone opens the Code app.
+
+Version control borrows three ideas from git and deliberately omits a fourth:
+
+- *Content addressing* — a file's contents are stored once under `sha256(org_id ‖ content)`. Salting
+  with the workspace matters: a plain content hash is a global key, but blobs are tenant rows, so the
+  session filter hides another workspace's blob, the lookup misses, and the insert then collides on
+  that global key. Two workspaces committing an empty file would break each other's commits.
+- *Commits are snapshots, not diffs* — a commit records the whole tree, so restoring is exact rather
+  than a patch replay. Diffs are computed on demand.
+- *A parent chain* — history is walkable; branching is two commits sharing a parent.
+- **No merging.** Conflict resolution is a research-grade problem and a half-working merge is worse
+  than none, so branches diverge, compare and restore. The UI states this rather than hiding it.
+
+## 12. Code execution sandbox
+
+`api/routes/runner.py` · `lib/runCode.ts`
+
+No user code runs on the server. Running arbitrary code on a shared container is remote code execution
+by another name, and no process trickery makes that safe on a free-tier box. Execution happens in the
+browser, in three nested layers:
+
+```
+EAIOS tab (authenticated, has the session)
+ └── <iframe sandbox="allow-scripts">        ← opaque origin: no cookies, no storage,
+      │                                        no parent DOM, CORS-blocked from /api
+      └── Worker (blob:)                     ← terminable; survives `while True: pass`
+           └── Pyodide (CPython → WASM) or JavaScript
+```
+
+`allow-same-origin` is omitted on purpose — granted *together with* `allow-scripts` it voids the
+sandbox entirely, because the frame can then reach out and delete its own sandbox attribute. The
+runner document is served with its own CSP that grants `'self'` in no directive except
+`frame-ancestors`; in an opaque origin `'self'` matches nothing anyway, so granting it would only
+mislead the next person to edit the policy. The sandbox may load one pinned CDN and nothing else — a
+floating version would let an upstream release change what executes with no deploy here.
+
+Two clocks, not one: downloading ~10 MB of CPython is not a runaway program, so a generous boot
+timeout runs until the worker reports that the code itself has started, at which point the much
+shorter execution limit takes over. Otherwise every cold Python run would be killed mid-download.
+
+Verified in the browser against production: frame origin reports `"null"`; `document.cookie`,
+`localStorage` and `parent.document` all throw; `fetch('/api/health')` fails; `while(true){}` is killed
+on time while the tab stays responsive.
+
+## 13. Remaining stretch
+
+LoRA fine-tuning from thumbs-up answers · LLM-based entity extraction (`kgraph.extract_entities` is the seam) · Neo4j graph backend · merge support for code branches. Each lands behind an existing interface — no rewrites, which is the point of the architecture.

@@ -497,7 +497,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
       <table>
         <thead><tr><th>Layer</th><th>Chosen</th><th>Reasoning</th><th>Fallback</th></tr></thead>
         <tbody>
-          <tr><td>Frontend</td><td>React 18 + TypeScript + Vite</td><td>Type safety across 18 apps; Vite keeps the dev loop under a second</td><td>—</td></tr>
+          <tr><td>Frontend</td><td>React 18 + TypeScript + Vite</td><td>Type safety across 19 apps; Vite keeps the dev loop under a second</td><td>—</td></tr>
           <tr><td>State</td><td>Zustand</td><td>A window manager needs shared state without provider nesting; ~1 kB</td><td>—</td></tr>
           <tr><td>Styling</td><td>Hand-written CSS design system</td><td>An OS metaphor needs bespoke primitives; utility classes would fight it</td><td>—</td></tr>
           <tr><td>API</td><td>FastAPI (Python 3.12)</td><td>Typed request models, generated OpenAPI, async, native streaming</td><td>—</td></tr>
@@ -571,7 +571,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
     <section>
       <h2><span class="hn">3.1</span> Design thesis</h2>
-      <p class="lead">Enterprise AI tools look like a chat box with a sidebar. That framing quietly tells the user "this is one feature". EAIOS is a <strong>platform</strong> — eighteen cooperating capabilities — so it borrows the one interface metaphor every user already knows for "many capabilities at once": an operating system.</p>
+      <p class="lead">Enterprise AI tools look like a chat box with a sidebar. That framing quietly tells the user "this is one feature". EAIOS is a <strong>platform</strong> — nineteen cooperating capabilities — so it borrows the one interface metaphor every user already knows for "many capabilities at once": an operating system.</p>
       <div class="grid g3">
         <div class="card"><div class="tag">Principle 01</div><h4>Familiar, not novel-for-its-own-sake</h4><p>Windows, a taskbar and a command palette need no explanation. The novelty is that an AI platform is shaped this way, not that the controls are unusual.</p></div>
         <div class="card"><div class="tag">Principle 02</div><h4>Show the reasoning</h4><p>Answers carry citation chips, a confidence score and the plan of agents that ran. Trust comes from visible working, not from a confident tone.</p></div>
@@ -609,7 +609,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
     <section>
       <h2><span class="hn">3.3</span> Responsive strategy</h2>
-      <p>The interface does not merely reflow. Below 740 px the desktop metaphor is <em>replaced</em>: a taskbar of eighteen icons becomes a five-destination tab bar with labels, window chrome disappears because every app is already full-screen, and detail panes become sheets.</p>
+      <p>The interface does not merely reflow. Below 740 px the desktop metaphor is <em>replaced</em>: a taskbar of nineteen icons becomes a five-destination tab bar with labels, window chrome disappears because every app is already full-screen, and detail panes become sheets.</p>
 
       <figure data-anim>
         <figcaption><span class="fig-n">Fig 3.1</span> The same product at two shapes
@@ -740,7 +740,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
           <g class="pop" style="--d:.1s"><rect x="20" y="48" width="116" height="44" rx="11" class="box"/><text x="78" y="66" text-anchor="middle" class="lbl-b">Landing</text><text x="78" y="82" text-anchor="middle" class="lbl-s">marketing page</text></g>
           <g class="pop" style="--d:.45s"><rect x="208" y="48" width="118" height="44" rx="11" class="box"/><text x="267" y="66" text-anchor="middle" class="lbl-b">Boot</text><text x="267" y="82" text-anchor="middle" class="lbl-s">~2 s sequence</text></g>
           <g class="pop" style="--d:.75s"><rect x="398" y="48" width="118" height="44" rx="11" class="box"/><text x="457" y="66" text-anchor="middle" class="lbl-b">Auth</text><text x="457" y="82" text-anchor="middle" class="lbl-s">sign in / sign up</text></g>
-          <g class="pop" style="--d:1.7s"><rect x="588" y="48" width="222" height="44" rx="11" fill="rgba(52,211,153,.09)" stroke="rgba(52,211,153,.45)"/><text x="699" y="66" text-anchor="middle" class="lbl-b" fill="#34d399">Desktop — authenticated</text><text x="699" y="82" text-anchor="middle" class="lbl-s">18 apps · role-filtered</text></g>
+          <g class="pop" style="--d:1.7s"><rect x="588" y="48" width="222" height="44" rx="11" fill="rgba(52,211,153,.09)" stroke="rgba(52,211,153,.45)"/><text x="699" y="66" text-anchor="middle" class="lbl-b" fill="#34d399">Desktop — authenticated</text><text x="699" y="82" text-anchor="middle" class="lbl-s">19 apps · role-filtered</text></g>
 
           <g class="pop" style="--d:1.05s"><rect x="176" y="186" width="128" height="40" rx="11" fill="rgba(139,92,246,.1)" stroke="rgba(139,92,246,.4)"/><text x="240" y="204" text-anchor="middle" class="lbl">New company</text><text x="240" y="218" text-anchor="middle" class="lbl-s">workspace created</text></g>
           <g class="pop" style="--d:2.25s"><rect x="766" y="186" width="128" height="40" rx="11" fill="rgba(251,191,36,.09)" stroke="rgba(251,191,36,.4)"/><text x="830" y="204" text-anchor="middle" class="lbl">Demo mode</text><text x="830" y="218" text-anchor="middle" class="lbl-s">backend unreachable</text></g>
@@ -995,7 +995,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
             <rect x="800" y="292" width="0" height="18" rx="9" fill="rgba(52,211,153,.85)"><animate attributeName="width" from="0" to="160" dur=".7s" begin="1.85s" fill="freeze"/></rect>
           </g>
           <g class="fadein lbl-s" style="--d:2.6s" fill="#68788f">
-            <text x="360" y="54">auth · RBAC · hybrid RAG · 8 agents · OS shell</text>
+            <text x="360" y="54">auth · RBAC · hybrid RAG · 9 agents · OS shell</text>
             <text x="430" y="90">Ollama · OpenRouter · embeddings</text>
             <text x="525" y="126">OCR · vision · tables → SQL</text>
             <text x="685" y="162">StateGraph · span traces</text>

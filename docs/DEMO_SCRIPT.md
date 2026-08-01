@@ -30,4 +30,10 @@
 
 12. **Automations (7:15–8:15)** — Open **Automations**. Build live: trigger (on upload) → Document Agent "Summarize {{input}}" → Notify. Save. Upload any file in Knowledge → jump to Agents: *"The workflow fired on its own — visual automation running on the same agent runtime as chat."* Run the Morning KPI brief manually and show the per-node log.
 
-13. **Traces (8:15–9:00)** — Open **Traces**, click the last chat request. *"Every request is traced — planner, retrieval, LLM calls, each with latency and attributes, Langfuse-style but with zero external services. Point one env var at an OTLP endpoint and these mirror to Grafana."* Click a span to show attrs. *"That's observability judges can't argue with."*
+13a. **Collaborative coding (8:15–9:15)** — Open **Code**. Create a project and a `main.py`. Put the second browser (still logged in as another user) on the *same* file, side by side. Type in both windows at once: *"Two people, one file, no locking and no 'someone else is editing' warning — the text is a CRDT, so every keystroke is a small update that can arrive in any order and both browsers still land on identical text. The server relays those updates and never merges anything."* Show the peer avatar in the toolbar.
+
+  Then press **Run**: *"Python 3.13 — real CPython compiled to WebAssembly."* Show `print()` output and the value of the last expression. Type `import numpy as np; print(np.arange(5).sum())` and run again: *"It installed numpy on the spot."*
+
+  **The line that lands:** *"That did not run on the server. It ran in a sandboxed frame in this browser tab, with an opaque origin — no cookies, no storage, no access to the page around it, and the API refuses its calls. That matters because this editor is shared: the code you press Run on might have been typed by a colleague."* Then run `while True: pass` and let it be killed on the timer while the UI stays responsive. Finish with **Git** → commit, branch, diff.
+
+13. **Traces (9:15–10:00)** — Open **Traces**, click the last chat request. *"Every request is traced — planner, retrieval, LLM calls, each with latency and attributes, Langfuse-style but with zero external services. Point one env var at an OTLP endpoint and these mirror to Grafana."* Click a span to show attrs. *"That's observability judges can't argue with."*
