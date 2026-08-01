@@ -11,7 +11,7 @@
  */
 import {
   ChevronRight, Code2, FilePlus, FileText, GitBranch as GitBranchIcon, GitCommitVertical, History,
-  Loader2, Plus, Save, Trash2, Users,
+  Loader2, Plus, Save, Sparkles, Trash2, Users, X,
 } from "lucide-react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MonacoBinding } from "y-monaco";
 import * as Y from "yjs";
 import {
-  apiCreateFile, apiCreateProject, apiDeleteFile, apiDeleteProject,
+  apiCodeAssist, apiCreateFile, apiCreateProject, apiDeleteFile, apiDeleteProject,
   apiFileVersions, apiGitBranches, apiGitCheckout, apiGitCommit, apiGitCommitDetail,
   apiGitCreateBranch, apiGitHistory, apiGitStatus, apiGitWorkingDiff,
   apiProjectFiles, apiProjects, apiReadFile, apiRestoreVersion, apiSaveFile,
@@ -68,6 +68,12 @@ export default function CodeApp() {
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [commitMsg, setCommitMsg] = useState("");
   const [diff, setDiff] = useState<{ title: string; files: GitDiffFile[] } | null>(null);
+  // ── editor tabs: the files currently open, in the order they were opened ──
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  // ── AI assistant ──
+  const [showAI, setShowAI] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiOut, setAiOut] = useState<{ action: string; answer: string; degraded?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [err, setErr] = useState("");
@@ -77,6 +83,37 @@ export default function CodeApp() {
   const teardown = useRef<(() => void) | null>(null);
 
   const activeFile = files.find((f) => f.id === fileId) || null;
+
+  // Opening a file adds a tab; tabs never reorder underneath the user.
+  useEffect(() => {
+    if (!fileId) return;
+    setOpenTabs((t) => (t.includes(fileId) ? t : [...t, fileId]));
+  }, [fileId]);
+
+  // Drop tabs for files that no longer exist (deleted, or project switched).
+  useEffect(() => {
+    const ids = new Set(files.map((f) => f.id));
+    setOpenTabs((t) => t.filter((id) => ids.has(id)));
+  }, [files]);
+
+  function closeTab(id: string) {
+    setOpenTabs((t) => {
+      const next = t.filter((x) => x !== id);
+      if (id === fileId) setFileId(next[next.length - 1] ?? null);
+      return next;
+    });
+  }
+
+  async function runAssist(action: "explain" | "fix" | "test" | "document" | "refactor") {
+    if (!fileId) return;
+    setAiBusy(true); setAiOut(null); setErr("");
+    try {
+      const sel = edRef.current?.getModel()?.getValueInRange(
+        edRef.current.getSelection() ?? new monaco.Range(1, 1, 1, 1)) ?? "";
+      const r = await apiCodeAssist(fileId, action, sel);
+      setAiOut({ action: r.action, answer: r.answer, degraded: r.degraded });
+    } catch (e) { setErr((e as Error).message); } finally { setAiBusy(false); }
+  }
 
   /* ── data ─────────────────────────────────────────────────────────── */
   const loadProjects = useCallback(async () => {
@@ -404,6 +441,10 @@ export default function CodeApp() {
               {peers.length > 4 && <span className="faint">+{peers.length - 4}</span>}
             </span>
           )}
+          <button className={`btn sm ${showAI ? "primary" : ""}`}
+                  onClick={() => setShowAI((v) => !v)} disabled={!fileId} title="AI assistant">
+            <Sparkles size={12} /> AI
+          </button>
           <button className={`btn sm ${showGit ? "primary" : ""}`}
                   onClick={() => { setShowGit((v) => !v); setDiff(null); }}
                   disabled={!projectId} title="Source control">
@@ -422,7 +463,86 @@ export default function CodeApp() {
 
         {err && <div className="banner error" style={{ fontSize: 11.5 }}>{err}</div>}
 
-        <div ref={hostRef} style={{ flex: 1, minHeight: 0 }} />
+        {/* open files, as tabs */}
+        {openTabs.length > 0 && (
+          <div style={{ display: "flex", gap: 1, overflowX: "auto", borderBottom: "1px solid var(--line)",
+                        background: "rgba(255,255,255,.02)" }} role="tablist" aria-label="Open files">
+            {openTabs.map((id) => {
+              const f = files.find((x) => x.id === id);
+              if (!f) return null;
+              const active = id === fileId;
+              return (
+                <div key={id} role="tab" aria-selected={active}
+                     onClick={() => setFileId(id)}
+                     style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px",
+                              fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap",
+                              borderTop: active ? "2px solid var(--accent)" : "2px solid transparent",
+                              background: active ? "rgba(34,211,238,.10)" : undefined }}>
+                  <FileText size={10} className="faint" aria-hidden />
+                  {f.path.split("/").pop()}
+                  <button className="btn sm ghost" style={{ padding: 1 }} aria-label={`Close ${f.path}`}
+                          onClick={(e) => { e.stopPropagation(); closeTab(id); }}>
+                    <X size={9} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+          <div ref={hostRef} style={{ flex: 1, minWidth: 0, minHeight: 0 }} />
+
+          {/* AI assistant */}
+          {showAI && (
+            <div style={{ width: 300, borderLeft: "1px solid var(--line)", display: "flex",
+                          flexDirection: "column", minHeight: 0 }}>
+              <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                <Sparkles size={13} aria-hidden />
+                <b style={{ fontSize: 12, flex: 1 }}>AI assistant</b>
+                <button className="btn sm ghost" onClick={() => setShowAI(false)} aria-label="Close AI assistant">✕</button>
+              </div>
+              <div className="faint" style={{ fontSize: 10.5, padding: "0 10px 8px" }}>
+                Works on your selection, or the whole file if nothing is selected.
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "0 10px 8px" }}>
+                {([["explain", "Explain"], ["fix", "Find bugs"], ["test", "Write tests"],
+                   ["document", "Document"], ["refactor", "Refactor"]] as const).map(([id, label]) => (
+                  <button key={id} className="btn sm" disabled={aiBusy}
+                          onClick={() => runAssist(id)}>{label}</button>
+                ))}
+              </div>
+              <div style={{ overflowY: "auto", padding: "0 10px 10px", flex: 1 }}>
+                {aiBusy && (
+                  <div className="faint" style={{ fontSize: 11.5, display: "flex", gap: 6, alignItems: "center" }}>
+                    <Loader2 size={12} className="spin" /> Thinking…
+                  </div>
+                )}
+                {aiOut && !aiBusy && (
+                  <>
+                    {aiOut.degraded && (
+                      <div className="banner" style={{ fontSize: 10.5, marginBottom: 6 }}>
+                        The model was unreachable — this is a reduced answer.
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11.5, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                      {aiOut.answer}
+                    </div>
+                    <button className="btn sm" style={{ marginTop: 8 }}
+                            onClick={() => navigator.clipboard?.writeText(aiOut.answer)}>
+                      Copy
+                    </button>
+                  </>
+                )}
+                {!aiBusy && !aiOut && (
+                  <div className="faint" style={{ fontSize: 11 }}>
+                    Pick an action above. Answers come from the same model and daily budget as the rest of the workspace.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {!fileId && (
           <div className="empty" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>

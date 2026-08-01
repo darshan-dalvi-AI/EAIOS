@@ -387,3 +387,88 @@ def vcs_create_branch(project_id: str, body: BranchIn, db: Session = Depends(get
     if made is None:
         raise HTTPException(409, f"'{body.from_branch}' has no commits to branch from.")
     return _commit_out(made)
+
+
+# ── AI assistance in the editor ──────────────────────────────────────────
+ASSIST_ACTIONS = {
+    "explain": ("Explain what this code does",
+                "Explain the following code: what it does, how it works, and anything "
+                "surprising or risky about it. Be concise and concrete. Do not rewrite it."),
+    "fix": ("Find and fix bugs",
+            "Review the following code for bugs, edge cases and error handling gaps. "
+            "State what is wrong first, then give the corrected code in one fenced block."),
+    "test": ("Write tests",
+             "Write focused unit tests for the following code. Cover the ordinary path and "
+             "the edge cases that would actually break it. Give only the test code, fenced."),
+    "document": ("Add documentation",
+                 "Add clear docstrings and only genuinely useful comments to the following "
+                 "code. Explain why, not what. Return the whole code in one fenced block."),
+    "refactor": ("Refactor for clarity",
+                 "Refactor the following code for readability without changing its "
+                 "behaviour. Say what you changed and why, then give the code fenced."),
+}
+
+
+class AssistIn(BaseModel):
+    action: Literal["explain", "fix", "test", "document", "refactor"]
+    # The selection, when there is one; otherwise the server uses the whole file.
+    selection: str = Field(default="", max_length=20_000)
+    question: str = Field(default="", max_length=500)
+
+
+@router.post("/files/{file_id}/assist")
+def assist(file_id: str, body: AssistIn, db: Session = Depends(get_db),
+           user: User = Depends(get_current_user)):
+    """Ask the Coding Agent about this file, or about the selected lines.
+
+    Runs through the same agent, budget ceiling and audit trail as every other
+    AI call in the platform — the editor is not a side door around them.
+    """
+    from app.core.tracing import end_trace, start_trace
+    from app.llm import provider
+    from app.llm.provider import safe_complete
+    from app.services import budget
+
+    f = _get_file(db, file_id)
+    budget.check(db, user)             # daily AI spend ceiling, per user
+
+    code = (body.selection or f.content or "").strip()
+    if not code:
+        raise HTTPException(422, "There is no code to work on yet.")
+    if len(code) > 20_000:
+        raise HTTPException(413, "Select a smaller portion of the file.")
+
+    _, instruction = ASSIST_ACTIONS[body.action]
+    extra = f"\n\nThe developer also asks: {body.question.strip()}" if body.question.strip() else ""
+    task = (f"{instruction}{extra}\n\nFile: {f.path} (language: {f.language})\n\n"
+            f"```{f.language}\n{code}\n```")
+
+    # Deliberately NOT routed through the Coding Agent's retrieval step. That
+    # agent grounds answers in the knowledge base, which is right when someone
+    # asks a question about the company's systems — but here the code in front
+    # of the developer IS the context, and top-k retrieval over a corpus of
+    # contracts and policies only injects noise. (Observed: "explain this
+    # function" came back quoting a liability clause.)
+    system = (
+        "You are the coding assistant inside EAIOS, working in a developer's editor. "
+        "Answer only about the code you are given. Be precise and brief. When you "
+        "return code, put it in a single fenced block with the correct language tag. "
+        "Never invent APIs or behaviour the code does not show."
+    )
+    start_trace(f"code.{body.action}", user=user.email, kind="chat")
+    provider.reset_llm_degraded()
+    try:
+        answer = safe_complete(system, task)
+        end_trace("ok")
+    except Exception:
+        end_trace("error")
+        raise
+    audit.log(db, f"code.assist.{body.action}", user.id, f.path)
+    return {"action": body.action, "path": f.path, "answer": answer,
+            "degraded": provider.llm_degraded()}
+
+
+@router.get("/assist/actions")
+def assist_actions(user: User = Depends(get_current_user)):
+    """What the editor's AI menu offers."""
+    return [{"id": k, "label": v[0]} for k, v in ASSIST_ACTIONS.items()]

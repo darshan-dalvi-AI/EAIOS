@@ -128,6 +128,20 @@ def list_industries(_: User = Depends(get_current_user)):
     return industries.catalogue()
 
 
+@router.get("/self/apps")
+def workspace_apps(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Which apps this workspace should surface, in order.
+
+    Driven by the industry the workspace picked: a consultancy gets the code
+    editor on its dock, a clinic does not. Everything else stays reachable from
+    the command palette and the "All apps" drawer — this is the default
+    surface, not a permission boundary.
+    """
+    org = db.get(Organization, user.org_id) if user.org_id else None
+    industry = (org.industry if org else "") or ""
+    return {"industry": industry, "apps": industries.apps_for(industry)}
+
+
 @router.post("/self/industry")
 def set_industry(body: IndustryIn, tasks: BackgroundTasks, db: Session = Depends(get_db),
                  user: User = Depends(require_admin)):

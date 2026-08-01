@@ -74,6 +74,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Contract intake review", "Every uploaded contract gets a scope-and-risk summary",
                           "document", "Summarise scope, key dates, payment terms and any penalty clauses."),
+        "apps": ["code", "sql", "automations", "traces", "agents", "studio", "connectors", "analytics"],
         "analyzer": "contract",
     },
     "healthcare": {
@@ -102,6 +103,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Policy change review", "Flags privacy and retention implications when a policy is uploaded",
                           "document", "Identify any personal data handling, retention period and consent requirement described."),
+        "apps": ["graph", "analytics", "automations", "meeting", "agents"],
         "analyzer": "auto",
         "compliance_note": "Personal-data access auditing is on by default for this profile.",
     },
@@ -129,6 +131,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("New agreement triage", "Extracts obligations and dates whenever an agreement is uploaded",
                           "document", "Extract every obligation, deadline, renewal date and termination right."),
+        "apps": ["graph", "analytics", "automations", "agents", "studio"],
         "analyzer": "contract",
     },
     "finance": {
@@ -155,6 +158,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Invoice intake", "Every uploaded invoice gets an automatic audit summary",
                           "document", "Extract supplier, invoice number, dates, totals and payment terms; flag anomalies."),
+        "apps": ["sql", "dashboards", "analytics", "automations", "agents"],
         "analyzer": "invoice",
     },
     "hr_staffing": {
@@ -182,6 +186,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("CV intake screening", "Scores each uploaded CV against the current role description",
                           "document", "Score this candidate: relevant experience, matched skills, missing skills, summary."),
+        "apps": ["meeting", "automations", "analytics", "agents", "video"],
         "analyzer": "resume",
     },
     "manufacturing": {
@@ -208,6 +213,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Quality record intake", "Summarises each uploaded inspection or NCR",
                           "document", "Extract defect, batch, root cause, corrective action and verification status."),
+        "apps": ["sql", "dashboards", "analytics", "automations", "graph"],
         "analyzer": "auto",
     },
     "education": {
@@ -233,6 +239,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Course material intake", "Builds a summary and question set from new material",
                           "document", "Summarise key concepts and draft five assessment questions with answers."),
+        "apps": ["meeting", "graph", "dashboards", "studio", "video"],
         "analyzer": "auto",
     },
     "real_estate": {
@@ -259,6 +266,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Lease intake", "Extracts key dates and obligations from each uploaded lease",
                           "document", "Extract parties, term, rent review dates, break clauses and repair obligations."),
+        "apps": ["sql", "dashboards", "meeting", "analytics", "automations"],
         "analyzer": "contract",
     },
     "retail": {
@@ -286,6 +294,7 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Supplier document intake", "Summarises terms whenever a supplier document is uploaded",
                           "document", "Extract pricing tiers, minimum order quantity, lead time, and return terms."),
+        "apps": ["sql", "dashboards", "analytics", "automations", "connectors"],
         "analyzer": "invoice",
     },
     "general": {
@@ -313,9 +322,31 @@ INDUSTRIES: dict[str, dict] = {
         ],
         "workflow": _flow("Document intake summary", "Summarises every uploaded document",
                           "document", "Summarise this document: purpose, key points, any dates or obligations."),
+        "apps": ["code", "sql", "graph", "automations", "analytics", "dashboards", "studio", "agents", "traces", "connectors", "meeting", "video"],
         "analyzer": "auto",
     },
 }
+
+
+# Apps every workspace needs regardless of field, and the order they sit in.
+# A field's own apps are inserted between these two groups.
+CORE_APPS_LEADING = ["chat", "search", "knowledge"]
+CORE_APPS_TRAILING = ["tasks", "admin", "settings"]
+
+
+def apps_for(industry_id: str | None) -> list[str]:
+    """The apps a workspace in this field should see first.
+
+    A law firm has no use for a code editor on its dock, and an IT consultancy
+    should not have to hunt for one. The full set is always still reachable —
+    this decides the default surface, not what exists.
+    """
+    profile = INDUSTRIES.get(industry_id or "", INDUSTRIES["general"])
+    field = [a for a in profile.get("apps", []) if a not in CORE_APPS_LEADING
+             and a not in CORE_APPS_TRAILING]
+    ordered = CORE_APPS_LEADING + field + CORE_APPS_TRAILING
+    seen: set[str] = set()
+    return [a for a in ordered if not (a in seen or seen.add(a))]
 
 
 def catalogue() -> list[dict]:
@@ -332,6 +363,7 @@ def catalogue() -> list[dict]:
             "prompts": p["prompts"][:3],
             "workflow": p["workflow"]["name"],
             "analyzer": p["analyzer"],
+            "apps": apps_for(key),
         }
         for key, p in INDUSTRIES.items()
     ]

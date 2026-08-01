@@ -1231,3 +1231,19 @@ export const apiGitCreateBranch = (projectId: string, name: string, from_branch 
   request<GitCommit>(`/projects/${projectId}/branches`, {
     method: "POST", body: JSON.stringify({ name, from_branch }),
   });
+
+/** Which apps this workspace's field should surface, in order. */
+export const apiWorkspaceApps = () =>
+  request<{ industry: string; apps: string[] }>("/orgs/self/apps");
+
+/** Ask the coding assistant about a file, or the selected lines. */
+export const apiCodeAssist = (
+  fileId: string,
+  action: "explain" | "fix" | "test" | "document" | "refactor",
+  selection = "",
+  question = "",
+) =>
+  request<{ action: string; path: string; answer: string; degraded?: boolean }>(
+    `/projects/files/${fileId}/assist`,
+    { method: "POST", body: JSON.stringify({ action, selection, question }) },
+  );
