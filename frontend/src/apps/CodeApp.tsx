@@ -10,7 +10,8 @@
  * allows scripts from 'self' only, so a CDN loader would be blocked.
  */
 import {
-  ChevronRight, Code2, FilePlus, FileText, History, Loader2, Plus, Save, Trash2, Users,
+  ChevronRight, Code2, FilePlus, FileText, GitBranch as GitBranchIcon, GitCommitVertical, History,
+  Loader2, Plus, Save, Trash2, Users,
 } from "lucide-react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -23,10 +24,15 @@ import { MonacoBinding } from "y-monaco";
 import * as Y from "yjs";
 import {
   apiCreateFile, apiCreateProject, apiDeleteFile, apiDeleteProject,
-  apiFileVersions, apiProjectFiles, apiProjects, apiReadFile, apiRestoreVersion, apiSaveFile,
+  apiFileVersions, apiGitBranches, apiGitCheckout, apiGitCommit, apiGitCommitDetail,
+  apiGitCreateBranch, apiGitHistory, apiGitStatus, apiGitWorkingDiff,
+  apiProjectFiles, apiProjects, apiReadFile, apiRestoreVersion, apiSaveFile,
 } from "../lib/api";
 import { useOS } from "../store";
-import type { CodeFile, CodeProject, CollabPeer, FileVersionInfo } from "../types";
+import type {
+  CodeFile, CodeProject, CollabPeer, FileVersionInfo,
+  GitBranch as GitBranchInfo, GitCommit, GitDiffFile, GitStatus,
+} from "../types";
 
 // Monaco resolves its language services through web workers. Vite bundles each
 // as a same-origin chunk, which keeps this working under the app's CSP.
@@ -54,6 +60,14 @@ export default function CodeApp() {
   const [peers, setPeers] = useState<CollabPeer[]>([]);
   const [versions, setVersions] = useState<FileVersionInfo[]>([]);
   const [showVersions, setShowVersions] = useState(false);
+  // ── source control ──
+  const [showGit, setShowGit] = useState(false);
+  const [branch, setBranch] = useState("main");
+  const [branches, setBranches] = useState<GitBranchInfo[]>([]);
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [commitMsg, setCommitMsg] = useState("");
+  const [diff, setDiff] = useState<{ title: string; files: GitDiffFile[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [err, setErr] = useState("");
@@ -221,6 +235,74 @@ export default function CodeApp() {
     } catch (e) { setErr((e as Error).message); }
   }
 
+  /* ── source control ─────────────────────────────────────────────── */
+  const refreshGit = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const [st, hist, brs] = await Promise.all([
+        apiGitStatus(projectId, branch),
+        apiGitHistory(projectId, branch),
+        apiGitBranches(projectId),
+      ]);
+      setGitStatus(st); setCommits(hist); setBranches(brs);
+    } catch (e) { setErr((e as Error).message); }
+  }, [projectId, branch]);
+
+  useEffect(() => { if (showGit) void refreshGit(); }, [showGit, refreshGit]);
+
+  async function doCommit() {
+    if (!projectId || !commitMsg.trim()) return;
+    setBusy(true); setErr("");
+    try {
+      // Commit what is on the server, so flush the editor first.
+      if (fileId && edRef.current) await apiSaveFile(fileId, edRef.current.getValue(), "before commit");
+      await apiGitCommit(projectId, commitMsg.trim(), branch);
+      setCommitMsg("");
+      await refreshGit();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  async function showWorkingDiff() {
+    if (!projectId) return;
+    try {
+      const d = await apiGitWorkingDiff(projectId, branch);
+      setDiff({ title: "Uncommitted changes", files: d.files });
+    } catch (e) { setErr((e as Error).message); }
+  }
+
+  async function showCommitDiff(cm: GitCommit) {
+    if (!projectId) return;
+    try {
+      const d = await apiGitCommitDetail(projectId, cm.id);
+      setDiff({ title: `${cm.short} · ${cm.message}`, files: d.diff });
+    } catch (e) { setErr((e as Error).message); }
+  }
+
+  async function restoreCommit(cm: GitCommit) {
+    if (!projectId) return;
+    if (!window.confirm(`Restore every file to ${cm.short}? Uncommitted work is auto-saved to a rescue branch first.`)) return;
+    setBusy(true);
+    try {
+      const r = await apiGitCheckout(projectId, cm.id);
+      const fresh = await apiProjectFiles(projectId);
+      setFiles(fresh);
+      setFileId(fresh[0]?.id ?? null);
+      await refreshGit();
+      if (r.rescued_to) setErr(`Restored. Your uncommitted work was saved to branch "${r.rescued_to}".`);
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  async function newBranch() {
+    if (!projectId) return;
+    const name = window.prompt("New branch name", "feature-1");
+    if (!name?.trim()) return;
+    try {
+      await apiGitCreateBranch(projectId, name.trim(), branch);
+      setBranch(name.trim());
+      await refreshGit();
+    } catch (e) { setErr((e as Error).message); }
+  }
+
   async function openVersions() {
     if (!fileId) return;
     setShowVersions(true);
@@ -322,6 +404,14 @@ export default function CodeApp() {
               {peers.length > 4 && <span className="faint">+{peers.length - 4}</span>}
             </span>
           )}
+          <button className={`btn sm ${showGit ? "primary" : ""}`}
+                  onClick={() => { setShowGit((v) => !v); setDiff(null); }}
+                  disabled={!projectId} title="Source control">
+            <GitBranchIcon size={12} /> Git
+            {gitStatus && !gitStatus.clean && (
+              <span style={{ marginLeft: 4, color: "var(--warn, #f59e0b)" }}>●</span>
+            )}
+          </button>
           <button className="btn sm" onClick={openVersions} disabled={!fileId}>
             <History size={12} /> History
           </button>
@@ -343,6 +433,129 @@ export default function CodeApp() {
           </div>
         )}
       </div>
+
+      {/* source control */}
+      {showGit && (
+        <div style={{ width: 300, borderLeft: "1px solid var(--line)", display: "flex",
+                      flexDirection: "column", minHeight: 0 }}>
+          <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+            <GitBranchIcon size={13} aria-hidden />
+            <b style={{ fontSize: 12, flex: 1 }}>Source Control</b>
+            <button className="btn sm ghost" onClick={() => setShowGit(false)} aria-label="Close source control">✕</button>
+          </div>
+
+          {/* branch */}
+          <div style={{ display: "flex", gap: 5, padding: "0 10px 8px" }}>
+            <select className="input sm" value={branch} style={{ flex: 1, fontSize: 11.5 }}
+                    onChange={(e) => setBranch(e.target.value)} aria-label="Branch">
+              {branches.map((b) => (
+                <option key={b.name} value={b.name}>{b.name} ({b.commits})</option>
+              ))}
+            </select>
+            <button className="btn sm" onClick={newBranch} title="New branch">
+              <Plus size={11} />
+            </button>
+          </div>
+
+          {/* changes + commit */}
+          <div style={{ padding: "0 10px 8px", borderBottom: "1px solid var(--line)" }}>
+            {gitStatus?.clean ? (
+              <div className="faint" style={{ fontSize: 11.5, padding: "4px 0 8px" }}>
+                No changes — the working tree matches {gitStatus.head ? gitStatus.head.slice(0, 8) : "the branch"}.
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 0 6px" }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 600 }}>Changes</span>
+                  <button className="btn sm ghost" style={{ fontSize: 10.5 }} onClick={showWorkingDiff}>
+                    view diff
+                  </button>
+                </div>
+                {(["added", "modified", "removed"] as const).map((k) =>
+                  (gitStatus?.[k] ?? []).map((path) => (
+                    <div key={k + path} style={{ display: "flex", gap: 6, fontSize: 11, padding: "1px 0" }}>
+                      <span style={{ width: 12, fontWeight: 700,
+                        color: k === "added" ? "#34d399" : k === "removed" ? "#f87171" : "#fbbf24" }}>
+                        {k === "added" ? "A" : k === "removed" ? "D" : "M"}
+                      </span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{path}</span>
+                    </div>
+                  )))}
+                <input className="input sm" style={{ width: "100%", marginTop: 7, fontSize: 11.5 }}
+                       placeholder="Commit message" value={commitMsg}
+                       onChange={(e) => setCommitMsg(e.target.value)}
+                       onKeyDown={(e) => { if (e.key === "Enter") void doCommit(); }}
+                       aria-label="Commit message" />
+                <button className="btn sm primary" style={{ width: "100%", marginTop: 5, justifyContent: "center" }}
+                        onClick={doCommit} disabled={busy || !commitMsg.trim()}>
+                  {busy ? <Loader2 size={11} className="spin" /> : <GitCommitVertical size={11} />} Commit
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* history */}
+          <div style={{ overflowY: "auto", padding: "8px 10px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 5 }}>History</div>
+            {commits.length === 0 && (
+              <div className="faint" style={{ fontSize: 11 }}>No commits on this branch yet.</div>
+            )}
+            {commits.map((cm) => (
+              <div key={cm.id} className="card" style={{ padding: 7, marginBottom: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <code style={{ fontSize: 10, color: "var(--accent)" }}>{cm.short}</code>
+                  <span style={{ fontSize: 11, flex: 1, overflow: "hidden",
+                                 textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cm.message}</span>
+                </div>
+                <div className="faint" style={{ fontSize: 9.5, marginTop: 2 }}>
+                  {cm.author_name} · {new Date(cm.created_at).toLocaleString()} · {cm.file_count} files
+                </div>
+                <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                  <button className="btn sm ghost" style={{ fontSize: 10 }}
+                          onClick={() => showCommitDiff(cm)}>diff</button>
+                  <button className="btn sm ghost" style={{ fontSize: 10 }}
+                          onClick={() => restoreCommit(cm)}>restore</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* diff viewer */}
+      {diff && (
+        <div style={{ position: "absolute", inset: 0, background: "var(--bg)", zIndex: 5,
+                      display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
+                        borderBottom: "1px solid var(--line)" }}>
+            <b style={{ fontSize: 12 }}>{diff.title}</b>
+            <div style={{ flex: 1 }} />
+            <button className="btn sm" onClick={() => setDiff(null)}>Close</button>
+          </div>
+          <div style={{ overflow: "auto", padding: 10, fontFamily: "monospace", fontSize: 11.5 }}>
+            {diff.files.length === 0 && <div className="faint">No differences.</div>}
+            {diff.files.map((f) => (
+              <div key={f.path} style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  {f.path} <span className="faint" style={{ fontWeight: 400 }}>({f.change})</span>
+                </div>
+                {f.patch.split("\n").map((line, i) => {
+                  const add = line.startsWith("+") && !line.startsWith("+++");
+                  const del = line.startsWith("-") && !line.startsWith("---");
+                  const hunk = line.startsWith("@@");
+                  return (
+                    <div key={i} style={{
+                      whiteSpace: "pre-wrap", padding: "0 4px",
+                      background: add ? "rgba(52,211,153,.14)" : del ? "rgba(248,113,113,.14)" : undefined,
+                      color: hunk ? "var(--accent)" : undefined,
+                    }}>{line || " "}</div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* version history */}
       {showVersions && (

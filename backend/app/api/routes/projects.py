@@ -15,8 +15,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.models import FileVersion, Project, ProjectFile, User
-from app.services import audit
+from app.models import Commit, FileVersion, Project, ProjectFile, User
+from app.services import audit, vcs
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -283,3 +283,107 @@ def _trim_versions(db: Session, file_id: str) -> None:
         db.delete(v)
     if stale:
         db.commit()
+
+
+# ── version control ──────────────────────────────────────────────────────
+class CommitIn(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+    branch: str = Field(default="main", min_length=1, max_length=80)
+
+
+class BranchIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    from_branch: str = Field(default="main", max_length=80)
+
+
+def _commit_out(c) -> dict:
+    return {"id": c.id, "short": c.id[:8], "branch": c.branch, "message": c.message,
+            "author_name": c.author_name, "parent_id": c.parent_id,
+            "file_count": c.file_count, "created_at": c.created_at.isoformat()}
+
+
+@router.get("/{project_id}/status")
+def vcs_status(project_id: str, branch: str = Query("main"),
+               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What has changed since the last commit."""
+    _get_project(db, project_id)
+    return vcs.status(db, project_id, branch)
+
+
+@router.post("/{project_id}/commits", status_code=201)
+def vcs_commit(project_id: str, body: CommitIn, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user)):
+    project = _get_project(db, project_id)
+    made = vcs.commit(db, project, user, body.message, body.branch)
+    if made is None:
+        raise HTTPException(409, "Nothing to commit — no files have changed.")
+    audit.log(db, "project.commit", user.id, f"{project.name}: {body.message[:80]}")
+    return _commit_out(made)
+
+
+@router.get("/{project_id}/commits")
+def vcs_history(project_id: str, branch: str | None = Query(None),
+                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_project(db, project_id)
+    return [_commit_out(c) for c in vcs.history(db, project_id, branch)]
+
+
+@router.get("/{project_id}/commits/{commit_id}")
+def vcs_commit_detail(project_id: str, commit_id: str, db: Session = Depends(get_db),
+                      user: User = Depends(get_current_user)):
+    """A commit plus the diff it introduced."""
+    _get_project(db, project_id)
+    c = db.get(Commit, commit_id)
+    if c is None or c.project_id != project_id:
+        raise HTTPException(404, "Commit not found")
+    return {**_commit_out(c), "diff": vcs.diff(db, project_id, c)}
+
+
+@router.get("/{project_id}/diff")
+def vcs_diff(project_id: str, base: str | None = Query(None), head: str | None = Query(None),
+             branch: str = Query("main"), db: Session = Depends(get_db),
+             user: User = Depends(get_current_user)):
+    """Diff two commits, or (with neither) the uncommitted working changes."""
+    _get_project(db, project_id)
+    if head is None:
+        return {"kind": "working", "files": vcs.diff_working(db, project_id, branch)}
+    to_c = db.get(Commit, head)
+    if to_c is None or to_c.project_id != project_id:
+        raise HTTPException(404, "Commit not found")
+    from_c = None
+    if base:
+        from_c = db.get(Commit, base)
+        if from_c is None or from_c.project_id != project_id:
+            raise HTTPException(404, "Base commit not found")
+    return {"kind": "commit", "files": vcs.diff(db, project_id, to_c, from_c)}
+
+
+@router.post("/{project_id}/checkout/{commit_id}")
+def vcs_checkout(project_id: str, commit_id: str, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """Restore the working files to a commit. Uncommitted work is auto-saved
+    to a rescue branch first, never discarded."""
+    project = _get_project(db, project_id)
+    c = db.get(Commit, commit_id)
+    if c is None or c.project_id != project_id:
+        raise HTTPException(404, "Commit not found")
+    result = vcs.checkout(db, project, c, user)
+    audit.log(db, "project.checkout", user.id, f"{project.name} → {commit_id[:8]}")
+    return result
+
+
+@router.get("/{project_id}/branches")
+def vcs_branches(project_id: str, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    _get_project(db, project_id)
+    return vcs.branches(db, project_id)
+
+
+@router.post("/{project_id}/branches", status_code=201)
+def vcs_create_branch(project_id: str, body: BranchIn, db: Session = Depends(get_db),
+                      user: User = Depends(get_current_user)):
+    project = _get_project(db, project_id)
+    made = vcs.create_branch(db, project, user, body.name, body.from_branch)
+    if made is None:
+        raise HTTPException(409, f"'{body.from_branch}' has no commits to branch from.")
+    return _commit_out(made)

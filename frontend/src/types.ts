@@ -221,3 +221,38 @@ export interface TraceInfo {
   span_count?: number;
   spans?: TraceSpan[];
 }
+
+// ── Version control ───────────────────────────────────────────────────
+export interface GitCommit {
+  id: string;
+  short: string;
+  branch: string;
+  message: string;
+  author_name: string;
+  parent_id: string | null;
+  file_count: number;
+  created_at: string;
+}
+
+export interface GitStatus {
+  branch: string;
+  head: string | null;
+  added: string[];
+  modified: string[];
+  removed: string[];
+  clean: boolean;
+}
+
+export interface GitDiffFile {
+  path: string;
+  change: "added" | "modified" | "removed";
+  patch: string;
+  additions?: number;
+  deletions?: number;
+}
+
+export interface GitBranch {
+  name: string;
+  commits: number;
+  updated_at: string | null;
+}

@@ -37,6 +37,7 @@ TENANT_TABLES = {
     "workflows", "workflow_runs", "data_tables", "graph_checkpoints",
     "custom_agents", "connectors", "saved_charts", "tasks", "usage_events",
     "projects", "project_files", "file_versions",
+    "blobs", "commits", "commit_files",
 }
 
 
@@ -50,6 +51,8 @@ def tenant_tables() -> set[str]:
     except Exception:  # noqa: BLE001 — fall back to the explicit set
         derived = set()
     return TENANT_TABLES | derived
+
+
 SENSITIVE_DENY = {"organizations"}  # the tenant registry itself — never exposed
 # Tokens that may legally follow a table name (i.e. NOT an alias). Anything
 # else after a table (an alias, or a comma-join) means we can't safely inject

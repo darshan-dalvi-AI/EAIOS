@@ -392,6 +392,12 @@ class Project(TenantMixin, Base):
 
     files: Mapped[list["ProjectFile"]] = relationship(
         back_populates="project", cascade="all, delete-orphan")
+    # Deleting a project takes its history with it. Declared on the ORM as well
+    # as the column's ON DELETE CASCADE for the reason given on ProjectFile:
+    # SQLite does not enforce foreign keys by default, so the database-level
+    # cascade alone would silently orphan every commit on a local run.
+    commits: Mapped[list["Commit"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectFile(TenantMixin, Base):
@@ -443,6 +449,70 @@ class FileVersion(TenantMixin, Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
     file: Mapped[ProjectFile] = relationship(back_populates="versions")
+
+
+# ── Version control for code projects ───────────────────────────────────
+# Git's own design, minus the filesystem: content-addressed blobs, commits that
+# point at a set of (path → blob) entries, and a parent chain per branch.
+#
+# Storing history in the database rather than as .git directories on disk is a
+# deliberate choice for this deployment: the container's filesystem is
+# ephemeral (a redeploy wipes it) and may be one of several instances, so an
+# on-disk repository would be lost on release and invisible to the other
+# instances. Postgres is the only durable, shared thing here.
+class Blob(TenantMixin, Base):
+    """One version of a file's contents, addressed by its own SHA-256.
+
+    Deduplicated: committing ten times while editing one file of a twenty-file
+    project stores one new blob, not twenty — the unchanged files already have
+    a blob with that hash and are simply referenced again."""
+
+    __tablename__ = "blobs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)   # sha256 hex
+    content: Mapped[str] = mapped_column(Text, default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class Commit(TenantMixin, Base):
+    """A snapshot of an entire project at a moment, with a message and an
+    author, linked to the commit it came from."""
+
+    __tablename__ = "commits"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    branch: Mapped[str] = mapped_column(String(80), default="main", index=True)
+    message: Mapped[str] = mapped_column(String(500), default="")
+    author_id: Mapped[str | None] = mapped_column(String(32), default=None)
+    author_name: Mapped[str] = mapped_column(String(120), default="")
+    # Nullable for the first commit on a branch — it has no ancestor.
+    parent_id: Mapped[str | None] = mapped_column(String(32), default=None, index=True)
+    file_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+    project: Mapped[Project] = relationship(back_populates="commits")
+    entries: Mapped[list["CommitFile"]] = relationship(
+        back_populates="commit", cascade="all, delete-orphan")
+
+
+class CommitFile(TenantMixin, Base):
+    """One path inside one commit, pointing at the blob holding its contents."""
+
+    __tablename__ = "commit_files"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    commit_id: Mapped[str] = mapped_column(
+        ForeignKey("commits.id", ondelete="CASCADE"), index=True)
+    path: Mapped[str] = mapped_column(String(300))
+    # Not a ForeignKey: blobs are shared across commits and deliberately
+    # outlive any single one, so a commit's deletion must not cascade into them.
+    blob_id: Mapped[str] = mapped_column(String(64), index=True)
+    language: Mapped[str] = mapped_column(String(30), default="plaintext")
+
+    commit: Mapped[Commit] = relationship(back_populates="entries")
 
 
 class Task(TenantMixin, Base):

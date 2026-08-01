@@ -1198,3 +1198,36 @@ export const apiFileVersions = (fileId: string) =>
 
 export const apiRestoreVersion = (fileId: string, versionId: string) =>
   request<CodeFile>(`/projects/files/${fileId}/restore/${versionId}`, { method: "POST" });
+
+// ── Version control ───────────────────────────────────────────────────
+import type { GitBranch, GitCommit, GitDiffFile, GitStatus } from "../types";
+
+export const apiGitStatus = (projectId: string, branch = "main") =>
+  request<GitStatus>(`/projects/${projectId}/status?branch=${encodeURIComponent(branch)}`);
+
+export const apiGitCommit = (projectId: string, message: string, branch = "main") =>
+  request<GitCommit>(`/projects/${projectId}/commits`, {
+    method: "POST", body: JSON.stringify({ message, branch }),
+  });
+
+export const apiGitHistory = (projectId: string, branch?: string) =>
+  request<GitCommit[]>(`/projects/${projectId}/commits${branch ? `?branch=${encodeURIComponent(branch)}` : ""}`);
+
+export const apiGitCommitDetail = (projectId: string, commitId: string) =>
+  request<GitCommit & { diff: GitDiffFile[] }>(`/projects/${projectId}/commits/${commitId}`);
+
+export const apiGitWorkingDiff = (projectId: string, branch = "main") =>
+  request<{ kind: string; files: GitDiffFile[] }>(
+    `/projects/${projectId}/diff?branch=${encodeURIComponent(branch)}`);
+
+export const apiGitCheckout = (projectId: string, commitId: string) =>
+  request<{ restored: string; files: number; rescued_to: string | null }>(
+    `/projects/${projectId}/checkout/${commitId}`, { method: "POST" });
+
+export const apiGitBranches = (projectId: string) =>
+  request<GitBranch[]>(`/projects/${projectId}/branches`);
+
+export const apiGitCreateBranch = (projectId: string, name: string, from_branch = "main") =>
+  request<GitCommit>(`/projects/${projectId}/branches`, {
+    method: "POST", body: JSON.stringify({ name, from_branch }),
+  });
