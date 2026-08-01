@@ -1,4 +1,4 @@
-"""EAIOS as an MCP server — expose the platform to any MCP client
+"""K-OS as an MCP server — expose the platform to any MCP client
 (Claude Desktop, Cursor, custom agents) as a set of tools.
 
     pip install mcp
@@ -7,7 +7,7 @@
 Claude Desktop config (claude_desktop_config.json):
     {
       "mcpServers": {
-        "eaios": {
+        "k-os": {
           "command": "python",
           "args": ["-m", "app.mcp_server"],
           "cwd": "<repo>/backend"
@@ -15,7 +15,7 @@ Claude Desktop config (claude_desktop_config.json):
       }
     }
 
-Tools operate directly on the local EAIOS database (same engine the web UI
+Tools operate directly on the local K-OS database (same engine the web UI
 uses), acting as the bootstrap admin user.
 """
 import json
@@ -31,8 +31,8 @@ from app.core.database import SessionLocal, init_db
 from app.models import User
 
 mcp = FastMCP(
-    "eaios",
-    instructions="Enterprise AI Operating System — grounded answers over the "
+    "k-os",
+    instructions="Knowledge Operating System — grounded answers over the "
                  "indexed company knowledge base, multi-agent execution, and "
                  "knowledge-graph queries.",
 )
@@ -99,7 +99,7 @@ def query_knowledge_graph(entity_a: str, entity_b: str) -> str:
 
 @mcp.tool()
 def list_agents() -> str:
-    """List the EAIOS agent fleet with capabilities."""
+    """List the K-OS agent fleet with capabilities."""
     from app.agents import registry
 
     return "\n".join(f"- {a.id}: {a.name} — {a.description}" for a in registry.all_agents())

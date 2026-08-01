@@ -4,7 +4,7 @@ from app.llm.provider import safe_complete
 from app.rag.retrieval import hybrid_search
 
 SYSTEM = (
-    "You are the EMAIL Agent of EAIOS. Draft a clear, professional business email for the user's request. "
+    "You are the EMAIL Agent of K-OS. Draft a clear, professional business email for the user's request. "
     "Use any provided CONTEXT for factual details. Include a subject line."
 )
 

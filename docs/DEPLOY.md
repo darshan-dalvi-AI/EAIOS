@@ -1,4 +1,4 @@
-# Deploying EAIOS live
+# Deploying K-OS live
 
 The repo ships a single-container web build (`Dockerfile.web`): the React OS
 shell, FastAPI API, and WebSocket all served from **one process, one port,
@@ -13,7 +13,7 @@ Prereqs: repo published on GitHub (GitHub Desktop → Publish repository).
    API Keys → Create. Copy the `gsk_…` key. (Skip this and the site runs on
    the deterministic mock LLM — still fully demoable.)
 2. **Create the service** — https://render.com → sign in with GitHub →
-   **New → Blueprint** → select your EAIOS repo → Render reads `render.yaml`
+   **New → Blueprint** → select your K-OS repo → Render reads `render.yaml`
    → **Apply**. First build takes ~5–8 min (npm build + pip install).
 3. **Add the key** — service → **Environment** → `OPENAI_API_KEY` → paste the
    Groq key → Save (triggers a quick restart).
@@ -60,7 +60,7 @@ The named volume keeps SQLite + uploads across restarts.
 
 `deploy/helm/eaios` — HPA, Qdrant StatefulSet, TLS ingress, nightly backups:
 ```bash
-helm upgrade --install eaios deploy/helm/eaios -n eaios --create-namespace \
+helm upgrade --install k-os deploy/helm/eaios -n k-os --create-namespace \
   --set ingress.host=eaios.yourdomain.com
 ```
 CI can do this for you: push to GitHub → Actions → **CI → Run workflow**
@@ -70,7 +70,7 @@ CI can do this for you: push to GitHub → Actions → **CI → Run workflow**
 
 - **Health shows `mock`** → `OPENAI_API_KEY` missing/typo'd, or
   `LLM_PROVIDER` isn't `auto`/`openai`.
-- **Groq 429s** → free tier is ~30 req/min; EAIOS degrades to mock per-call
+- **Groq 429s** → free tier is ~30 req/min; K-OS degrades to mock per-call
   (`safe_complete`) instead of erroring, so demos never break.
 - **First request after idle is slow** → free-tier cold start; open the URL
   a minute before presenting.
@@ -117,7 +117,7 @@ Access tokens expire in ~1 hour — fine for a live demo. For a production
 consent flow, register an OAuth client in Google Cloud Console (APIs &
 Services → Credentials), add your deployed URL to the authorized redirect
 URIs, request the read-only scopes, and store the refresh token server-side.
-EAIOS never stores the token: it's used only for the single sync request.
+K-OS never stores the token: it's used only for the single sync request.
 
 
 ## Persistent file storage (Supabase Storage)
@@ -174,7 +174,7 @@ cosmetic.
 
 Supabase auto-publishes **every table in the `public` schema** through its
 PostgREST API, reachable with the project's anon key — so a fresh project
-raises a CRITICAL *RLS Disabled in Public* advisory per table. EAIOS never uses
+raises a CRITICAL *RLS Disabled in Public* advisory per table. K-OS never uses
 that API (the backend talks to Postgres directly over SQLAlchemy), so the fix
 is to **close the REST surface**, not to write policies for it:
 
@@ -222,7 +222,7 @@ Set these in **Render → Environment**, then redeploy:
 
 ```
 RESEND_API_KEY=re_...              # resend.com, free tier is plenty
-MAIL_FROM=EAIOS <noreply@yourdomain.com>
+MAIL_FROM=K-OS <noreply@yourdomain.com>
 ```
 
 or SMTP instead: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`.

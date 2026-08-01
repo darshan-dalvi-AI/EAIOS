@@ -1,6 +1,6 @@
 apiVersion: v2
-name: eaios
-description: Enterprise AI Operating System — FastAPI multi-agent RAG backend, React OS-shell frontend, Qdrant vector store
+name: k-os
+description: Knowledge Operating System — FastAPI multi-agent RAG backend, React OS-shell frontend, Qdrant vector store
 type: application
 version: 0.2.0
 appVersion: "0.1.0"

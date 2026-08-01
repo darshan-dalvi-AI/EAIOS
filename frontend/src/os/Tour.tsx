@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 const STEPS = [
-  { target: "", title: "Welcome to EAIOS 👋", text: "Your enterprise AI operating system. This 30-second tour shows you around — you can skip any time." },
+  { target: "", title: "Welcome to K-OS 👋", text: "Your knowledge operating system. This 30-second tour shows you around — you can skip any time." },
   { target: '[aria-label="Open AI Chat"]', title: "The dock", text: "Every app lives here — Chat, Knowledge, Search, Dashboards, Video calls and more. Click an icon to open it as a window." },
   { target: ".window .app-toolbar", title: "AI Chat", text: "Ask anything about your company knowledge. Answers come back with citations, a confidence score, and the plan of AI agents that ran." },
   { target: "#agent-select", title: "Route picker", text: "Let the planner choose an agent automatically — or route a question to a specific one, including agents you build in Agent Studio." },

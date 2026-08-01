@@ -1,5 +1,7 @@
-# EAIOS — Enterprise AI Operating System
+# K-OS — A Knowledge Operating System for the Enterprise
 
+<!-- Repo path stays /EAIOS until the GitHub repository itself is renamed;
+     changing it here first only produces a broken badge. -->
 ![CI](https://github.com/darshan-dalvi-AI/EAIOS/actions/workflows/ci.yml/badge.svg)
 
 **A hybrid multimodal RAG, multi-agent AI platform for enterprise knowledge — presented as a literal operating system in the browser.**
@@ -12,7 +14,7 @@ Boot screen → login → desktop with a taskbar, draggable windows, and a Ctrl+
 
 ## Why it's different
 
-Most "enterprise chatbot" projects are a chat box over an API call. EAIOS is:
+Most "enterprise chatbot" projects are a chat box over an API call. K-OS is:
 
 - **An OS metaphor UI** — window manager, dock with magnification, boot sequence, command palette, faux shell. No enterprise tool ships like this; it demos unforgettably.
 - **Genuinely grounded RAG** — hybrid retrieval (dense vectors + BM25, fused with Reciprocal Rank Fusion), citation chips with relevance meters, per-answer confidence scores.
@@ -26,7 +28,7 @@ Most "enterprise chatbot" projects are a chat box over an API call. EAIOS is:
 - **Visual automations** — drag-and-drop workflow canvas (trigger → agents → conditions → notify) executed by the same agent runtime, with live-streamed runs; fires automatically on document upload.
 - **Realtime presence** — WebSocket hub pushes who's online + live agent activity to every window.
 - **Real collaborative editing, not a shared textarea** — the Code app holds the file as a Yjs CRDT, so several people can type in the same file at once and every browser converges to identical text regardless of the order updates arrive in. The server relays binary updates and never merges anything. On top of it: content-addressed version control (commits, branches, diffs, restore), an AI assistant scoped to your selection, and a Run button.
-- **Code execution that cannot touch the server** — Python and JavaScript run in a frame sandboxed to an *opaque origin*: no cookies, no storage, no parent DOM, and CORS rejects any call to the EAIOS API. That isolation is the point, because in a shared editor the code you press Run on may have been typed by a colleague. Python is CPython on WebAssembly, so `import numpy` works; runaway programs are killed by a timeout rather than freezing the tab.
+- **Code execution that cannot touch the server** — Python and JavaScript run in a frame sandboxed to an *opaque origin*: no cookies, no storage, no parent DOM, and CORS rejects any call to the K-OS API. That isolation is the point, because in a shared editor the code you press Run on may have been typed by a colleague. Python is CPython on WebAssembly, so `import numpy` works; runaway programs are killed by a timeout rather than freezing the tab.
 
 ## Quickstart
 
@@ -174,11 +176,11 @@ docs/          architecture · API reference · roadmap · demo script · deploy
 | **Global search hub** — one query across docs, passages, entities, tables & chats (17th app) | ✅ implemented (`apps/SearchApp.tsx`, `/search`) |
 | **Compliance pack** — GDPR export / erase-my-data + `RETENTION_DAYS` auto-purge | ✅ implemented (`routes/me.py`) |
 | **Live RAG eval card** — hit-rate@3 + MRR run live in Analytics | ✅ implemented (`/analytics/rag-eval`) |
-| **"Hey EAIOS" wake word** — hands-free open-the-assistant (Settings toggle) | ✅ implemented (`os/WakeWord.tsx`) |
+| **"Hey K-OS" wake word** — hands-free open-the-assistant (Settings toggle) | ✅ implemented (`os/WakeWord.tsx`) |
 | **Supabase Storage** for uploads — files mirrored to cloud object storage, survive redeploys (local-disk fallback, zero-config dev) | ✅ implemented (`core/storage.py`) |
 | **Confidential Computing (TEE) design** — threat model + AMD SEV-SNP attestation architecture for data-in-use protection | 📋 design doc ([docs/CONFIDENTIAL_COMPUTING.md](docs/CONFIDENTIAL_COMPUTING.md)) |
 | **HR role** — people-ops console: hire/manage staff (managers/employees), scoped RBAC (no model keys / can't touch admins) | ✅ implemented (`require_admin_or_hr`) |
-| **Installable app (PWA)** — one-click 'Download app' installs EAIOS as a standalone app on Windows/Mac/Android (PNG icons, manifest, offline shell) | ✅ implemented (`lib/pwa.ts`, `InstallButton`) |
+| **Installable app (PWA)** — one-click 'Download app' installs K-OS as a standalone app on Windows/Mac/Android (PNG icons, manifest, offline shell) | ✅ implemented (`lib/pwa.ts`, `InstallButton`) |
 | **Code app** — Monaco editor, file tree, tabs, syntax highlighting (19th app) | ✅ implemented (`apps/CodeApp.tsx`, `routes/projects.py`) |
 | **Upload files / open a folder** — folder picker + drag-and-drop; a folder becomes its own project with paths preserved. Dependencies, build output, lockfiles and binaries are filtered out (client-side to stay responsive, server-side to actually hold), and every skip is reported with a reason | ✅ implemented (`lib/importFiles.ts`, `POST /projects/import`) |
 | **CRDT collaborative editing** — several people in one file at once (Yjs over a WS relay; server never merges) | ✅ implemented (`core/collab.py`, `y-monaco`) — proven by a 5-concurrent-editor test |

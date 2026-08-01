@@ -17,7 +17,7 @@ _MEDIA = {
 
 
 class ExportIn(BaseModel):
-    title: str = Field(default="EAIOS Report", max_length=140)
+    title: str = Field(default="K-OS Report", max_length=140)
     content: str = Field(min_length=1, max_length=200_000)  # markdown (an agent answer)
     format: str = Field(default="pdf", pattern="^(pdf|docx|md)$")
 

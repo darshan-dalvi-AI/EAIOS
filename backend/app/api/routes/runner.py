@@ -1,6 +1,6 @@
 """The code runner sandbox — a document whose only job is to be untrusted.
 
-EAIOS does not execute user code on the server. Running arbitrary code on a
+K-OS does not execute user code on the server. Running arbitrary code on a
 shared container is remote code execution by another name, and no amount of
 process trickery makes that safe on a free-tier box. So execution happens in
 the browser, and this endpoint serves the page it happens inside.
@@ -12,7 +12,7 @@ cookies and A's ability to call the API as A. That is a stored XSS with extra
 steps. This document is framed with ``sandbox="allow-scripts"`` and
 deliberately *without* ``allow-same-origin``, which gives it an **opaque
 origin**: no cookies, no localStorage, no reach into the parent DOM, and every
-request to the EAIOS API is cross-origin from ``null`` and rejected by CORS.
+request to the K-OS API is cross-origin from ``null`` and rejected by CORS.
 
 **Why the CSP below has no ``'self'``.** In an opaque origin ``'self'`` matches
 nothing, so it is not merely omitted — it *cannot* be granted. The sandbox is
@@ -61,7 +61,7 @@ SANDBOX_CSP = "; ".join([
     "img-src data: blob:",
     "form-action 'none'",
     "base-uri 'none'",
-    "frame-ancestors 'self'",           # only EAIOS may embed this
+    "frame-ancestors 'self'",           # only K-OS may embed this
 ])
 
 # ── the worker: where the code actually runs ──────────────────────────────
@@ -253,7 +253,7 @@ self.onunhandledrejection = function (e) {
 # ── the sandbox document: supervisor for the worker ───────────────────────
 _RUNNER_HTML = r"""<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>EAIOS code runner</title></head>
+<head><meta charset="utf-8"><title>K-OS code runner</title></head>
 <body>
 <script>
 (function () {
@@ -396,7 +396,7 @@ def code_runner() -> HTMLResponse:
             "Content-Security-Policy": SANDBOX_CSP,
             # The app's default is DENY, which would stop it framing its own
             # sandbox. SAMEORIGIN plus frame-ancestors 'self' is the pair that
-            # lets EAIOS embed this and nobody else.
+            # lets K-OS embed this and nobody else.
             "X-Frame-Options": "SAMEORIGIN",
             "Cache-Control": "public, max-age=600",
             "X-Robots-Tag": "noindex",

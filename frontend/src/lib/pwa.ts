@@ -1,4 +1,4 @@
-/* PWA install support — lets users install EAIOS as a standalone app on
+/* PWA install support — lets users install K-OS as a standalone app on
    Windows, macOS and Android straight from the browser (no store needed).
    Chromium fires `beforeinstallprompt`; we defer it and trigger it from our
    own "Download app" button. iOS Safari has no prompt API, so we show manual

@@ -16,7 +16,7 @@ from app.models import (
 
 log = logging.getLogger("eaios.tenancy")
 
-DEFAULT_SLUG = "eaios"
+DEFAULT_SLUG = "k-os"
 
 # Children before parents — deleting a workspace must not trip a foreign key.
 # (Every one of these carries org_id, so each is a single scoped DELETE.)
@@ -38,7 +38,7 @@ def default_org(db: Session) -> Organization:
     so the platform works out of the box before anyone signs up a company."""
     org = db.scalar(select(Organization).where(Organization.slug == DEFAULT_SLUG))
     if org is None:
-        org = Organization(name="EAIOS Demo Workspace", slug=DEFAULT_SLUG,
+        org = Organization(name="K-OS Demo Workspace", slug=DEFAULT_SLUG,
                            plan=settings.DEFAULT_PLAN)
         db.add(org)
         db.commit()

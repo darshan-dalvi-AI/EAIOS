@@ -33,7 +33,7 @@ def test_pdf_renderer_produces_readable_pdf():
     text = "".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(data)).pages)
     assert "Quarterly Report" in text
     assert "Enterprise up 34%" in text
-    assert "EAIOS" in text  # footer
+    assert "K-OS" in text  # footer
 
 
 def test_docx_renderer_roundtrips():
@@ -119,11 +119,11 @@ def test_compare_is_admin_only_and_returns_two_results():
         emp = _headers(c, "arena@test.dev", "password123")
 
         r = c.post("/api/admin/compare", headers=emp,
-                   json={"prompt": "What is EAIOS?", "models": ["a/x", "b/y"]})
+                   json={"prompt": "What is K-OS?", "models": ["a/x", "b/y"]})
         assert r.status_code == 403
 
         r = c.post("/api/admin/compare", headers=admin,
-                   json={"prompt": "What is EAIOS?", "models": ["openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct"]})
+                   json={"prompt": "What is K-OS?", "models": ["openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct"]})
         assert r.status_code == 200
         results = r.json()["results"]
         assert len(results) == 2

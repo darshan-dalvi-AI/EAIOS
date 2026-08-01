@@ -634,7 +634,7 @@ def assist(file_id: str, body: AssistIn, db: Session = Depends(get_db),
     # contracts and policies only injects noise. (Observed: "explain this
     # function" came back quoting a liability clause.)
     system = (
-        "You are the coding assistant inside EAIOS, working in a developer's editor. "
+        "You are the coding assistant inside K-OS, working in a developer's editor. "
         "Answer only about the code you are given. Be precise and brief. When you "
         "return code, put it in a single fenced block with the correct language tag. "
         "Never invent APIs or behaviour the code does not show."

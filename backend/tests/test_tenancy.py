@@ -144,4 +144,4 @@ def test_demo_login_still_works_in_default_org():
     with client() as c:
         r = c.post("/api/auth/login", json={"email": "admin@eaios.dev", "password": "admin12345"})
         assert r.status_code == 200
-        assert r.json()["org"]["slug"] == "eaios"
+        assert r.json()["org"]["slug"] == "k-os"

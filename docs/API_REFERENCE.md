@@ -1,4 +1,4 @@
-# EAIOS API Reference
+# K-OS API Reference
 
 Base URL: `/api` · Auth: `Authorization: Bearer <jwt>` (from login) · Interactive docs: `http://localhost:8000/docs`
 

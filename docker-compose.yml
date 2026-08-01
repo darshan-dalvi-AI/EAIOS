@@ -4,13 +4,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: eaios
+      POSTGRES_USER: k-os
       POSTGRES_PASSWORD: eaios_dev_password
-      POSTGRES_DB: eaios
+      POSTGRES_DB: k-os
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U eaios"]
+      test: ["CMD-SHELL", "pg_isready -U k-os"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -28,7 +28,7 @@ services:
     build: ./backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg2://eaios:eaios_dev_password@postgres:5432/eaios
+      DATABASE_URL: postgresql+psycopg2://k-os:eaios_dev_password@postgres:5432/k-os
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
     ports: ["8000:8000"]

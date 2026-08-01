@@ -1,10 +1,10 @@
-/* "Hey EAIOS" wake word — optional (Settings → toggle). Listens continuously
+/* "Hey K-OS" wake word — optional (Settings → toggle). Listens continuously
    with the Web Speech API; on the phrase, chimes, opens Chat and starts
    voice input via the chat draft. */
 import { useEffect, useRef } from "react";
 import { useOS } from "../store";
 
-const PHRASES = ["hey eaios", "hey e aios", "hey ai os", "hey a os", "hey ayos", "hey eos"];
+const PHRASES = ["hey k-os", "hey e aios", "hey ai os", "hey a os", "hey ayos", "hey eos"];
 
 export default function WakeWord() {
   const open = useOS((s) => s.open);
@@ -32,7 +32,7 @@ export default function WakeWord() {
             o.start(); o.stop(ctx.currentTime + 0.18);
           } catch { /* no audio */ }
           open("chat");
-          pushFeed({ agent: "voice", text: "🎙️ Wake word detected — EAIOS is listening.", kind: "system" });
+          pushFeed({ agent: "voice", text: "🎙️ Wake word detected — K-OS is listening.", kind: "system" });
         }
       }
     };

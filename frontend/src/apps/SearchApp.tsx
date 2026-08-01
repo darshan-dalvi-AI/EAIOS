@@ -46,7 +46,7 @@ export default function SearchApp() {
       </div>
 
       <div className="app-content" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {!res && <div className="empty"><Search size={26} /><p style={{ margin: 0 }}>Enterprise search across everything EAIOS knows.<br /><span className="faint" style={{ fontSize: 12 }}>Try “policy”, “revenue”, or a person's name.</span></p></div>}
+        {!res && <div className="empty"><Search size={26} /><p style={{ margin: 0 }}>Enterprise search across everything K-OS knows.<br /><span className="faint" style={{ fontSize: 12 }}>Try “policy”, “revenue”, or a person's name.</span></p></div>}
 
         {res && show("documents") && res.documents.length > 0 && (
           <div><div className="palette-section">Documents</div>

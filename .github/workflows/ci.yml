@@ -88,8 +88,8 @@ jobs:
           mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
       - name: Helm upgrade
         run: |
-          helm upgrade --install eaios deploy/helm/eaios \
-            --namespace eaios --create-namespace \
+          helm upgrade --install k-os deploy/helm/k-os \
+            --namespace k-os --create-namespace \
             --set image.backend=ghcr.io/${GITHUB_REPOSITORY,,}-backend \
             --set image.frontend=ghcr.io/${GITHUB_REPOSITORY,,}-frontend \
             --set image.tag=${GITHUB_SHA::7} \

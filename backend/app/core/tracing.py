@@ -38,7 +38,7 @@ try:  # pragma: no cover
         provider = TracerProvider(resource=Resource.create({"service.name": "eaios-backend"}))
         provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
         _ot.set_tracer_provider(provider)
-        _otel_tracer = _ot.get_tracer("eaios")
+        _otel_tracer = _ot.get_tracer("k-os")
         log.info("OpenTelemetry OTLP exporter active")
 except Exception:  # noqa: BLE001
     _otel_tracer = None

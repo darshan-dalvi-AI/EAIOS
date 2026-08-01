@@ -1,8 +1,8 @@
-# EAIOS — Viva Kit (deck outline · 5-minute demo script · Q&A prep)
+# K-OS — Viva Kit (deck outline · 5-minute demo script · Q&A prep)
 
 ## 1 · Ten-slide deck outline
 
-1. **Title** — *EAIOS: The Enterprise AI Operating System.* B.E. capstone, Darshan Dalvi. Live at eaios.onrender.com — works on this phone too.
+1. **Title** — *K-OS: A Knowledge Operating System.* B.E. capstone, Darshan Dalvi. Live at eaios.onrender.com — works on this phone too.
 2. **Problem** — mid-size companies (50–500 people) drown in scattered documents, emails and spreadsheets. Enterprise AI tools (Glean, Copilot) are priced and built for giants.
 3. **Solution** — a private company AI presented as a literal operating system in the browser: 19 apps over one hybrid-RAG, multi-agent backend, and the dock reshapes itself to the workspace's industry. Grounded, cited, audited, resumable.
 4. **Architecture** — React OS shell → FastAPI → StateGraph orchestrator → 9 specialist agents (+ user-built ones) → hybrid RAG (BM25 + vectors, RRF) + knowledge graph + table→SQL → any LLM via one OpenRouter key or fully offline (Ollama/mock).
@@ -15,7 +15,7 @@
 
 ## 2 · Five-minute demo script
 
-*Before the viva: open eaios.onrender.com ~2 min early (free tier wakes up), log in as admin@eaios.dev / admin12345, keep your phone logged in too. If the network dies, EAIOS demo mode keeps every app working — mention it, it's a feature.*
+*Before the viva: open eaios.onrender.com ~2 min early (free tier wakes up), log in as admin@eaios.dev / admin12345, keep your phone logged in too. If the network dies, K-OS demo mode keeps every app working — mention it, it's a feature.*
 
 - **0:00 — Boot + tour (30s).** Show boot screen → desktop. "Every 'app' here is a real window over one AI backend." Point at the first-run tour.
 - **0:30 — Ask with citations (60s).** Chat: *"How many annual leave days do we get?"* Show the streamed answer, agent plan, confidence, then **click the citation chip** → Knowledge opens on the exact source. "It never answers without receipts."
@@ -47,4 +47,4 @@ someone else."*
 
 ## 4 · One-liner
 
-> **EAIOS turns a company's scattered documents, mail and spreadsheets into a cited, governed, self-hosted AI operating system — enterprise knowledge problems, not enterprise budgets.**
+> **K-OS turns a company's scattered documents, mail and spreadsheets into a cited, governed, self-hosted AI operating system — enterprise knowledge problems, not enterprise budgets.**

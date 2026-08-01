@@ -40,7 +40,7 @@ export const APP_META: Record<AppId, { name: string; hue: number; Icon: LucideIc
   video:       { name: "Video Call",  hue: 340, Icon: Video,          tagline: "AI video calls — captions, MoM, effects" },
   code:        { name: "Code",        hue: 205, Icon: Code2,          tagline: "Collaborative code editing, live" },
   admin:       { name: "Admin",       hue: 350, Icon: ShieldCheck,    tagline: "Users, audit, models" },
-  terminal:    { name: "Terminal",    hue: 220, Icon: TerminalSquare, tagline: "EAIOS shell" },
+  terminal:    { name: "Terminal",    hue: 220, Icon: TerminalSquare, tagline: "K-OS shell" },
   settings:    { name: "Settings",    hue: 285, Icon: Settings,       tagline: "System preferences" },
 };
 

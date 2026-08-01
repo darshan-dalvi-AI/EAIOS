@@ -1,10 +1,10 @@
-# EAIOS — Confidential Computing (TEE) Architecture
+# K-OS — Confidential Computing (TEE) Architecture
 
 **Status:** Design / Architecture Decision Record (not yet deployed)
 **Author:** Darshan Dalvi · B.E. Computer Engineering capstone
 **Last updated:** July 2026
 
-> This document specifies how EAIOS would run inside a **Trusted Execution
+> This document specifies how K-OS would run inside a **Trusted Execution
 > Environment (TEE)** so that a company's private documents, chats and
 > embeddings are protected *even from the cloud provider that hosts the
 > service*. It is a design/threat-model artifact: the current deployment
@@ -16,7 +16,7 @@
 
 ## 1. Context and motivation
 
-EAIOS is pitched at mid-size, document-heavy companies that are nervous about
+K-OS is pitched at mid-size, document-heavy companies that are nervous about
 putting sensitive material (HR records, contracts, financials, source code)
 into someone else's AI. The current architecture already protects data
 **at rest** (Postgres/Storage encryption) and **in transit** (TLS). The gap it
@@ -38,10 +38,10 @@ properties make it useful:
 2. **Remote attestation** — the hardware can produce a signed, verifiable
    report proving *which exact code* is running inside a *genuine* enclave, so
    a remote client can refuse to send data until it has cryptographic proof it
-   is talking to the real, unmodified EAIOS and not an impostor or a
+   is talking to the real, unmodified K-OS and not an impostor or a
    tampered copy.
 
-For EAIOS the headline becomes: **"Your company's private AI, invisible even to
+For K-OS the headline becomes: **"Your company's private AI, invisible even to
 the cloud that runs it — and you can mathematically verify that."**
 
 ---
@@ -49,7 +49,7 @@ the cloud that runs it — and you can mathematically verify that."**
 ## 2. TEE technology landscape (2026)
 
 There are two broad families of TEE, and the choice matters for a
-container-based app like EAIOS.
+container-based app like K-OS.
 
 **Process-level enclaves (Intel SGX).** Protect a small slice of a single
 process. Very strong isolation, but the application must be rewritten/split to
@@ -59,7 +59,7 @@ full FastAPI + agents + RAG stack.
 **VM-level enclaves / Confidential VMs (AMD SEV-SNP, Intel TDX).** Encrypt the
 memory of an *entire virtual machine*. You "lift and shift" an existing
 container image into a confidential VM with **no code changes**. This is the
-right model for EAIOS.
+right model for K-OS.
 
 Current confidential-VM offerings (verified July 2026):
 
@@ -71,7 +71,7 @@ Current confidential-VM offerings (verified July 2026):
 
 ### Decision
 
-**Deploy EAIOS as a container inside an Azure Confidential VM using AMD SEV-SNP
+**Deploy K-OS as a container inside an Azure Confidential VM using AMD SEV-SNP
 (DCasv6/ECasv6 series), attested via Microsoft Azure Attestation (MAA).**
 
 Rationale:
@@ -97,7 +97,7 @@ format (TDX quote vs. SEV-SNP report).
 **Trusted (inside the boundary):**
 
 - The CPU package and its hardware root of trust (AMD Secure Processor).
-- The EAIOS container image *as measured at launch* — code, Python deps, config.
+- The K-OS container image *as measured at launch* — code, Python deps, config.
 - The in-enclave memory: request plaintext, parsed documents, embeddings,
   decryption keys while in use.
 
@@ -114,14 +114,14 @@ format (TDX quote vs. SEV-SNP report).
 - A cloud operator or rooted host dumping RAM to read documents/chats in use.
 - A malicious hypervisor snapshotting or live-migrating the VM to exfiltrate
   memory (SEV-SNP adds integrity + anti-rollback vs. plain SEV).
-- Serving a **tampered** build of EAIOS — clients detect it via attestation
+- Serving a **tampered** build of K-OS — clients detect it via attestation
   because the measurement won't match the expected value.
 
 **Attacks TEE does NOT defeat (stated honestly):**
 
-- **Bugs inside EAIOS itself.** A SQL-injection or auth flaw in the app is just
+- **Bugs inside K-OS itself.** A SQL-injection or auth flaw in the app is just
   as exploitable inside an enclave. TEE protects the *environment*, not the
-  code's own correctness. (EAIOS's existing RBAC, SQL guardrails, PII auditing
+  code's own correctness. (K-OS's existing RBAC, SQL guardrails, PII auditing
   still matter.)
 - **Data that deliberately leaves the enclave.** See §5 — the external LLM call
   is the critical example.
@@ -137,10 +137,10 @@ format (TDX quote vs. SEV-SNP report).
 ## 4. Remote attestation flow
 
 Attestation is what turns "trust us, it's secure" into "verify it yourself."
-The flow when a client (or an enterprise admin's browser) connects to EAIOS:
+The flow when a client (or an enterprise admin's browser) connects to K-OS:
 
 ```
- Client                          EAIOS enclave (CVM)            AMD Secure Processor / MAA
+ Client                          K-OS enclave (CVM)            AMD Secure Processor / MAA
    │                                    │                                 │
    │ 1. connect + random nonce ───────▶│                                 │
    │                                    │ 2. request attestation ────────▶│
@@ -155,7 +155,7 @@ The flow when a client (or an enterprise admin's browser) connects to EAIOS:
    │                                                                       
    │ 6. client verifies:
    │    • token signed by MAA / AMD root cert chain
-   │    • launch measurement == expected EAIOS build hash
+   │    • launch measurement == expected K-OS build hash
    │    • nonce matches (freshness, anti-replay)
    │    • TLS session bound to the attested key
    │ 7. only now send sensitive data ─▶
@@ -169,7 +169,7 @@ Key points:
   operator.
 - The report includes the **launch measurement** (a hash of exactly what was
   loaded into the VM). The client compares it to the known-good hash of the
-  published EAIOS image. If EAIOS is tampered with, the measurement changes and
+  published K-OS image. If K-OS is tampered with, the measurement changes and
   verification fails.
 - The client's **nonce** is included so an attacker can't replay an old report.
 - The report is **bound to the enclave's TLS public key**, so the attested
@@ -181,7 +181,7 @@ before any plaintext is sent."*
 
 ---
 
-## 5. Mapping EAIOS into the enclave (and the one hard problem)
+## 5. Mapping K-OS into the enclave (and the one hard problem)
 
 Running the container in a CVM protects everything that stays **inside** the
 box. Three data flows cross the boundary and must be reasoned about explicitly.
@@ -189,7 +189,7 @@ box. Three data flows cross the boundary and must be reasoned about explicitly.
 **5.1 Database & object storage (solvable).**
 Postgres rows and uploaded files live in Supabase/managed storage *outside* the
 enclave, so they must be **client-side encrypted inside the enclave** before
-they leave. EAIOS would hold the data-encryption key only in enclave memory
+they leave. K-OS would hold the data-encryption key only in enclave memory
 (released to it after successful attestation, e.g. via a secure key-release
 service / sealed secret), encrypt documents and sensitive columns before
 writing, and decrypt them only after reading them back in. The cloud storage
@@ -198,7 +198,7 @@ then holds ciphertext it cannot read. This is an incremental change to
 
 **5.2 The LLM call (the critical insight).**
 This is the part most projects miss, and it is the strongest thing to say in a
-viva. EAIOS currently sends prompts (which contain retrieved document
+viva. K-OS currently sends prompts (which contain retrieved document
 passages) to an **external** LLM API (OpenRouter). **The moment plaintext
 leaves the enclave for a third-party API, confidentiality is broken at that
 boundary** — the enclave was pointless if the sensitive context is then shipped
@@ -215,9 +215,9 @@ There are three honest resolutions, in increasing order of confidentiality:
    to the host. This is the production-grade "confidential AI" answer.
 3. **Confidential inference endpoint.** Call an LLM that is *itself* running in
    an attested TEE, and extend the attestation chain to it. Emerging, and the
-   cleanest fit with EAIOS's existing "swap the provider" abstraction.
+   cleanest fit with K-OS's existing "swap the provider" abstraction.
 
-EAIOS is well-positioned for this because the LLM layer is already a pluggable
+K-OS is well-positioned for this because the LLM layer is already a pluggable
 interface (`llm/provider.py`) — moving from "external API" to "in-enclave
 Ollama" or "confidential GPU endpoint" is a provider swap, not a rewrite.
 
@@ -230,7 +230,7 @@ The enclave proves what it is, and only then receives its secrets.
 
 ---
 
-## 6. What changes in the EAIOS codebase
+## 6. What changes in the K-OS codebase
 
 The beauty of the VM-level TEE choice is how little changes:
 
@@ -258,7 +258,7 @@ verifies it against the expected build hash — the whole trust story in one cal
   free Render/Supabase setup. A DCasv6 CVM is a real monthly cost.
 - **Performance overhead** is modest for VM-level TEEs — typically single-digit
   to low-double-digit percent for memory-heavy workloads (SEV-SNP/TDX encrypt
-  memory transparently); acceptable for EAIOS's workload.
+  memory transparently); acceptable for K-OS's workload.
 - **Operational complexity** — attestation policies, key-release, image
   measurement management, and reproducible builds (so the published measurement
   is verifiable) are real engineering work.
@@ -267,13 +267,13 @@ verifies it against the expected build hash — the whole trust story in one cal
 
 - Data-in-use protection: the cloud operator genuinely cannot read customer
   documents, chats, or embeddings while they're processed.
-- Verifiable integrity: clients prove they're using the untampered EAIOS.
+- Verifiable integrity: clients prove they're using the untampered K-OS.
 - A concrete regulatory / trust story (GDPR data-minimization, "digital
-  sovereignty," regulated industries) — the exact market EAIOS targets.
+  sovereignty," regulated industries) — the exact market K-OS targets.
 
 **Limitations to state plainly**
 
-- TEE protects the environment, not EAIOS's own code correctness.
+- TEE protects the environment, not K-OS's own code correctness.
 - Full confidentiality requires solving the LLM-boundary problem (§5.2);
   otherwise it is "confidential up to the model call," which must be disclosed
   honestly.
@@ -301,17 +301,17 @@ verifies it against the expected build hash — the whole trust story in one cal
 
 ## 9. One-paragraph summary (for the viva)
 
-> EAIOS already protects data at rest and in transit; a Trusted Execution
+> K-OS already protects data at rest and in transit; a Trusted Execution
 > Environment closes the remaining gap — data **in use**. By deploying the
 > existing container unchanged into an **AMD SEV-SNP confidential VM** on Azure,
 > the whole application's memory is hardware-encrypted so the cloud operator
 > can't read customer documents while they're processed, and **remote
 > attestation** lets clients cryptographically verify they're talking to the
-> genuine, unmodified EAIOS before sending anything. The subtle part —
+> genuine, unmodified K-OS before sending anything. The subtle part —
 > and the strongest engineering point — is that a TEE is only as confidential
-> as its weakest boundary: EAIOS's external LLM call would leak plaintext, so
+> as its weakest boundary: K-OS's external LLM call would leak plaintext, so
 > true confidential AI means running the model **inside** the enclave or on a
-> **confidential GPU**. Because EAIOS's LLM layer is already pluggable, that
+> **confidential GPU**. Because K-OS's LLM layer is already pluggable, that
 > becomes a provider swap rather than a rewrite.
 
 ---

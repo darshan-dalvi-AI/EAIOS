@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# EAIOS one-click launcher — macOS / Linux
+# K-OS one-click launcher — macOS / Linux
 # First run: chmod +x start-eaios.sh && ./start-eaios.sh
 set -e
 cd "$(dirname "$0")"
 
 echo "============================================"
-echo " EAIOS - Enterprise AI Operating System"
+echo " K-OS - A Knowledge Operating System"
 echo " One-click launcher (macOS/Linux)"
 echo "============================================"
 
@@ -41,6 +41,6 @@ if command -v open > /dev/null; then open http://localhost:5173; \
 elif command -v xdg-open > /dev/null; then xdg-open http://localhost:5173; fi
 
 echo ""
-echo " EAIOS is up.  Logs: backend.log / frontend.log · Stop with ./stop-eaios.sh"
+echo " K-OS is up.  Logs: backend.log / frontend.log · Stop with ./stop-eaios.sh"
 echo " Login: admin@eaios.dev / admin12345  (or maya@eaios.dev / demo12345)"
 echo " If Ollama is running, the AI answers with your local model automatically."

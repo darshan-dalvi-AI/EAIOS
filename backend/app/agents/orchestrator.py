@@ -63,7 +63,7 @@ def route(text: str) -> str:
 
 # ── LLM semantic router ──────────────────────────────────────────────────
 ROUTER_SYSTEM = (
-    "You are the routing brain of EAIOS, an enterprise AI platform. "
+    "You are the routing brain of K-OS, an enterprise AI platform. "
     "Decide which specialist agents must run to fully answer the user's request.\n\n"
     "Available agents:\n"
     "- document: answers questions from the indexed company knowledge base (policies, financials, manuals) with citations\n"

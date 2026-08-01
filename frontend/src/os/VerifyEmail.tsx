@@ -59,7 +59,7 @@ export default function VerifyEmail() {
 
   return (
     <div className="login">
-      <div className="boot-logo" style={{ fontSize: 30 }}>EAIOS</div>
+      <div className="boot-logo" style={{ fontSize: 30 }}>K-OS</div>
       <form className="login-card" onSubmit={submit} noValidate>
         <div className="verify-icon"><MailCheck size={26} /></div>
         <div className="login-title" style={{ marginBottom: 2 }}>Check your email</div>

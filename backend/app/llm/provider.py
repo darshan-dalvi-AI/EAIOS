@@ -115,7 +115,7 @@ class OpenAILLM:
         headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
         if self.name == "openrouter":  # attribution headers OpenRouter recommends
             headers["HTTP-Referer"] = "https://eaios.onrender.com"
-            headers["X-Title"] = "EAIOS"
+            headers["X-Title"] = "K-OS"
         r = httpx.post(
             f"{self.base_url}/chat/completions",
             headers=headers,

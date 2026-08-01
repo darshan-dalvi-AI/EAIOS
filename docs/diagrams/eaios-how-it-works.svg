@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 2170" width="1560" height="2170" font-family="Segoe UI, Inter, Arial, sans-serif">
-  <title>EAIOS — how it works, end to end</title>
+  <title>K-OS — how it works, end to end</title>
   <desc>Full walkthrough: landing, login, OS shell, document ingestion into RAG and knowledge graph, the ask flow through the agent graph and LLM layer, realtime and observability systems, automations, and the deployment pipeline.</desc>
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -14,8 +14,8 @@
   <rect width="1560" height="2170" fill="#0b1020"/>
 
   <!-- ═══════════ HEADER ═══════════ -->
-  <text x="60" y="72" fill="#e8edf7" font-size="40" font-weight="700">EAIOS — how it works, end to end</text>
-  <text x="60" y="106" fill="#94a3b8" font-size="17">Enterprise AI Operating System · hybrid multimodal RAG · 9 cooperating agents · knowledge graph · automations · observability</text>
+  <text x="60" y="72" fill="#e8edf7" font-size="40" font-weight="700">K-OS — how it works, end to end</text>
+  <text x="60" y="106" fill="#94a3b8" font-size="17">Knowledge Operating System · hybrid multimodal RAG · 9 cooperating agents · knowledge graph · automations · observability</text>
   <text x="60" y="134" fill="#22d3ee" font-size="16" font-weight="600">live: eaios.onrender.com</text>
   <text x="330" y="134" fill="#8b5cf6" font-size="16" font-weight="600">code: github.com/darshan-dalvi-AI/EAIOS</text>
   <line x1="60" y1="152" x2="1500" y2="152" stroke="#2a3854" stroke-width="1"/>
@@ -202,7 +202,7 @@
     <text x="1184" y="1542" fill="#e8edf7" font-weight="700" font-size="15">Memory + MCP</text>
     <text x="1184" y="1566" fill="#94a3b8">long-term user memory</text>
     <text x="1184" y="1586" fill="#94a3b8">MCP server: Claude Desktop can</text>
-    <text x="1184" y="1606" fill="#94a3b8">call EAIOS search / ask / graph</text>
+    <text x="1184" y="1606" fill="#94a3b8">call K-OS search / ask / graph</text>
   </g>
 
   <!-- ═══════════ ⑤ AUTOMATE ═══════════ -->
@@ -232,7 +232,7 @@
   <g font-size="14">
     <rect x="60" y="1868" width="256" height="100" rx="12" fill="#131a2e" stroke="#2a3854"/>
     <text x="80" y="1898" fill="#e8edf7" font-weight="700" font-size="15">Your laptop</text>
-    <text x="80" y="1922" fill="#94a3b8">START_EAIOS.bat (Ollama)</text>
+    <text x="80" y="1922" fill="#94a3b8">START_K-OS.bat (Ollama)</text>
     <text x="80" y="1942" fill="#94a3b8">push-to-github.bat to sync</text>
 
     <rect x="372" y="1868" width="256" height="100" rx="12" fill="#131a2e" stroke="#2a3854"/>

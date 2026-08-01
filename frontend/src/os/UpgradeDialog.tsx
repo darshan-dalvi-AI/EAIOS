@@ -5,7 +5,7 @@
    wastes that. This names what they hit, what they have used, and what the
    next plan would give them — in the words of the thing they were doing.
 
-   It is opened from anywhere by dispatching `eaios:plan-limit` with the
+   It is opened from anywhere by dispatching `k-os:plan-limit` with the
    ApiError's planBlock, so no screen needs to know how upgrading works. */
 import { ArrowRight, Check, Loader2, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";

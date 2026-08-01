@@ -4,7 +4,7 @@ These are the cheapest defences available: a few response headers that shut
 down entire attack classes — clickjacking, MIME sniffing, protocol downgrade,
 referrer leakage — without touching application logic.
 
-The Content-Security-Policy is written for how EAIOS actually loads: a
+The Content-Security-Policy is written for how K-OS actually loads: a
 same-origin single-page app, one optional third-party script (Google Identity
 Services, only when the connector is configured), a WebSocket for presence,
 and blob/data URLs for camera preview and generated exports. It is enforced,
@@ -75,5 +75,5 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # not pop, and deleting an absent key raises.)
         if "x-powered-by" in response.headers:
             del response.headers["x-powered-by"]
-        response.headers["Server"] = "EAIOS"
+        response.headers["Server"] = "K-OS"
         return response

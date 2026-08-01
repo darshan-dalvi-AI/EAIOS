@@ -1,8 +1,8 @@
-# EAIOS Architecture
+# K-OS Architecture
 
 ## 1. System overview
 
-EAIOS is a three-tier platform with an AI middle layer. The design principle throughout is **interface + fallback**: every heavy dependency (Postgres, Qdrant, Ollama, OCR) sits behind a small abstraction with a zero-dependency implementation, so the platform always boots and each production component can be enabled independently.
+K-OS is a three-tier platform with an AI middle layer. The design principle throughout is **interface + fallback**: every heavy dependency (Postgres, Qdrant, Ollama, OCR) sits behind a small abstraction with a zero-dependency implementation, so the platform always boots and each production component can be enabled independently.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -219,7 +219,7 @@ by another name, and no process trickery makes that safe on a free-tier box. Exe
 browser, in three nested layers:
 
 ```
-EAIOS tab (authenticated, has the session)
+K-OS tab (authenticated, has the session)
  └── <iframe sandbox="allow-scripts">        ← opaque origin: no cookies, no storage,
       │                                        no parent DOM, CORS-blocked from /api
       └── Worker (blob:)                     ← terminable; survives `while True: pass`

@@ -5,7 +5,7 @@ from app.rag.retrieval import hybrid_search
 from app.schemas import Citation
 
 SYSTEM = (
-    "You are the REPORT Agent of EAIOS. Produce a structured markdown report "
+    "You are the REPORT Agent of K-OS. Produce a structured markdown report "
     "(Executive Summary, Key Findings, Recommendations) strictly from the CONTEXT. Cite sources as [n]."
 )
 

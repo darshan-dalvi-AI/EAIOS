@@ -70,7 +70,7 @@ def _org_out(org: Organization | None) -> dict | None:
 @router.post("/signup", status_code=201)
 def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
     """Create a brand-new company workspace and its first admin. This is how a
-    company onboards onto EAIOS — an isolated tenant that no other company can see."""
+    company onboards onto K-OS — an isolated tenant that no other company can see."""
     email = body.email.lower().strip()
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "That email is already registered")

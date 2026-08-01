@@ -174,5 +174,5 @@ def test_shared_demo_workspace_cannot_be_deleted():
                                               "password": "admin12345"}).json()["token"]["access_token"]
         r = c.request("DELETE", "/api/orgs/self/workspace",
                       headers={"Authorization": f"Bearer {tok}"},
-                      json={"confirm": "EAIOS Demo Workspace"})
+                      json={"confirm": "K-OS Demo Workspace"})
         assert r.status_code == 400 and "demo" in r.json()["detail"].lower()

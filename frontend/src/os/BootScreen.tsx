@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useOS } from "../store";
 
 const LINES = [
-  ["kernel", "EAIOS core 0.1.0 initializing"],
+  ["kernel", "K-OS core 0.1.0 initializing"],
   ["auth", "JWT service armed · RBAC matrix loaded"],
   ["vectors", "vector store attached (hybrid retrieval ready)"],
   ["rag", "multimodal ingestion pipeline online"],
@@ -31,8 +31,8 @@ export default function BootScreen() {
   return (
     <div className={`boot ${leaving ? "fade-out" : ""}`}>
       <div>
-        <div className="boot-logo">EAIOS</div>
-        <div className="boot-sub" style={{ textAlign: "center", marginTop: 6 }}>Enterprise AI Operating System</div>
+        <div className="boot-logo">K-OS</div>
+        <div className="boot-sub" style={{ textAlign: "center", marginTop: 6 }}>Knowledge Operating System</div>
       </div>
       <div className="boot-log" aria-hidden>
         {LINES.slice(0, shown).map(([mod, text], i) => (

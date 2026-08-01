@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>EAIOS — Design Documentation · PRD · TRD · UI/UX · Flow · Schema · Plan</title>
-<meta name="description" content="Complete design documentation for EAIOS, a multi-tenant enterprise AI operating system: product requirements, technical requirements, UI/UX, application flow, backend schema and implementation plan." />
+<title>K-OS — Design Documentation · PRD · TRD · UI/UX · Flow · Schema · Plan</title>
+<meta name="description" content="Complete design documentation for K-OS, a multi-tenant knowledge operating system: product requirements, technical requirements, UI/UX, application flow, backend schema and implementation plan." />
 <style>
 /* ══════════════════════════════════════════════════════════════════════
-   EAIOS Design Documentation — "Living Blueprint"
+   K-OS Design Documentation — "Living Blueprint"
    A technical-drawing aesthetic where every diagram draws itself.
    Self-contained: no external fonts, scripts or stylesheets, so it opens
    from a USB stick in an exam hall with no internet.
@@ -174,7 +174,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
   <!-- ══ navigation rail ══ -->
   <aside class="rail">
-    <div class="brand"><span class="orb"></span> EAIOS</div>
+    <div class="brand"><span class="orb"></span> K-OS</div>
     <div class="brand-sub">Design Documentation · v1.0</div>
 
     <div class="nav-label">Documents</div>
@@ -186,8 +186,8 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     <button class="nav-item" data-go="plan"><span class="nav-num">6</span> Implementation Plan</button>
 
     <div class="rail-foot">
-      <b style="color:var(--ink-dim)">EAIOS</b><br>
-      Enterprise AI Operating System<br>
+      <b style="color:var(--ink-dim)">K-OS</b><br>
+      Knowledge Operating System<br>
       B.E. Computer Engineering capstone<br>
       Darshan Dalvi<br><br>
       <a href="https://eaios.onrender.com">eaios.onrender.com</a><br>
@@ -202,7 +202,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     <header class="dochead">
       <div class="kicker">Document 01</div>
       <h1>Product Requirements</h1>
-      <p class="lead">What EAIOS is, who it serves, the problem it removes, and the measurable bar it must clear to be considered done.</p>
+      <p class="lead">What K-OS is, who it serves, the problem it removes, and the measurable bar it must clear to be considered done.</p>
       <div class="meta-row">
         <span class="chip hot">Status · Shipped v0.4</span>
         <span class="chip">Multi-tenant SaaS</span>
@@ -221,7 +221,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
     <section>
       <h2><span class="hn">1.2</span> Product vision</h2>
-      <p class="lead">EAIOS is an <strong>enterprise AI operating system</strong>: a company's private, cited, auditable AI, presented as a full desktop operating system inside the browser. Any company creates its own isolated workspace in seconds; one deployment serves them all.</p>
+      <p class="lead">K-OS is an <strong>knowledge operating system</strong>: a company's private, cited, auditable AI, presented as a full desktop operating system inside the browser. Any company creates its own isolated workspace in seconds; one deployment serves them all.</p>
       <div class="grid g3">
         <div class="card"><div class="tag">Grounded</div><h4>Answers from your files</h4><p>Hybrid retrieval over the company's own documents, never the open internet unless asked.</p></div>
         <div class="card"><div class="tag">Cited</div><h4>Every claim traceable</h4><p>Each answer carries source chips, a relevance meter and a confidence score.</p></div>
@@ -235,7 +235,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     <section>
       <h2><span class="hn">1.3</span> Target users &amp; personas</h2>
       <table>
-        <thead><tr><th>Persona</th><th>Goal</th><th>Pain today</th><th>What EAIOS gives them</th></tr></thead>
+        <thead><tr><th>Persona</th><th>Goal</th><th>Pain today</th><th>What K-OS gives them</th></tr></thead>
         <tbody>
           <tr><td><strong>Employee</strong><br><span class="lbl">Ravi, support engineer</span></td><td>Answer a customer question correctly, fast</td><td>Searches five folders, then messages a senior and waits</td><td>Asks in plain language or by voice; gets a cited answer in seconds; exports it as PDF</td></tr>
           <tr><td><strong>Manager</strong><br><span class="lbl">Maya, delivery lead</span></td><td>See status without chasing people</td><td>Builds the same spreadsheet report every week</td><td>Describes a chart in English and pins it; meetings end with automatic minutes and tasks</td></tr>
@@ -571,7 +571,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
     <section>
       <h2><span class="hn">3.1</span> Design thesis</h2>
-      <p class="lead">Enterprise AI tools look like a chat box with a sidebar. That framing quietly tells the user "this is one feature". EAIOS is a <strong>platform</strong> — nineteen cooperating capabilities — so it borrows the one interface metaphor every user already knows for "many capabilities at once": an operating system.</p>
+      <p class="lead">Enterprise AI tools look like a chat box with a sidebar. That framing quietly tells the user "this is one feature". K-OS is a <strong>platform</strong> — nineteen cooperating capabilities — so it borrows the one interface metaphor every user already knows for "many capabilities at once": an operating system.</p>
       <div class="grid g3">
         <div class="card"><div class="tag">Principle 01</div><h4>Familiar, not novel-for-its-own-sake</h4><p>Windows, a taskbar and a command palette need no explanation. The novelty is that an AI platform is shaped this way, not that the controls are unusual.</p></div>
         <div class="card"><div class="tag">Principle 02</div><h4>Show the reasoning</h4><p>Answers carry citation chips, a confidence score and the plan of agents that ran. Trust comes from visible working, not from a confident tone.</p></div>
@@ -621,7 +621,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
             <text x="20" y="20" class="lbl" fill="#22d3ee">DESKTOP · ≥ 1025 px — window manager</text>
             <rect x="20" y="30" width="520" height="280" rx="12" class="box"/>
             <rect x="20" y="30" width="520" height="22" rx="12" fill="rgba(34,211,238,.1)"/>
-            <text x="32" y="45" class="lbl-s">EAIOS · workspace · File View Agents Help · presence · Live · clock · avatar</text>
+            <text x="32" y="45" class="lbl-s">K-OS · workspace · File View Agents Help · presence · Live · clock · avatar</text>
             <g class="pop" style="--d:.5s"><rect x="44" y="72" width="230" height="150" rx="9" fill="rgba(148,163,184,.1)" stroke="var(--line-2)"/><rect x="44" y="72" width="230" height="20" rx="9" fill="rgba(148,163,184,.14)"/><text x="56" y="86" class="lbl-s">AI Chat</text><text x="500" y="86" class="lbl-s" text-anchor="end">— □ ✕</text></g>
             <g class="pop" style="--d:.68s"><rect x="200" y="112" width="230" height="150" rx="9" fill="rgba(148,163,184,.13)" stroke="var(--line-2)"/><rect x="200" y="112" width="230" height="20" rx="9" fill="rgba(148,163,184,.18)"/><text x="212" y="126" class="lbl-s">Knowledge</text></g>
             <g class="pop" style="--d:.86s"><rect x="300" y="152" width="216" height="130" rx="9" fill="rgba(148,163,184,.16)" stroke="var(--line-2)"/><rect x="300" y="152" width="216" height="20" rx="9" fill="rgba(148,163,184,.22)"/><text x="312" y="166" class="lbl-s">Dashboards</text></g>
@@ -637,7 +637,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
             <text x="660" y="20" class="lbl" fill="#8b5cf6">PHONE · ≤ 740 px — app shell</text>
             <rect x="700" y="30" width="180" height="280" rx="20" class="box"/>
             <rect x="700" y="30" width="180" height="26" rx="20" fill="rgba(139,92,246,.12)"/>
-            <text x="712" y="47" class="lbl-s">EAIOS · Acme… 🔍 🔔 ☀ ⬤</text>
+            <text x="712" y="47" class="lbl-s">K-OS · Acme… 🔍 🔔 ☀ ⬤</text>
             <g class="pop" style="--d:1.7s"><rect x="708" y="64" width="164" height="18" rx="6" fill="rgba(148,163,184,.14)"/><text x="716" y="77" class="lbl-s">AI Chat                         ✕</text></g>
             <g class="pop" style="--d:1.85s"><rect x="708" y="88" width="164" height="150" rx="8" fill="rgba(148,163,184,.07)" stroke="var(--line)"/>
               <text x="790" y="150" text-anchor="middle" class="lbl-s">one app, full screen</text>
@@ -925,7 +925,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
       </ul>
 
       <h3>Database surface hardening</h3>
-      <p>The managed Postgres provider publishes every table in the public schema through an automatic REST API. EAIOS never uses that API, so the surface is closed rather than policed: row-level security is enabled with <strong>no policies</strong> (deny by default), and the API roles' grants are revoked — including through default privileges, so tables created later, such as the dynamic extracted-table set, are never exposed either.</p>
+      <p>The managed Postgres provider publishes every table in the public schema through an automatic REST API. K-OS never uses that API, so the surface is closed rather than policed: row-level security is enabled with <strong>no policies</strong> (deny by default), and the API roles' grants are revoked — including through default privileges, so tables created later, such as the dynamic extracted-table set, are never exposed either.</p>
       <p>This does not affect the application: it connects as the table owner, which is exempt from row-level security. Isolation <em>between companies</em> remains an application-layer guarantee; the database policy exists purely to shut an unused door.</p>
     </section>
 
@@ -1159,7 +1159,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     if (next >= 0 && next < order.length) show(order[next], true);
   });
 
-  /* deep link on load, e.g. …/EAIOS-Design-Documentation.html#schema */
+  /* deep link on load, e.g. …/K-OS-Design-Documentation.html#schema */
   var initial = (location.hash || '').replace('#', '');
   if (initial && document.getElementById(initial)) show(initial, false);
   else arm(document);

@@ -1,8 +1,8 @@
-# EAIOS Demonstration Video Script (~6 minutes)
+# K-OS Demonstration Video Script (~6 minutes)
 
 **Setup before recording**: `ollama pull llama3.1 && ollama pull nomic-embed-text` · backend running (`uvicorn app.main:app`) · `python -m app.seed` done · frontend `npm run dev` · browser at localhost:5173, 1080p, dark room vibes.
 
-1. **Cold open (0:00–0:30)** — Refresh the page. Let the boot sequence play silently, then say: *"This is EAIOS — an Enterprise AI Operating System. Not a chatbot with a dashboard — an actual OS metaphor: windows, a dock, a command palette — running a hybrid-RAG, multi-agent AI platform underneath."*
+1. **Cold open (0:00–0:30)** — Refresh the page. Let the boot sequence play silently, then say: *"This is K-OS — a Knowledge Operating System. Not a chatbot with a dashboard — an actual OS metaphor: windows, a dock, a command palette — running a hybrid-RAG, multi-agent AI platform underneath."*
 
 2. **Login + live mode (0:30–1:00)** — Point at the green "Live backend connected" chip. Log in as Maya. Mention JWT + role-based access.
 
@@ -26,7 +26,7 @@
 
 10. **Realtime presence (6:00–6:30)** — Open a second browser (incognito), log in as employee@eaios.dev. Point at the menu bar: *"Two avatars — presence over WebSockets."* Ask a question in browser A; switch to browser B's Agents app: *"The agent feed streams live to every connected user — no polling, no mocks."*
 
-11. **Knowledge Graph (6:30–7:15)** — Open **Graph** from the taskbar. *"At ingest, EAIOS extracts entities and co-occurrence relationships — the knowledge base becomes a constellation you can explore."* Drag a node, click one, walk its connections. Then in Chat ask: *"How are annual leave and sick leave related?"* — *"Graph-augmented retrieval: connection path plus cited passages."*
+11. **Knowledge Graph (6:30–7:15)** — Open **Graph** from the taskbar. *"At ingest, K-OS extracts entities and co-occurrence relationships — the knowledge base becomes a constellation you can explore."* Drag a node, click one, walk its connections. Then in Chat ask: *"How are annual leave and sick leave related?"* — *"Graph-augmented retrieval: connection path plus cited passages."*
 
 12. **Automations (7:15–8:15)** — Open **Automations**. Build live: trigger (on upload) → Document Agent "Summarize {{input}}" → Notify. Save. Upload any file in Knowledge → jump to Agents: *"The workflow fired on its own — visual automation running on the same agent runtime as chat."* Run the Morning KPI brief manually and show the per-node log.
 

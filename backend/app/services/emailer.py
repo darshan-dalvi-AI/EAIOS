@@ -29,7 +29,7 @@ def _send_resend(to: str, subject: str, text: str, html: str) -> bool:
     r = httpx.post(
         "https://api.resend.com/emails",
         headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
-        json={"from": settings.MAIL_FROM or "EAIOS <onboarding@resend.dev>",
+        json={"from": settings.MAIL_FROM or "K-OS <onboarding@resend.dev>",
               "to": [to], "subject": subject, "text": text, "html": html},
         timeout=15, trust_env=False,          # a host proxy must not break this
     )
@@ -68,7 +68,7 @@ def send(to: str, subject: str, text: str, html: str = "") -> bool:
 
 
 def send_verification_code(to: str, code: str, company: str) -> bool:
-    subject = f"{code} is your EAIOS verification code"
+    subject = f"{code} is your K-OS verification code"
     text = (
         f"Your verification code for {company} is {code}.\n\n"
         "It expires in 15 minutes. If you didn't create this workspace, ignore this email."
@@ -77,7 +77,7 @@ def send_verification_code(to: str, code: str, company: str) -> bool:
     <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:480px">
       <h2 style="margin:0 0 4px">Verify your email</h2>
       <p style="color:#555;margin:0 0 18px">
-        Enter this code to finish setting up <b>{company}</b> on EAIOS.
+        Enter this code to finish setting up <b>{company}</b> on K-OS.
       </p>
       <div style="font-size:32px;letter-spacing:8px;font-weight:700;
                   padding:14px 18px;background:#0b1020;color:#22d3ee;border-radius:12px;

@@ -1,4 +1,4 @@
-EAIOS deployed.
+K-OS deployed.
 
   Frontend:  https://{{ .Values.ingress.host }}
   API:       https://{{ .Values.ingress.host }}/api/health

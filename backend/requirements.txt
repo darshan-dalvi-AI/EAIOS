@@ -23,7 +23,7 @@ psycopg2-binary>=2.9
 pytest>=8.0
 
 # ── Optional extras (uncomment when needed) ─────────────────────
-# mcp>=1.0                       # expose EAIOS as an MCP server (python -m app.mcp_server)
+# mcp>=1.0                       # expose K-OS as an MCP server (python -m app.mcp_server)
 # sentence-transformers>=3.0     # real embeddings (BGE / MiniLM)
 # langgraph>=0.2                 # graph-based agent orchestration
 # unstructured[all-docs]         # layout-aware parsing

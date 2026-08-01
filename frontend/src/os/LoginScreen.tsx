@@ -165,7 +165,7 @@ export default function LoginScreen() {
 
   return (
     <div className="login">
-      <div className="boot-logo" style={{ fontSize: 30 }}>EAIOS</div>
+      <div className="boot-logo" style={{ fontSize: 30 }}>K-OS</div>
       <form className="login-card" onSubmit={submit} noValidate>
         <h1 className="login-title">{isSignup ? "Create your company workspace" : "Sign in to your workspace"}</h1>
 

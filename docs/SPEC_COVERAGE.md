@@ -1,6 +1,6 @@
 # Master-spec coverage audit
 
-Status of every item in the EAIOS master prompt.
+Status of every item in the K-OS master prompt.
 ✅ implemented · 🟡 partial (working core, noted gaps) · 🔑 needs your account/keys · 🔜 planned/stretch
 
 ## Core pillars
@@ -16,7 +16,7 @@ Status of every item in the EAIOS master prompt.
 | Report Generator | ✅ | structured reports in chat + one-click **PDF/DOCX download** of any answer (`/api/reports/export`, zero-dependency PDF writer) |
 | Knowledge Base | ✅ | upload, index, chunks drawer, reindex, delete (Knowledge app) |
 | Long-Term Memory | ✅ | Memory agent + memory_entries + Settings view |
-| MCP Integration | ✅ | **EAIOS is an MCP server**: `python -m app.mcp_server` exposes search_knowledge / ask_eaios / query_knowledge_graph / list_agents to Claude Desktop, Cursor, etc. (`pip install mcp`) |
+| MCP Integration | ✅ | **K-OS is an MCP server**: `python -m app.mcp_server` exposes search_knowledge / ask_eaios / query_knowledge_graph / list_agents to Claude Desktop, Cursor, etc. (`pip install mcp`) |
 | Cloud Deployment | ✅ | Render blueprint (one-click), Dockerfile.web, Helm chart, CI→GHCR |
 | Privacy / PII protection | ✅ | sensitive KG entities (person/email/phone) flagged on any agent/API/MCP access: `pii.access` audit rows + `security.pii` live event |
 | State persistence (checkpointer) | ✅ | LangGraph checkpointer semantics, DB-backed (`graph_checkpoints`); interrupted chat runs resume from the saved node |

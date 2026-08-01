@@ -1,9 +1,9 @@
--- EAIOS · Supabase security hardening
+-- K-OS · Supabase security hardening
 -- ---------------------------------------------------------------------------
 -- Clears the "RLS Disabled in Public" CRITICAL advisories.
 --
 -- WHY: Supabase auto-publishes every table in the `public` schema through its
--- PostgREST API, reachable with the project's anon key. EAIOS never uses that
+-- PostgREST API, reachable with the project's anon key. K-OS never uses that
 -- API — the backend talks to Postgres directly over SQLAlchemy — so the right
 -- fix is to CLOSE that surface, not to write policies for it.
 --
@@ -13,7 +13,7 @@
 --   2. REVOKE the table grants Supabase gives those roles, and revoke them
 --      from DEFAULT PRIVILEGES so tables created later are never exposed.
 --
--- WHY IT DOESN'T BREAK THE APP: EAIOS connects as `postgres`, which owns these
+-- WHY IT DOESN'T BREAK THE APP: K-OS connects as `postgres`, which owns these
 -- tables. Table owners are exempt from RLS unless FORCE ROW LEVEL SECURITY is
 -- set (it is not), and the role additionally carries BYPASSRLS. Tenant
 -- isolation between companies is enforced in the application layer

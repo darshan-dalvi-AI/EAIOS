@@ -42,7 +42,7 @@ export default function SettingsApp() {
   // Model Arena state
   const [arenaA, setArenaA] = useState(MODEL_CATALOG[0].model);
   const [arenaB, setArenaB] = useState(MODEL_CATALOG[1].model);
-  const [arenaPrompt, setArenaPrompt] = useState("Summarize what an enterprise AI operating system does in two sentences.");
+  const [arenaPrompt, setArenaPrompt] = useState("Summarize what a knowledge operating system does in two sentences.");
   const [arenaBusy, setArenaBusy] = useState(false);
   const [arena, setArena] = useState<{ prompt: string; results: CompareResult[] } | null>(null);
 
@@ -247,10 +247,10 @@ export default function SettingsApp() {
 
         <section className="card">
           <h3 className="h-display" style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
-            <Info size={14} className="muted" /> About EAIOS
+            <Info size={14} className="muted" /> About K-OS
           </h3>
           <p className="muted" style={{ fontSize: 12.5, margin: "10px 0" }}>
-            Enterprise AI Operating System 0.1.0 “Aurora” — hybrid multimodal RAG, 8-agent orchestration, and an OS-metaphor
+            Knowledge Operating System 0.1.0 “Aurora” — hybrid multimodal RAG, 8-agent orchestration, and an OS-metaphor
             workspace. Signed in as {user?.full_name} ({user?.role}).
           </p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -272,7 +272,7 @@ function PrivacySection() {
     const next = !wake;
     setWake(next);
     localStorage.setItem("eaios-wake", next ? "1" : "0");
-    window.dispatchEvent(new Event("eaios:wake-changed"));
+    window.dispatchEvent(new Event("k-os:wake-changed"));
   }
   async function doExport() {
     setBusy("export"); setMsg("");
@@ -306,13 +306,13 @@ function PrivacySection() {
         <button className={`btn sm ${confirming ? "primary" : ""}`} onClick={doErase} disabled={busy !== null}>
           <Trash2 size={13} /> {busy === "erase" ? "Erasing…" : confirming ? "Click again to confirm erase" : "Delete my data"}
         </button>
-        <button className="btn sm" onClick={() => window.dispatchEvent(new Event("eaios:replay-tour"))}>
+        <button className="btn sm" onClick={() => window.dispatchEvent(new Event("k-os:replay-tour"))}>
           <PlayCircle size={13} /> Replay the guided tour
         </button>
-        <button className="btn sm" onClick={() => window.dispatchEvent(new Event("eaios:open-setup"))}>
+        <button className="btn sm" onClick={() => window.dispatchEvent(new Event("k-os:open-setup"))}>
           <Rocket size={13} /> Open setup guide
         </button>
-        <button className={`btn sm ${wake ? "primary" : ""}`} onClick={toggleWake} title="Say “Hey EAIOS” to open the assistant">
+        <button className={`btn sm ${wake ? "primary" : ""}`} onClick={toggleWake} title="Say “Hey K-OS” to open the assistant">
           <Mic size={13} /> Wake word: {wake ? "on" : "off"}
         </button>
       </div>

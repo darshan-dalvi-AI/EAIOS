@@ -63,7 +63,7 @@ export default function SQLApp() {
       <aside className="app-sidebar" style={{ padding: "12px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 8px 10px" }}>
           <Database size={14} style={{ color: "var(--good)" }} />
-          <span style={{ fontWeight: 600, fontSize: 12.5 }}>eaios · {live ? "live" : "demo"}</span>
+          <span style={{ fontWeight: 600, fontSize: 12.5 }}>k-os · {live ? "live" : "demo"}</span>
         </div>
         {schema.map((t) => (
           <div key={t.table}>

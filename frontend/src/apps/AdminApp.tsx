@@ -286,7 +286,7 @@ function UsersPanel({ isHR = false }: { isHR?: boolean }) {
   }
   function copyCreds() {
     if (!created) return;
-    const text = `Hi ${created.full_name},\n\nYour EAIOS account is ready.\n\nSign in at: https://eaios.onrender.com\nEmail: ${created.email}\nTemporary password: ${created.password}\nRole: ${created.role}\n\nPlease sign in and change your password.`;
+    const text = `Hi ${created.full_name},\n\nYour K-OS account is ready.\n\nSign in at: https://eaios.onrender.com\nEmail: ${created.email}\nTemporary password: ${created.password}\nRole: ${created.role}\n\nPlease sign in and change your password.`;
     navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }
 

@@ -18,7 +18,7 @@ const CONTACT_EMAIL = "darshanydalvi2005@gmail.com";
 
 const FEATURES = [
   { Icon: Building2, hue: 265, title: "Multi-Tenant SaaS", text: "Every company signs up and gets its own isolated workspace — separate users, documents, chats and data. Isolation is enforced in the data layer itself, so one customer can never see another\u2019s information. One deployment serves them all." },
-  { Icon: Download, hue: 200, title: "Installable App", text: "Install EAIOS on Windows, macOS, Android or iOS and it opens like a native app \u2014 no browser tab, straight to sign-in, with an offline shell." },
+  { Icon: Download, hue: 200, title: "Installable App", text: "Install K-OS on Windows, macOS, Android or iOS and it opens like a native app \u2014 no browser tab, straight to sign-in, with an offline shell." },
   { Icon: FolderSearch, hue: 155, title: "Hybrid Multimodal RAG", text: "BM25 + dense vectors fused with RRF. PDFs, Office docs, spreadsheets, images — cited answers with confidence scores." },
   { Icon: Bot, hue: 265, title: "Multi-Agent AI", text: "9 specialist agents behind a graph orchestrator: an LLM router fans independent tasks out in parallel, and checkpointed state lets interrupted runs resume mid-graph." },
   { Icon: Table2, hue: 15, title: "Structured Table → SQL", text: "Complex, nested tables in PDFs, Word files and spreadsheets become real SQL tables at ingest — the SQL agent queries structured data directly, bypassing text chunking." },
@@ -127,7 +127,7 @@ export default function LandingPage() {
     <div className="landing">
       {/* ── nav ── */}
       <nav className="land-nav">
-        <span className="land-logo"><span className="orb" style={{ width: 16, height: 16 }} /> EAIOS</span>
+        <span className="land-logo"><span className="orb" style={{ width: 16, height: 16 }} /> K-OS</span>
         <div className="land-links">
           <a href="#features">Features</a>
           <a href="#who-its-for">Who it's for</a>
@@ -209,7 +209,7 @@ export default function LandingPage() {
 
       {/* ── who it's for ── */}
       <section className="land-section" id="who-its-for">
-        <h2>Who is EAIOS built for?</h2>
+        <h2>Who is K-OS built for?</h2>
         <p className="land-sub">
           Mid-size, document-heavy teams (50–500 people) — companies with enterprise knowledge problems,
           not enterprise budgets. Your company’s private ChatGPT that actually knows <i>your</i> files:
@@ -247,12 +247,12 @@ export default function LandingPage() {
 
       {/* ── how it works ── */}
       <section className="land-section" id="how-it-works">
-        <h2>How the enterprise AI operating system works</h2>
+        <h2>How the knowledge operating system works</h2>
         <p className="land-sub">Three loops — add knowledge, ask anything, automate the rest — all grounded, cited and auditable.</p>
         <div className="land-prose">
           <p>
             <b>Create your workspace.</b> A company signs up from the login screen with its name and an
-            administrator, and EAIOS provisions an isolated tenant on the spot — its own users, documents,
+            administrator, and K-OS provisions an isolated tenant on the spot — its own users, documents,
             conversations, tasks and dashboards. Isolation is not a filter developers must remember to
             write: every read is automatically scoped to the caller’s workspace and every write is stamped
             with it inside the data layer, so one customer’s data is structurally unreachable from another’s.
@@ -298,7 +298,7 @@ export default function LandingPage() {
       <section className="land-section" id="architecture">
         <h2>Architecture at a glance</h2>
         <p className="land-sub">React OS shell → FastAPI → graph orchestrator → agents → hybrid RAG + knowledge graph → pluggable LLMs.</p>
-        <svg className="arch-svg" viewBox="0 0 860 300" role="img" aria-label="EAIOS architecture diagram">
+        <svg className="arch-svg" viewBox="0 0 860 300" role="img" aria-label="K-OS architecture diagram">
           <defs>
             <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0" stopColor="#22d3ee" /><stop offset="1" stopColor="#8b5cf6" />
@@ -335,27 +335,27 @@ export default function LandingPage() {
         <p className="land-sub">Short answers about the platform, the AI agents and running it yourself.</p>
         <div className="faq-list">
           <details open>
-            <summary>What is EAIOS?</summary>
+            <summary>What is K-OS?</summary>
             <p>
-              EAIOS is an enterprise AI operating system that runs in the browser. It combines hybrid multimodal
+              K-OS is a knowledge operating system that runs in the browser. It combines hybrid multimodal
               RAG, nine cooperating AI agents, a knowledge graph, enterprise search, visual automations and
               observability behind a desktop-style interface with windows, a taskbar and a command palette.
             </p>
           </details>
           <details open>
-            <summary>Who is EAIOS for?</summary>
+            <summary>Who is K-OS for?</summary>
             <p>
               Mid-size, document-heavy organisations of roughly 50–500 people — IT consultancies, HR and
               staffing teams, finance and accounting firms, and sales or operations teams that live in
-              spreadsheets. They have enterprise knowledge problems but not enterprise budgets: EAIOS gives
+              spreadsheets. They have enterprise knowledge problems but not enterprise budgets: K-OS gives
               them a private, cited company AI with no per-seat licensing that runs on a single server or
               fully offline.
             </p>
           </details>
           <details open>
-            <summary>Can several companies use the same EAIOS deployment?</summary>
+            <summary>Can several companies use the same K-OS deployment?</summary>
             <p>
-              Yes — EAIOS is multi-tenant. Any company can create its own workspace from the login screen
+              Yes — K-OS is multi-tenant. Any company can create its own workspace from the login screen
               and gets an isolated tenant with its own administrator, staff, documents and dashboards, all
               served by a single deployment. The administrator can then hire managers, HR and employees,
               suspend or close the workspace, and export or delete the company’s data at any time.
@@ -398,7 +398,7 @@ export default function LandingPage() {
             </p>
           </details>
           <details>
-            <summary>Can my team write code inside EAIOS?</summary>
+            <summary>Can my team write code inside K-OS?</summary>
             <p>
               Yes. The Code app is a full editor with a file tree, tabs and syntax highlighting, and several
               people can hold the same file open and type at once — the text is a CRDT, so edits arrive in any
@@ -412,31 +412,31 @@ export default function LandingPage() {
             <p>
               In your own browser, never on the server. Python and JavaScript run inside a frame that is
               sandboxed to an opaque origin, which means the running code has no cookies, no storage, no access
-              to the page around it and no way to call the EAIOS API as you — a deliberate choice, because in a
+              to the page around it and no way to call the K-OS API as you — a deliberate choice, because in a
               shared editor the code you press Run on may have been typed by a colleague. Python is real CPython
               compiled to WebAssembly, so <code>import numpy</code> or <code>pandas</code> works; a program that
               never finishes is stopped by a time limit instead of freezing the tab. Nothing your team writes is
-              ever executed on EAIOS infrastructure.
+              ever executed on K-OS infrastructure.
             </p>
           </details>
           <details>
             <summary>What is the knowledge graph used for?</summary>
             <p>
-              At ingest time EAIOS extracts entities such as people, organisations, amounts and concepts, and
+              At ingest time K-OS extracts entities such as people, organisations, amounts and concepts, and
               links them by co-occurrence. The graph can be explored visually and is used to answer relational
               questions like how two entities are connected, with evidence passages.
             </p>
           </details>
           <details>
-            <summary>Which language models does EAIOS support?</summary>
+            <summary>Which language models does K-OS support?</summary>
             <p>
               One OpenRouter key unlocks GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi — switchable live
-              from Settings. EAIOS also runs fully local models through Ollama and keeps a deterministic mock
+              from Settings. K-OS also runs fully local models through Ollama and keeps a deterministic mock
               fallback so the platform always answers.
             </p>
           </details>
           <details>
-            <summary>How does EAIOS protect sensitive data?</summary>
+            <summary>How does K-OS protect sensitive data?</summary>
             <p>
               Every request passes JWT authentication, role-based access control and rate limiting. Sensitive
               entities in the knowledge graph — people, email addresses, phone numbers — are classified as PII,
@@ -445,7 +445,7 @@ export default function LandingPage() {
             </p>
           </details>
           <details>
-            <summary>Is EAIOS open source and can I run it myself?</summary>
+            <summary>Is K-OS open source and can I run it myself?</summary>
             <p>
               Yes. The full source is on <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a> with
               one-command local start, Docker Compose, a Render blueprint for free cloud deployment and a Helm
@@ -458,13 +458,13 @@ export default function LandingPage() {
       {/* ── cta band ── */}
       <section className="land-cta-band">
         <h2>Boot the OS. Ask anything.</h2>
-        <button className="btn primary" onClick={launch}><PlayCircle size={15} /> Launch EAIOS</button>
+        <button className="btn primary" onClick={launch}><PlayCircle size={15} /> Launch K-OS</button>
         <span className="faint" style={{ fontSize: 11.5 }}>Works fully offline in demo mode — no keys, no setup.</span>
       </section>
 
       {/* ── footer ── */}
       <footer className="land-footer">
-        <span className="land-logo" style={{ fontSize: 14 }}><span className="orb" style={{ width: 12, height: 12 }} /> EAIOS</span>
+        <span className="land-logo" style={{ fontSize: 14 }}><span className="orb" style={{ width: 12, height: 12 }} /> K-OS</span>
         <div className="land-links">
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={12} /> GitHub</a>
           <a href={DOCS_ANCHOR}>Documentation</a>
@@ -492,7 +492,7 @@ export default function LandingPage() {
 
             {legal === "privacy" && (
               <div className="land-modal-body">
-                <p><b>What EAIOS stores.</b> Documents you upload, the chunks and embeddings derived from
+                <p><b>What K-OS stores.</b> Documents you upload, the chunks and embeddings derived from
                 them, your account (name, email, role), chat history, and an append-only audit log. In the
                 hosted demo this lives in an ephemeral database that resets periodically; in demo mode
                 (no backend) nothing leaves your browser at all.</p>
@@ -511,7 +511,7 @@ export default function LandingPage() {
 
             {legal === "terms" && (
               <div className="land-modal-body">
-                <p><b>What this is.</b> EAIOS is an open-source B.E. Computer Engineering capstone
+                <p><b>What this is.</b> K-OS is an open-source B.E. Computer Engineering capstone
                 project demonstrating enterprise AI architecture. It is provided free of charge for
                 evaluation, learning and demonstration purposes.</p>
                 <p><b>No warranty.</b> The software is provided “as is”, without warranty of any kind.

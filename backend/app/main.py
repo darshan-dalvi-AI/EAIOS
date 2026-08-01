@@ -1,4 +1,4 @@
-"""EAIOS backend — FastAPI application entry point."""
+"""K-OS backend — FastAPI application entry point."""
 import asyncio
 import logging
 import uuid
@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal, init_db
 from app.services.plans import LimitReached
 
-log = logging.getLogger("eaios")
+log = logging.getLogger("k-os")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
 
@@ -229,7 +229,7 @@ async def lifespan(app: FastAPI):
         log.info("keep-alive ON — pinging %s every %d min",
                  settings.KEEPALIVE_URL, settings.KEEPALIVE_INTERVAL_MINUTES)
 
-    log.info("EAIOS %s serving — llm=%s scheduler=%s (warm-up in background)",
+    log.info("K-OS %s serving — llm=%s scheduler=%s (warm-up in background)",
              settings.VERSION, settings.LLM_PROVIDER, "on" if task else "off")
     # Say this out loud at boot: whether new signups must prove their address
     # is the kind of setting people assume is on and discover is off.

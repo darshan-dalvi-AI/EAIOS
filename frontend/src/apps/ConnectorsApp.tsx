@@ -10,7 +10,7 @@ import { useOS } from "../store";
 
 const PROVIDERS = [
   { id: "sample", name: "Sample Workspace", Icon: Sparkles, hue: 200, blurb: "Bundled demo Gmail threads + Drive docs. No setup — great for a quick demo.", scope: "", url: false },
-  { id: "website", name: "Website / Docs", Icon: Globe, hue: 260, blurb: "Paste any site URL — a company wiki, docs site or blog. EAIOS crawls up to 8 same-domain pages into the knowledge base.", scope: "", url: true },
+  { id: "website", name: "Website / Docs", Icon: Globe, hue: 260, blurb: "Paste any site URL — a company wiki, docs site or blog. K-OS crawls up to 8 same-domain pages into the knowledge base.", scope: "", url: true },
   { id: "google_drive", name: "Google Drive", Icon: Cloud, hue: 130, blurb: "Indexes your Drive documents and spreadsheets.", scope: "https://www.googleapis.com/auth/drive.readonly", url: false },
   { id: "gmail", name: "Gmail", Icon: Mail, hue: 350, blurb: "Indexes recent inbox threads.", scope: "https://www.googleapis.com/auth/gmail.readonly", url: false },
 ];

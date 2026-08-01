@@ -1,6 +1,6 @@
 /* First-run setup guide for a new company admin. After a company signs up,
    its admin gets a dismissible checklist that walks them through standing up
-   their own EAIOS: invite the team, add knowledge, connect tools, try the AI,
+   their own K-OS: invite the team, add knowledge, connect tools, try the AI,
    install the app. Progress + dismissal persist per workspace (localStorage).
    Reopen any time from Settings → "Open setup guide". */
 import { BookOpen, CheckCircle2, Download, MessageSquare, Plug, Rocket, Users, X } from "lucide-react";
@@ -21,7 +21,7 @@ const STEPS: Step[] = [
   { key: "chat", icon: <MessageSquare size={16} />, title: "Ask your first question", app: "chat",
     text: "Ask anything about what you uploaded. Answers come back with sources, a confidence score, and the agents that ran.", cta: "Open AI Chat" },
   { key: "install", icon: <Download size={16} />, title: "Install as a desktop app", install: true,
-    text: "Install EAIOS so your team opens it like any native app — no browser tab, launches straight to sign-in.", cta: "Install app" },
+    text: "Install K-OS so your team opens it like any native app — no browser tab, launches straight to sign-in.", cta: "Install app" },
 ];
 
 function keyFor(org: string | null) {
@@ -47,8 +47,8 @@ export default function SetupGuide() {
     };
     load();
     const onOpen = () => { setDismissed(false); };
-    window.addEventListener("eaios:open-setup", onOpen);
-    return () => window.removeEventListener("eaios:open-setup", onOpen);
+    window.addEventListener("k-os:open-setup", onOpen);
+    return () => window.removeEventListener("k-os:open-setup", onOpen);
   }, [storeKey]);
 
   function persist(next: { done?: Record<string, boolean>; dismissed?: boolean }) {

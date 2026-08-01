@@ -1,4 +1,4 @@
-/* EAIOS service worker — offline app shell (PWA).
+/* K-OS service worker — offline app shell (PWA).
    v3 — network-first for the HTML shell so every deploy goes live on the next
    load (cache only serves offline). Cache-first stays for hashed immutable
    assets. v2's cache-first-everything served stale bundles after deploys,

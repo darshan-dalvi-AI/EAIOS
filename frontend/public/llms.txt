@@ -1,6 +1,6 @@
-# EAIOS — Enterprise AI Operating System
+# K-OS — A Knowledge Operating System for the Enterprise
 
-> EAIOS is a MULTI-TENANT enterprise AI operating system that runs in the browser: any company can
+> K-OS is a MULTI-TENANT knowledge operating system that runs in the browser: any company can
 > create its own isolated workspace (own admin, staff, documents, chats and dashboards) from a single
 > deployment, with isolation enforced in the data layer. It combines a hybrid
 > multimodal RAG engine (BM25 + vector search fused with Reciprocal Rank Fusion, cited answers,
@@ -34,7 +34,7 @@ no backend as well). Source: https://github.com/darshan-dalvi-AI/EAIOS
 - Every request records a span waterfall (agent, retrieval, LLM timings) in a Traces app.
 - LLM layer: one OpenRouter key unlocks GPT, Claude, Gemini, DeepSeek, Qwen, Llama and Phi
   (switchable live in Settings); local Ollama and a deterministic fallback keep it always on.
-- Exposes an MCP server so AI assistants can call EAIOS search/ask/graph as tools.
+- Exposes an MCP server so AI assistants can call K-OS search/ask/graph as tools.
 
 ## Docs
 

@@ -1,6 +1,6 @@
 """Supabase/Postgres surface hardening.
 
-Supabase publishes every ``public`` table through its REST API. EAIOS never
+Supabase publishes every ``public`` table through its REST API. K-OS never
 uses that API, so the app shuts it: RLS on (deny-by-default, no policies) plus
 the anon/authenticated grants revoked. These tests pin the emitted SQL and the
 SQLite no-op, since the real behaviour can only be observed on Postgres.

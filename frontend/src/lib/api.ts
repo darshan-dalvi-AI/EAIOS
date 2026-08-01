@@ -57,7 +57,7 @@ export function demoteToDemo(): void {
  *  can say "Company name is too short" instead of a blanket "Invalid input". */
 /** Raised whenever the server refuses an action on plan grounds. UpgradeDialog
  *  listens for it, so no screen has to handle 402 for itself. */
-export const PLAN_LIMIT_EVENT = "eaios:plan-limit";
+export const PLAN_LIMIT_EVENT = "k-os:plan-limit";
 
 /** A plan limit that stopped an action, with everything needed to offer the
  *  upgrade instead of just refusing. */
@@ -208,7 +208,7 @@ export async function apiLogin(email: string, password: string): Promise<Session
   const demo = MOCK_USERS.find((u) => u.email === email && u.password === password);
   if (!demo) throw new Error("Invalid credentials");
   const { password: _pw, ...user } = demo;
-  return { user, token: null, live: false, orgName: "EAIOS Demo Workspace" };
+  return { user, token: null, live: false, orgName: "K-OS Demo Workspace" };
 }
 
 /** Create a brand-new company workspace + its first admin (multi-tenant SaaS). */
@@ -333,7 +333,7 @@ export async function apiChatStream(
       if ((err as DOMException)?.name === "AbortError") throw err;
       // connection dropped mid-stream (backend closed while answering)
       demoteToDemo();
-      handlers.onDelta("\n\n_Connection to the backend was lost mid-answer — EAIOS switched to demo mode._");
+      handlers.onDelta("\n\n_Connection to the backend was lost mid-answer — K-OS switched to demo mode._");
       return;
     }
     if (done) break;

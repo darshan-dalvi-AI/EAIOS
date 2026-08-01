@@ -5,7 +5,7 @@
  * asked to run. It hands the code to `/api/code/runner`, an iframe framed with
  * `sandbox="allow-scripts"` and pointedly *not* `allow-same-origin`, which
  * gives that document an opaque origin — no cookies, no storage, no reach into
- * this DOM, and no way to call the EAIOS API as the signed-in person. This file
+ * this DOM, and no way to call the K-OS API as the signed-in person. This file
  * is the postMessage plumbing on this side of that wall.
  *
  * The wall matters because the editor is collaborative. Somebody else can type

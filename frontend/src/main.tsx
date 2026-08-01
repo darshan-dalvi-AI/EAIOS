@@ -23,7 +23,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("EAIOS crashed:", error, info.componentStack);
+    console.error("K-OS crashed:", error, info.componentStack);
     // Self-heal: crashes right after the backend process dies are transient —
     // switch to demo mode and resume without bothering the user. Rate-limited
     // to 2/minute so a genuine crash loop still shows the recovery card.
@@ -73,7 +73,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
       <div style={box}>
         <div style={card}>
           <div style={{ fontSize: 34, marginBottom: 10 }}>⚠️</div>
-          <h1 style={{ fontSize: 19, margin: "0 0 8px" }}>EAIOS hit a snag</h1>
+          <h1 style={{ fontSize: 19, margin: "0 0 8px" }}>K-OS hit a snag</h1>
           <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 6px" }}>
             {String(this.state.error?.message || this.state.error)}
           </p>

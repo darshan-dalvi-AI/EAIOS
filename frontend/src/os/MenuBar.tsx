@@ -29,9 +29,9 @@ export default function MenuBar() {
 
   return (
     <nav className="menubar">
-      <button className="mb-logo" onClick={() => open("settings")} aria-label="EAIOS system menu">
+      <button className="mb-logo" onClick={() => open("settings")} aria-label="K-OS system menu">
         <span className={`orb ${agentBusy ? "busy" : ""}`} />
-        EAIOS
+        K-OS
       </button>
       {orgName && <span className="mb-org" title="Your workspace">{orgName}</span>}
       {["File", "View", "Agents", "Help"].map((m) => (

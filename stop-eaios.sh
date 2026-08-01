@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop EAIOS servers — macOS / Linux
+# Stop K-OS servers — macOS / Linux
 cd "$(dirname "$0")"
 for pidfile in .backend.pid .frontend.pid; do
   if [ -f "$pidfile" ]; then
@@ -8,4 +8,4 @@ for pidfile in .backend.pid .frontend.pid; do
   fi
 done
 pkill -f "uvicorn app.main:app" 2>/dev/null || true
-echo "EAIOS servers stopped."
+echo "K-OS servers stopped."

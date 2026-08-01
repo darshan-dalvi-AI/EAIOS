@@ -44,7 +44,7 @@ class Hub:
         self._redis_task: asyncio.Task | None = None
         self._instance_id = uuid.uuid4().hex[:12]
 
-    CHANNEL = "eaios:events"
+    CHANNEL = "k-os:events"
 
     async def start_redis(self) -> bool:
         """Attach the hub to Redis pub/sub if one is configured. Never fatal —

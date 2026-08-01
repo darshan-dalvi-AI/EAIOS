@@ -1,6 +1,6 @@
 {
-  "name": "EAIOS — Enterprise AI Operating System",
-  "short_name": "EAIOS",
+  "name": "K-OS — A Knowledge Operating System for the Enterprise",
+  "short_name": "K-OS",
   "description": "Hybrid multimodal RAG + multi-agent AI platform, presented as an operating system.",
   "start_url": "/",
   "scope": "/",

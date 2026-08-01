@@ -1,4 +1,4 @@
-# Render.com blueprint — deploys EAIOS as one free web service.
+# Render.com blueprint — deploys K-OS as one free web service.
 # Dashboard → New → Blueprint → pick this repo → Apply.
 # After the first deploy, set OPENAI_API_KEY (OpenRouter key from
 # https://openrouter.ai/keys) in the service's Environment tab for real
@@ -12,7 +12,7 @@
 
 services:
   - type: web
-    name: eaios
+    name: k-os
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile.web
@@ -82,7 +82,7 @@ services:
       - key: RESEND_API_KEY
         sync: false            # paste in the dashboard; never committed
       - key: MAIL_FROM
-        sync: false            # e.g. "EAIOS <noreply@yourdomain.com>"
+        sync: false            # e.g. "K-OS <noreply@yourdomain.com>"
       # Sign in with Google — verifies the address without any email at all.
       # Create an OAuth client at https://console.cloud.google.com/apis/credentials
       # and add https://eaios.onrender.com as an authorised JavaScript origin.

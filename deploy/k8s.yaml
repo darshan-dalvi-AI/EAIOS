@@ -1,21 +1,21 @@
-# EAIOS — Kubernetes deployment with autoscaling (Phase 6 roadmap)
+# K-OS — Kubernetes deployment with autoscaling (Phase 6 roadmap)
 # Usage: build/push images, set image names + secrets below, then:
 #   kubectl apply -f deploy/k8s.yaml
 apiVersion: v1
 kind: Namespace
-metadata: { name: eaios }
+metadata: { name: k-os }
 ---
 apiVersion: v1
 kind: Secret
-metadata: { name: eaios-secrets, namespace: eaios }
+metadata: { name: eaios-secrets, namespace: k-os }
 type: Opaque
 stringData:
   SECRET_KEY: "change-me-long-random"
-  DATABASE_URL: "postgresql+psycopg2://eaios:CHANGE@postgres-host:5432/eaios"  # use managed Postgres (RDS/CloudSQL)
+  DATABASE_URL: "postgresql+psycopg2://k-os:CHANGE@postgres-host:5432/k-os"  # use managed Postgres (RDS/CloudSQL)
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: backend, namespace: eaios }
+metadata: { name: backend, namespace: k-os }
 spec:
   replicas: 2
   selector: { matchLabels: { app: backend } }
@@ -38,14 +38,14 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: backend, namespace: eaios }
+metadata: { name: backend, namespace: k-os }
 spec:
   selector: { app: backend }
   ports: [{ port: 8000 }]
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
-metadata: { name: backend-hpa, namespace: eaios }
+metadata: { name: backend-hpa, namespace: k-os }
 spec:
   scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: backend }
   minReplicas: 2
@@ -56,7 +56,7 @@ spec:
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: frontend, namespace: eaios }
+metadata: { name: frontend, namespace: k-os }
 spec:
   replicas: 2
   selector: { matchLabels: { app: frontend } }
@@ -72,14 +72,14 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: frontend, namespace: eaios }
+metadata: { name: frontend, namespace: k-os }
 spec:
   selector: { app: frontend }
   ports: [{ port: 80 }]
 ---
 apiVersion: apps/v1
 kind: StatefulSet
-metadata: { name: qdrant, namespace: eaios }
+metadata: { name: qdrant, namespace: k-os }
 spec:
   serviceName: qdrant
   replicas: 1
@@ -100,7 +100,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: qdrant, namespace: eaios }
+metadata: { name: qdrant, namespace: k-os }
 spec:
   selector: { app: qdrant }
   ports: [{ port: 6333 }]
@@ -108,8 +108,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: eaios
-  namespace: eaios
+  name: k-os
+  namespace: k-os
   annotations: { nginx.ingress.kubernetes.io/proxy-body-size: 50m }
 spec:
   rules:

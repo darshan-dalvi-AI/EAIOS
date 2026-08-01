@@ -235,7 +235,7 @@ def test_security_headers_present_on_every_response():
             assert h.get("Referrer-Policy") == "strict-origin-when-cross-origin"
             assert "Content-Security-Policy" in h
             assert "geolocation=()" in h.get("Permissions-Policy", "")
-            assert h.get("Server") == "EAIOS" and "X-Powered-By" not in h
+            assert h.get("Server") == "K-OS" and "X-Powered-By" not in h
 
 
 def test_csp_blocks_framing_and_plugins_without_allowing_eval():

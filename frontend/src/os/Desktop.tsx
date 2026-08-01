@@ -71,9 +71,9 @@ export default function Desktop() {
   useEffect(() => {
     const onTour = () => setTour(true);
     const onWake = () => setWake(localStorage.getItem("eaios-wake") === "1");
-    window.addEventListener("eaios:replay-tour", onTour);
-    window.addEventListener("eaios:wake-changed", onWake);
-    return () => { window.removeEventListener("eaios:replay-tour", onTour); window.removeEventListener("eaios:wake-changed", onWake); };
+    window.addEventListener("k-os:replay-tour", onTour);
+    window.addEventListener("k-os:wake-changed", onWake);
+    return () => { window.removeEventListener("k-os:replay-tour", onTour); window.removeEventListener("k-os:wake-changed", onWake); };
   }, []);
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function Desktop() {
       <MenuBar />
       {(windows.length === 0 || allMinimized) && (
         <div className="empty" style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
-          <div className="boot-logo" style={{ fontSize: 26, opacity: 0.7 }}>EAIOS</div>
+          <div className="boot-logo" style={{ fontSize: 26, opacity: 0.7 }}>K-OS</div>
           <div className="hide-on-phone">
             Press <span className="kbd">Ctrl</span> + <span className="kbd">K</span> or pick an app from the taskbar
           </div>

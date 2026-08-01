@@ -140,7 +140,7 @@ def _fetch_website(url: str, max_pages: int = 8) -> list[tuple[str, str, str]]:
     seen: set[str] = set()
     queue = [start.geturl()]
     items: list[tuple[str, str, str]] = []
-    with httpx.Client(follow_redirects=True, timeout=8, headers={"User-Agent": "EAIOS-connector/1.0"}) as client:
+    with httpx.Client(follow_redirects=True, timeout=8, headers={"User-Agent": "K-OS-connector/1.0"}) as client:
         while queue and len(items) < max_pages:
             page = queue.pop(0)
             if page in seen:

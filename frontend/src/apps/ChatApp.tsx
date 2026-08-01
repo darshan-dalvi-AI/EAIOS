@@ -137,9 +137,9 @@ export default function ChatApp() {
       if (m.role === "user") return `**${user?.full_name ?? "You"}:** ${m.content}`;
       const meta = [m.agent && `agent: ${m.agent}`, m.confidence ? `confidence: ${m.confidence}%` : ""].filter(Boolean).join(" · ");
       const cites = (m.citations ?? []).map((c, i) => `[${i + 1}] ${c.title}${c.section ? ` — ${c.section}` : ""}`).join("\n");
-      return `**EAIOS${m.agent ? ` (${m.agent})` : ""}:** ${m.content}${meta ? `\n\n_${meta}_` : ""}${cites ? `\n\nSources:\n${cites}` : ""}`;
+      return `**K-OS${m.agent ? ` (${m.agent})` : ""}:** ${m.content}${meta ? `\n\n_${meta}_` : ""}${cites ? `\n\nSources:\n${cites}` : ""}`;
     });
-    const blob = new Blob([`# EAIOS conversation — ${new Date().toLocaleString()}\n\n${lines.join("\n\n---\n\n")}\n`], { type: "text/markdown" });
+    const blob = new Blob([`# K-OS conversation — ${new Date().toLocaleString()}\n\n${lines.join("\n\n---\n\n")}\n`], { type: "text/markdown" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `eaios-chat-${Date.now()}.md`;
@@ -312,7 +312,7 @@ function RichText({ content }: { content: string }) {
 function ExportButtons({ content }: { content: string }) {
   const live = useOS((s) => s.live);
   const [busy, setBusy] = useState<"pdf" | "docx" | null>(null);
-  const title = content.match(/^#{1,2}\s+(.{3,80})/m)?.[1] ?? "EAIOS Report";
+  const title = content.match(/^#{1,2}\s+(.{3,80})/m)?.[1] ?? "K-OS Report";
 
   async function exportAs(format: "pdf" | "docx") {
     if (busy) return;

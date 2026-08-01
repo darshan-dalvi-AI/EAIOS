@@ -114,7 +114,7 @@ def init_db() -> None:
 
 # ── Supabase / Postgres surface hardening ─────────────────────────────────
 # Supabase auto-publishes EVERY table in the `public` schema through its
-# PostgREST API, reachable with the project's anon key. EAIOS never uses that
+# PostgREST API, reachable with the project's anon key. K-OS never uses that
 # API — it talks to Postgres directly over SQLAlchemy — so the whole REST
 # surface should be shut, not merely policed. Two independent locks:
 #
@@ -140,7 +140,7 @@ def harden_public_schema(only_table: str | None = None) -> None:
 
     from sqlalchemy import text
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     try:
         with engine.begin() as conn:
             roles = [
@@ -225,7 +225,7 @@ def setup_sql_agent_rls(only_table: str | None = None) -> bool:
 
     from sqlalchemy import text
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     tenant_tables = {t.name for t in Base.metadata.tables.values() if "org_id" in t.columns}
 
     # The role + schema-wide grants, in their own transaction. Everything after
@@ -306,7 +306,7 @@ def _migrate_add_org_id() -> None:
 
     from sqlalchemy import inspect, text
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     insp = inspect(engine)
     existing = set(insp.get_table_names())
     tenant_tables = [t.name for t in Base.metadata.tables.values() if "org_id" in t.columns]
@@ -477,7 +477,7 @@ def add_missing_cascades() -> list[str]:
 
     from sqlalchemy import text
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     if _is_sqlite:
         return []
 
@@ -515,7 +515,7 @@ def create_missing_indexes() -> list[str]:
 
     from sqlalchemy import inspect, text
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     insp = inspect(engine)
     present = set(insp.get_table_names())
     created: list[str] = []
@@ -568,7 +568,7 @@ def harden_column_types_and_checks() -> list[str]:
     if _is_sqlite:
         return []
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     insp = inspect(engine)
     existing = set(insp.get_table_names())
     done: list[str] = []
@@ -624,7 +624,7 @@ def relax_stale_global_uniques() -> list[str]:
 
     from sqlalchemy import text
 
-    log = logging.getLogger("eaios")
+    log = logging.getLogger("k-os")
     repaired: list[str] = []
 
     for item in stale_global_uniques():
@@ -677,14 +677,14 @@ def _backfill_null_orgs(existing: set[str], tenant_tables: list[str]) -> None:
                 conn.execute(
                     text("INSERT INTO organizations (id, name, slug, plan, status, created_at) "
                          "VALUES (:i, :n, :s, 'free', 'active', CURRENT_TIMESTAMP)"),
-                    {"i": org_id, "n": "EAIOS Demo Workspace", "s": DEFAULT_SLUG})
+                    {"i": org_id, "n": "K-OS Demo Workspace", "s": DEFAULT_SLUG})
             for name in tenant_tables:
                 if name in existing:
                     conn.execute(text(f"UPDATE {name} SET org_id = :o WHERE org_id IS NULL"),
                                  {"o": org_id})
         import logging
-        logging.getLogger("eaios").info(
+        logging.getLogger("k-os").info(
             "Adopted %d pre-tenancy user(s) and their data into the default workspace", orphans)
     except Exception as exc:  # noqa: BLE001 — never block startup
         import logging
-        logging.getLogger("eaios").warning("org backfill skipped: %s", exc)
+        logging.getLogger("k-os").warning("org backfill skipped: %s", exc)

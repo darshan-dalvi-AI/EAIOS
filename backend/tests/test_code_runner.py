@@ -41,7 +41,7 @@ def test_sandbox_cannot_reach_this_application(client):
     directives = _csp(client)
     for name, value in directives.items():
         if name == "frame-ancestors":
-            continue        # 'self' here means "only EAIOS may embed it"
+            continue        # 'self' here means "only K-OS may embed it"
         assert "'self'" not in value, f"{name} grants the sandbox same-origin access"
 
 
@@ -74,7 +74,7 @@ def test_execution_happens_in_a_terminable_worker(client):
 def test_the_app_can_frame_it_but_nobody_else_can(client):
     r = client.get("/api/code/runner")
     assert "frame-ancestors 'self'" in r.headers["content-security-policy"]
-    # The app-wide default is DENY, which would block EAIOS framing its own
+    # The app-wide default is DENY, which would block K-OS framing its own
     # sandbox; SAMEORIGIN is the narrowest value that still works.
     assert r.headers["x-frame-options"] == "SAMEORIGIN"
 

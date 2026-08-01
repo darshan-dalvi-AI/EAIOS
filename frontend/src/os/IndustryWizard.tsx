@@ -104,7 +104,7 @@ export default function IndustryWizard() {
               <span className="iw-step">Step 1 of 2</span>
               <h2>What does {orgName || "your company"} do?</h2>
               <p>
-                EAIOS configures itself for your field — specialist AI agents, the questions your
+                K-OS configures itself for your field — specialist AI agents, the questions your
                 team actually asks, and an automation for your most repetitive task. This takes
                 one click and you can change everything afterwards.
               </p>

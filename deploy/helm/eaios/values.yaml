@@ -1,4 +1,4 @@
-# EAIOS Helm values — override per environment (-f values.prod.yaml)
+# K-OS Helm values — override per environment (-f values.prod.yaml)
 
 image:
   backend: ghcr.io/YOUR_USER/eaios-backend
@@ -49,7 +49,7 @@ ingress:
 # Secrets — supply real values via --set-file / external-secrets / sealed-secrets.
 secrets:
   SECRET_KEY: "change-me-long-random"
-  DATABASE_URL: "postgresql+psycopg2://eaios:CHANGE@postgres-host:5432/eaios"
+  DATABASE_URL: "postgresql+psycopg2://k-os:CHANGE@postgres-host:5432/k-os"
   REDIS_URL: ""               # enables cross-replica rate limiting when set
 
 backup:

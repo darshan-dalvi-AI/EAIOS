@@ -64,7 +64,7 @@ class MeetingIn(BaseModel):
 
 
 MINUTES_SYSTEM = (
-    "You are the EAIOS Meeting Assistant. Turn the raw transcript into crisp minutes as markdown "
+    "You are the K-OS Meeting Assistant. Turn the raw transcript into crisp minutes as markdown "
     "with EXACTLY these sections: '## Summary' (3-5 sentences), '## Decisions' (bullets), "
     "'## Action Items' (bullets formatted '- [owner] task — due'). Infer owners from speaker "
     "names when present; use 'unassigned' otherwise. No preamble."

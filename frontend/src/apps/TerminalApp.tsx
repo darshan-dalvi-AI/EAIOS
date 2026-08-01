@@ -8,7 +8,7 @@ interface Line {
 }
 
 const BANNER = [
-  "EAIOS shell 0.1.0 — type <span class='cy'>help</span> for commands",
+  "K-OS shell 0.1.0 — type <span class='cy'>help</span> for commands",
 ];
 
 export default function TerminalApp() {
@@ -28,7 +28,7 @@ export default function TerminalApp() {
 
   function execute(raw: string) {
     const cmd = raw.trim();
-    print(`<span class='p'>${escapeHtml(user?.email.split("@")[0] ?? "")}@eaios</span><span class='dim'>:~$</span> ${escapeHtml(cmd)}`);
+    print(`<span class='p'>${escapeHtml(user?.email.split("@")[0] ?? "")}@k-os</span><span class='dim'>:~$</span> ${escapeHtml(cmd)}`);
     if (!cmd) return;
     setHistory((h) => [cmd, ...h]);
     setHistIndex(-1);
@@ -49,7 +49,7 @@ export default function TerminalApp() {
         break;
       case "neofetch":
         print(
-          "<span class='vi'>        ▄▄▄▄▄▄▄        </span> <span class='cy'>EAIOS</span> 0.1.0 <span class='dim'>“Aurora”</span>",
+          "<span class='vi'>        ▄▄▄▄▄▄▄        </span> <span class='cy'>K-OS</span> 0.1.0 <span class='dim'>“Aurora”</span>",
           "<span class='vi'>      ▄█▀▀▀▀▀▀▀█▄      </span> Kernel: hybrid-rag/1.4",
           "<span class='vi'>     ██  ◉   ◉  ██     </span> Agents: 8 registered · planner warm",
           "<span class='vi'>     ██    ▽    ██     </span> Vectors: qdrant <span class='dim'>(in-memory fallback)</span>",
@@ -117,7 +117,7 @@ export default function TerminalApp() {
         <div key={i} dangerouslySetInnerHTML={{ __html: line.html }} />
       ))}
       <div className="cmd-line">
-        <span className="p">{user?.email.split("@")[0]}@eaios</span>
+        <span className="p">{user?.email.split("@")[0]}@k-os</span>
         <span className="dim">:~$</span>
         <input
           ref={inputRef}

@@ -114,7 +114,7 @@ def compare_models(body: CompareIn, db: Session = Depends(get_db), admin: User =
 
     from app.llm.provider import complete_with
 
-    system = "You are EAIOS, an enterprise AI assistant. Answer concisely and factually."
+    system = "You are K-OS, an enterprise AI assistant. Answer concisely and factually."
 
     def run(model: str) -> dict:
         t0 = time.perf_counter()
