@@ -108,6 +108,7 @@ export default function CodeApp() {
     setRunLine(runtime === "python" ? "Starting Python…" : "Running…");
     try {
       await runCode(runtime, code, (e) => {
+
         if (e.type === "out") {
           setOut((prev) => {
             const next = [...prev, { stream: e.stream ?? "stdout", text: e.text ?? "" }];
@@ -121,7 +122,7 @@ export default function CodeApp() {
           setLastRun({ ok: !!e.ok, ms: e.ms ?? 0 });
           setRunLine("");
         }
-      });
+      }, activeFile?.path ?? "");
     } catch (e) {
       setErr((e as Error).message);
     } finally { setRunning(false); }

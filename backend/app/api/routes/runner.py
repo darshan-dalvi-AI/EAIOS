@@ -132,6 +132,24 @@ try { self.console = SANDBOX_CONSOLE; } catch (e) { /* frozen in some engines */
 /* AsyncFunction, so top-level `await` works the way people expect in a REPL. */
 var AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
+/* Pyodide runs the code through its own eval_code_async, so a raw traceback
+   opens with two frames inside /lib/python313.zip/_pyodide/_base.py before it
+   ever reaches the person's code. Someone learning Python reads that as "the
+   error is in a file I have never heard of". Everything above the first
+   <exec> frame is our plumbing, so it goes; what is left is the traceback
+   they would have got from `python main.py`. */
+function trimPythonTraceback(text, filename) {
+  var lines = text.split("\n");
+  var first = -1;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf('File "<exec>"') !== -1) { first = i; break; }
+  }
+  if (first === -1) return text;              /* unfamiliar shape — leave it alone */
+  var head = lines[0].indexOf("Traceback") === 0 ? [lines[0]] : [];
+  return head.concat(lines.slice(first)).join("\n")
+             .split('"<exec>"').join('"' + (filename || "your code") + '"');
+}
+
 async function runJS(code) {
   postMessage({ type: "exec" });   /* nothing to download; start the clock now */
   /* `console` is passed as a parameter as well as set globally: the parameter
@@ -212,12 +230,16 @@ onmessage = async function (e) {
        harness, not to the person's code, so it is noise pointing at the
        wrong file. The error's own name is kept, because "TypeError: x is not
        a function" says more than "x is not a function". */
-    var text = (err && err.message) ? err.message
-             : (err && err.stack) ? err.stack : String(err);
-    if (err && err.name && String(text).indexOf(err.name) !== 0) {
+    var text = String((err && err.message) ? err.message
+                    : (err && err.stack) ? err.stack : err);
+    if (text.indexOf("Traceback (most recent call last)") === 0) {
+      /* Python: the traceback already names the error; prefixing it with the
+         JS wrapper's "PythonError:" would just bury the real one. */
+      text = trimPythonTraceback(text, d.filename);
+    } else if (err && err.name && text.indexOf(err.name) !== 0) {
       text = err.name + ": " + text;
     }
-    out("stderr", String(text).replace(/\s+$/, "") + "\n");
+    out("stderr", text.replace(/\s+$/, "") + "\n");
     postMessage({ type: "done", ok: false, ms: elapsed() });
   }
 };
@@ -315,7 +337,8 @@ _RUNNER_HTML = r"""<!doctype html>
        execution limit would kill every first Python run. The generous boot
        clock runs until the worker says the code itself has started. */
     arm(BOOT_TIMEOUT, bootMsg);
-    worker.postMessage({ lang: d.lang, code: String(d.code == null ? "" : d.code) });
+    worker.postMessage({ lang: d.lang, filename: String(d.filename || ""),
+                         code: String(d.code == null ? "" : d.code) });
   }
 
   addEventListener("message", function (e) {

@@ -120,6 +120,19 @@ def test_worker_source_cannot_break_out_of_the_script_tag():
     assert html.count("</script>") == 1
 
 
+def test_python_tracebacks_are_stripped_of_pyodide_internals():
+    """Observed on production before this was added: an IndexError on line 3
+    printed nine lines, six of them inside /lib/python313.zip/_pyodide/_base.py.
+    Someone learning Python reads that as "the error is in a file I have never
+    heard of". Only the frames from <exec> onward are theirs."""
+    # The worker is embedded as a JSON string literal, so quotes arrive
+    # escaped; match on shapes that survive that.
+    html = runner_html()
+    assert "trimPythonTraceback" in html
+    assert "<exec>" in html                 # the boundary between our code and theirs
+    assert "d.filename" in html             # their filename replaces "<exec>"
+
+
 def test_only_the_embedder_can_drive_the_sandbox():
     """A run request from any other frame must be ignored, otherwise a hostile
     embed could use the sandbox as an execution service."""

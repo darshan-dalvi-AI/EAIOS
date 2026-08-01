@@ -115,6 +115,8 @@ export async function runCode(
   lang: RunLang,
   code: string,
   onEvent: (e: RunEvent) => void,
+  /** Shown in Python tracebacks in place of Pyodide's internal "<exec>". */
+  filename = "",
   timeoutMs = 10_000,
 ): Promise<void> {
   if (active) throw new Error("Something is already running.");
@@ -130,7 +132,7 @@ export async function runCode(
     // string that would match it. Safe here because what travels outward is
     // only the program's own source, which the sandbox is about to run anyway.
     el.contentWindow?.postMessage(
-      { eaios: "run-request", type: "run", lang, code, timeoutMs }, "*");
+      { eaios: "run-request", type: "run", lang, code, filename, timeoutMs }, "*");
   });
 }
 
