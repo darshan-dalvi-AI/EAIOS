@@ -24,6 +24,68 @@ MAX_FILE_BYTES = 512_000        # a source file, not an asset store
 MAX_FILES_PER_PROJECT = 200
 MAX_VERSIONS_KEPT = 50
 
+# ── folder import ────────────────────────────────────────────────────────
+# The browser hands over whatever the person picked, so "open this folder" on a
+# real repository arrives as tens of thousands of files, nearly all of them
+# dependencies and build output. The editor filters before uploading, but that
+# is a convenience, not a control: anything a client decides can be skipped by
+# a client. These limits are the ones that actually hold.
+MAX_IMPORT_FILES = 400          # examined per request, before filtering
+MAX_IMPORT_TOTAL_BYTES = 8_000_000
+
+# Directory names that are never worth importing into an editor: package
+# installs, VCS metadata, build output, caches, virtualenvs.
+SKIP_DIRS = frozenset({
+    "node_modules", ".git", ".hg", ".svn", ".idea", ".vscode", "__pycache__",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", "venv", ".venv", "env",
+    "dist", "build", "out", "target", "coverage", ".next", ".nuxt", ".cache",
+    "vendor", "Pods", ".terraform", "bin", "obj", ".gradle", ".tox", "site-packages",
+})
+
+# Extensions that cannot be edited as text. Kept as a denylist rather than an
+# allowlist so an unusual source extension still imports.
+SKIP_SUFFIXES = frozenset({
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svgz", ".tiff",
+    ".pdf", ".zip", ".gz", ".tar", ".rar", ".7z", ".jar", ".war", ".bz2", ".xz",
+    ".exe", ".dll", ".so", ".dylib", ".bin", ".class", ".pyc", ".pyo", ".o", ".a",
+    ".mp3", ".mp4", ".mov", ".avi", ".wav", ".flac", ".webm", ".mkv", ".ogg",
+    ".ttf", ".otf", ".woff", ".woff2", ".eot",
+    ".db", ".sqlite", ".sqlite3", ".pkl", ".npy", ".parquet", ".wasm",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+})
+
+# Generated files that are text but never worth reading or editing.
+SKIP_NAMES = frozenset({
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
+    "Cargo.lock", "composer.lock", "Gemfile.lock", ".DS_Store", "Thumbs.db",
+})
+
+
+def import_skip_reason(path: str, size: int, content: str) -> str | None:
+    """Why this file should not be imported, or None to keep it.
+
+    Returns a human-readable reason because the person is told what was left
+    out — a silent skip is how somebody spends ten minutes looking for a file
+    that was never uploaded.
+    """
+    parts = path.split("/")
+    for seg in parts[:-1]:
+        if seg in SKIP_DIRS:
+            return f"inside {seg}/"
+    name = parts[-1]
+    if name in SKIP_NAMES:
+        return "generated file"
+    if os.path.splitext(name)[1].lower() in SKIP_SUFFIXES:
+        return "not a text file"
+    if size > MAX_FILE_BYTES:
+        return f"larger than {MAX_FILE_BYTES // 1000} KB"
+    # A NUL byte is the oldest and most reliable binary test there is: text
+    # encodings do not produce one, and an extension check alone misses a
+    # compiled artefact that happens to be named .dat or has no extension.
+    if "\x00" in content:
+        return "looks binary"
+    return None
+
 # path suffix → Monaco language id
 _LANG = {
     ".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript",
@@ -75,6 +137,20 @@ class FileIn(BaseModel):
 class FileSave(BaseModel):
     content: str
     note: str = Field(default="", max_length=200)
+
+
+class ImportFile(BaseModel):
+    # Deliberately not `FileIn`: an import carries paths the browser produced
+    # rather than paths a person typed, so over-length and traversal segments
+    # are reported as skipped files instead of failing the whole upload.
+    path: str = Field(max_length=1000)
+    content: str = Field(default="")
+
+
+class ImportIn(BaseModel):
+    files: list[ImportFile]
+    project_id: str | None = None     # omit to create a new project
+    name: str = Field(default="", max_length=120)
 
 
 def _project_out(p: Project, file_count: int = 0) -> dict:
@@ -199,6 +275,114 @@ def create_file(project_id: str, body: FileIn, db: Session = Depends(get_db),
     db.commit()
     db.refresh(f)
     return _file_out(f, with_content=True)
+
+
+@router.post("/import", status_code=201)
+def import_files(body: ImportIn, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """Import a set of files — one upload, or a whole folder tree.
+
+    A folder arrives as a flat list of relative paths, which is what the
+    browser's directory picker gives us. Done one-file-at-a-time this would be
+    hundreds of round trips and a partially-imported project whenever one of
+    them failed; here it is a single transaction that either lands or does not.
+
+    Nothing is overwritten. A path that already exists is reported as skipped
+    rather than silently replacing work someone else may be editing.
+    """
+    if len(body.files) > MAX_IMPORT_FILES:
+        raise HTTPException(413,
+            f"That folder has {len(body.files)} files. Import at most "
+            f"{MAX_IMPORT_FILES} at a time — try a subfolder.")
+
+    total = sum(len((f.content or "").encode("utf-8")) for f in body.files)
+    if total > MAX_IMPORT_TOTAL_BYTES:
+        raise HTTPException(413,
+            f"That's {total // 1_000_000} MB of text; the limit is "
+            f"{MAX_IMPORT_TOTAL_BYTES // 1_000_000} MB per import.")
+
+    # Filter first, so an import that turns out to be entirely dependencies
+    # does not create an empty project and leave it lying around.
+    keep: list[tuple[str, str]] = []
+    skipped: list[dict] = []
+    seen: set[str] = set()
+    for f in body.files:
+        raw = (f.path or "").strip().replace("\\", "/").lstrip("/")
+        parts = [seg for seg in raw.split("/") if seg not in ("", ".")]
+        if not parts or any(seg == ".." for seg in parts) or len("/".join(parts)) > 300:
+            skipped.append({"path": raw[:120] or "(unnamed)", "reason": "unusable path"})
+            continue
+        path = "/".join(parts)
+        content = f.content or ""
+        reason = import_skip_reason(path, len(content.encode("utf-8")), content)
+        if reason:
+            skipped.append({"path": path, "reason": reason})
+            continue
+        if path in seen:
+            skipped.append({"path": path, "reason": "duplicate"})
+            continue
+        seen.add(path)
+        keep.append((path, content))
+
+    if not keep:
+        raise HTTPException(422,
+            "Nothing importable in that selection — it was all dependencies, "
+            "build output or binary files.")
+
+    if body.project_id:
+        project = _get_project(db, body.project_id)
+        existing = {p for (p,) in db.execute(
+            select(ProjectFile.path).where(ProjectFile.project_id == project.id))}
+        room = MAX_FILES_PER_PROJECT - len(existing)
+    else:
+        name = (body.name or "Imported").strip()[:120] or "Imported"
+        project = Project(name=name, description="Imported from a folder",
+                          language=_dominant_language(keep), owner_id=user.id)
+        db.add(project)
+        db.flush()
+        existing, room = set(), MAX_FILES_PER_PROJECT
+
+    added = 0
+    for path, content in keep:
+        if path in existing:
+            skipped.append({"path": path, "reason": "already in this project"})
+            continue
+        if added >= room:
+            skipped.append({"path": path, "reason": f"over the {MAX_FILES_PER_PROJECT}-file limit"})
+            continue
+        db.add(ProjectFile(project_id=project.id, path=path, language=language_for(path),
+                           content=content, size_bytes=len(content.encode("utf-8")),
+                           updated_by=user.id))
+        added += 1
+
+    if added == 0:
+        # Never leave an empty shell behind from a failed import.
+        db.rollback()
+        raise HTTPException(409, "Every one of those files is already in this project.")
+
+    db.commit()
+    db.refresh(project)
+    audit.log(db, "project.import", user_id=user.id,
+              detail=f"{added} files into '{project.name}' ({len(skipped)} skipped)")
+    total_files = db.scalar(select(func.count(ProjectFile.id))
+                            .where(ProjectFile.project_id == project.id)) or added
+    return {
+        "project": _project_out(project, total_files),
+        "imported": added,
+        "skipped": skipped[:50],          # enough to explain, not enough to flood
+        "skipped_total": len(skipped),
+    }
+
+
+def _dominant_language(files: list[tuple[str, str]]) -> str:
+    """The language most of the imported files are written in — used as the
+    project's label. Ties and all-plaintext both fall back to 'plaintext'."""
+    counts: dict[str, int] = {}
+    for path, _ in files:
+        lang = language_for(path)
+        if lang != "plaintext":
+            counts[lang] = counts.get(lang, 0) + 1
+    return max(counts, key=lambda k: counts[k]) if counts else "plaintext"
 
 
 @router.get("/files/{file_id}")

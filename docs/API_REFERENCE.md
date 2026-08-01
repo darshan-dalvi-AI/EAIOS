@@ -108,6 +108,22 @@ Node types: `trigger` · `agent {agent, prompt}` (`{{input}}` = upstream output)
 | DELETE | /projects/files/{file_id} | ✓ | Remove file + its versions |
 | GET | /projects/files/{file_id}/versions | ✓ | Version history (author, note, size) |
 | POST | /projects/files/{file_id}/restore/{version_id} | ✓ | Roll a file back |
+| POST | /projects/import | ✓ | `{files:[{path,content}], project_id?, name?}` → `{project, imported, skipped[], skipped_total}`. Omit `project_id` to create a new project named `name` |
+
+**Import filtering.** "Open this folder" on a real repository hands the browser tens of thousands of
+files, nearly all of them dependencies and build output, so the import drops anything inside
+`node_modules`, `.git`, `dist`, `build`, `__pycache__`, `venv` and friends, plus lockfiles, binaries by
+extension, files over 512 KB, and anything containing a NUL byte (the reliable tell for a compiled
+artefact with an innocent name). The editor applies the same rules *before reading* the files — a
+folder pick would otherwise freeze the tab reading 40,000 blobs — but that copy exists for
+responsiveness, not enforcement: the server filters again, because anything a client decides can be
+skipped by a client. Caps are 400 files and 8 MB per request, on top of the existing 200-files-per-project limit.
+
+Existing paths are **never overwritten** — they come back as skipped, because someone may have that
+file open. Filtering runs before the project is created, so a folder that turns out to be entirely
+dependencies returns 422 rather than leaving an empty project behind. Every skipped file is returned
+with a reason; a silent skip is how somebody spends ten minutes hunting for a file that was never
+uploaded.
 
 ### Version control
 

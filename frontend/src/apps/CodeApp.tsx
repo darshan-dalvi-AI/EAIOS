@@ -14,7 +14,7 @@
  */
 import {
   ChevronRight, Code2, FilePlus, FileText, GitBranch as GitBranchIcon, GitCommitVertical, History,
-  Loader2, Play, Plus, Save, Sparkles, Square, Terminal, Trash2, Users, X,
+  FolderUp, Loader2, Play, Plus, Save, Sparkles, Square, Terminal, Trash2, Upload, Users, X,
 } from "lucide-react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -29,8 +29,9 @@ import {
   apiCodeAssist, apiCreateFile, apiCreateProject, apiDeleteFile, apiDeleteProject,
   apiFileVersions, apiGitBranches, apiGitCheckout, apiGitCommit, apiGitCommitDetail,
   apiGitCreateBranch, apiGitHistory, apiGitStatus, apiGitWorkingDiff,
-  apiProjectFiles, apiProjects, apiReadFile, apiRestoreVersion, apiSaveFile,
+  apiImportFiles, apiProjectFiles, apiProjects, apiReadFile, apiRestoreVersion, apiSaveFile,
 } from "../lib/api";
+import { filesFromDrop, prepareImport, type Skipped } from "../lib/importFiles";
 import { disposeSandbox, runCode, runtimeFor, stopCode } from "../lib/runCode";
 import { useOS } from "../store";
 import type {
@@ -74,6 +75,13 @@ export default function CodeApp() {
   const [diff, setDiff] = useState<{ title: string; files: GitDiffFile[] } | null>(null);
   // ── editor tabs: the files currently open, in the order they were opened ──
   const [openTabs, setOpenTabs] = useState<string[]>([]);
+  // ── importing files and folders ──
+  const [importing, setImporting] = useState("");                 // progress line
+  const [dragging, setDragging] = useState(false);
+  const [importReport, setImportReport] =
+    useState<{ name: string; imported: number; skipped: Skipped[]; total: number } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const dirInput = useRef<HTMLInputElement>(null);
   // ── output console ──
   const [showOut, setShowOut] = useState(false);
   const [running, setRunning] = useState(false);
@@ -155,6 +163,63 @@ export default function CodeApp() {
       if (id === fileId) setFileId(next[next.length - 1] ?? null);
       return next;
     });
+  }
+
+  /* ── importing ────────────────────────────────────────────────────────
+   * `intoCurrent` is what separates "upload a file" from "open a folder".
+   * Loose files land in the project you are already in — that is what picking
+   * a file means. A folder becomes a project of its own, named after itself,
+   * the way opening a folder works in every editor. */
+  async function importSelection(picked: FileList | File[], intoCurrent: boolean) {
+    const list = Array.from(picked);
+    if (list.length === 0) return;
+    setErr(""); setImportReport(null);
+    setImporting(`Reading ${list.length} file${list.length === 1 ? "" : "s"}…`);
+    try {
+      const { files, skipped, rootName } = await prepareImport(list, (done, total) => {
+        if (total > 20) setImporting(`Reading ${done} of ${total}…`);
+      });
+      if (files.length === 0) {
+        setErr(skipped.length
+          ? "Nothing importable there — it was all dependencies, build output or binaries."
+          : "No files selected.");
+        return;
+      }
+      setImporting(`Uploading ${files.length} file${files.length === 1 ? "" : "s"}…`);
+      const target = intoCurrent && projectId ? { projectId } : { name: rootName || "Imported" };
+      const r = await apiImportFiles(files, target);
+
+      await loadProjects();
+      setProjectId(r.project.id);
+      const fresh = await apiProjectFiles(r.project.id);
+      setFiles(fresh);
+      // Open something immediately — an import that lands you on an empty
+      // editor looks like it failed.
+      const first = fresh.find((f) => files.some((n) => n.path === f.path)) ?? fresh[0];
+      if (first) setFileId(first.id);
+
+      setImportReport({
+        name: r.project.name,
+        imported: r.imported,
+        // The server filters again, so its skip list is the authoritative one;
+        // merge in what we dropped before uploading.
+        skipped: [...skipped, ...r.skipped].slice(0, 60),
+        total: skipped.length + r.skipped_total,
+      });
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally { setImporting(""); }
+  }
+
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const dropped = await filesFromDrop(e.dataTransfer);
+    // A dropped folder becomes its own project; dropped loose files join the
+    // project already open.
+    const isFolder = dropped.some((f) =>
+      ((f as File & { webkitRelativePath?: string }).webkitRelativePath ?? "").includes("/"));
+    await importSelection(dropped, !isFolder);
   }
 
   async function runAssist(action: "explain" | "fix" | "test" | "document" | "refactor") {
@@ -414,19 +479,61 @@ export default function CodeApp() {
 
   /* ── render ───────────────────────────────────────────────────────── */
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
+    <div style={{ display: "flex", height: "100%", minHeight: 0, position: "relative" }}
+         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+         onDragLeave={(e) => { if (e.currentTarget === e.target) setDragging(false); }}
+         onDrop={(e) => { void onDrop(e); }}>
+
+      {dragging && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex",
+                      alignItems: "center", justifyContent: "center", flexDirection: "column",
+                      gap: 8, background: "rgba(10,16,24,.86)",
+                      border: "2px dashed var(--accent)", borderRadius: 8, pointerEvents: "none" }}>
+          <FolderUp size={26} aria-hidden />
+          <b style={{ fontSize: 13 }}>Drop files or a folder to import</b>
+          <span className="faint" style={{ fontSize: 11 }}>
+            A folder becomes its own project · dependencies and binaries are skipped
+          </span>
+        </div>
+      )}
       {/* explorer */}
       <div style={{ width: 232, borderRight: "1px solid var(--line)", display: "flex",
                     flexDirection: "column", minHeight: 0 }}>
         <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 6 }}>
           <Code2 size={14} aria-hidden />
           <b style={{ fontSize: 12, flex: 1 }}>Projects</b>
+          <button className="btn sm" onClick={() => fileInput.current?.click()}
+                  disabled={!!importing}
+                  title={projectId ? "Upload files into this project" : "Upload files"}>
+            <Upload size={12} />
+          </button>
+          <button className="btn sm" onClick={() => dirInput.current?.click()}
+                  disabled={!!importing} title="Open a folder as a new project">
+            <FolderUp size={12} />
+          </button>
           <button className="btn sm" onClick={newProject} title="New project"><Plus size={12} /></button>
         </div>
+
+        {/* Hidden pickers. `webkitdirectory` is the only way to let someone
+            choose a whole folder; it is non-standard but implemented by every
+            current browser, and the button simply does nothing without it. */}
+        <input ref={fileInput} type="file" multiple hidden
+               onChange={(e) => { void importSelection(e.target.files ?? [], true); e.target.value = ""; }} />
+        <input ref={dirInput} type="file" hidden
+               // @ts-expect-error — non-standard, but this is how folder pick works
+               webkitdirectory="" directory=""
+               onChange={(e) => { void importSelection(e.target.files ?? [], false); e.target.value = ""; }} />
+
+        {importing && (
+          <div className="faint" style={{ padding: "0 12px 6px", fontSize: 11,
+                                          display: "flex", alignItems: "center", gap: 5 }}>
+            <Loader2 size={11} className="spin" /> {importing}
+          </div>
+        )}
         <div style={{ overflowY: "auto", paddingBottom: 6 }}>
           {projects.length === 0 && (
-            <div className="faint" style={{ padding: "6px 12px", fontSize: 11.5 }}>
-              No projects yet — create one.
+            <div className="faint" style={{ padding: "6px 12px", fontSize: 11.5, lineHeight: 1.6 }}>
+              No projects yet — create one, open a folder, or drag one in.
             </div>
           )}
           {projects.map((p) => (
@@ -535,6 +642,39 @@ export default function CodeApp() {
         </div>
 
         {err && <div className="banner error" style={{ fontSize: 11.5 }}>{err}</div>}
+
+        {importReport && (
+          <div className="banner" style={{ fontSize: 11.5, display: "flex", gap: 8,
+                                           alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <b>{importReport.imported} file{importReport.imported === 1 ? "" : "s"}</b>
+              {" imported into "}<b>{importReport.name}</b>
+              {importReport.total > 0 && <> · {importReport.total} skipped</>}
+              {importReport.total > 0 && (
+                <details style={{ marginTop: 4 }}>
+                  <summary style={{ cursor: "pointer" }}>What was skipped, and why</summary>
+                  <div style={{ maxHeight: 128, overflowY: "auto", marginTop: 4,
+                                fontFamily: "var(--mono, ui-monospace, monospace)", fontSize: 10.5 }}>
+                    {importReport.skipped.map((s, i) => (
+                      <div key={i} style={{ display: "flex", gap: 8 }}>
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis",
+                                       whiteSpace: "nowrap" }}>{s.path}</span>
+                        <span className="faint">{s.reason}</span>
+                      </div>
+                    ))}
+                    {importReport.total > importReport.skipped.length && (
+                      <div className="faint">
+                        …and {importReport.total - importReport.skipped.length} more
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
+            </div>
+            <button className="btn sm ghost" onClick={() => setImportReport(null)}
+                    aria-label="Dismiss import summary">✕</button>
+          </div>
+        )}
 
         {/* open files, as tabs */}
         {openTabs.length > 0 && (

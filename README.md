@@ -180,6 +180,7 @@ docs/          architecture · API reference · roadmap · demo script · deploy
 | **HR role** — people-ops console: hire/manage staff (managers/employees), scoped RBAC (no model keys / can't touch admins) | ✅ implemented (`require_admin_or_hr`) |
 | **Installable app (PWA)** — one-click 'Download app' installs EAIOS as a standalone app on Windows/Mac/Android (PNG icons, manifest, offline shell) | ✅ implemented (`lib/pwa.ts`, `InstallButton`) |
 | **Code app** — Monaco editor, file tree, tabs, syntax highlighting (19th app) | ✅ implemented (`apps/CodeApp.tsx`, `routes/projects.py`) |
+| **Upload files / open a folder** — folder picker + drag-and-drop; a folder becomes its own project with paths preserved. Dependencies, build output, lockfiles and binaries are filtered out (client-side to stay responsive, server-side to actually hold), and every skip is reported with a reason | ✅ implemented (`lib/importFiles.ts`, `POST /projects/import`) |
 | **CRDT collaborative editing** — several people in one file at once (Yjs over a WS relay; server never merges) | ✅ implemented (`core/collab.py`, `y-monaco`) — proven by a 5-concurrent-editor test |
 | **Version control** — content-addressed blobs, commits, branches, diffs, restore-with-rescue-branch | ✅ implemented (`services/vcs.py`) |
 | **AI coding assistant** — explain / find bugs / write tests / document / refactor on your selection | ✅ implemented (`/projects/{id}/assist`, deliberately bypasses RAG) |

@@ -1185,6 +1185,23 @@ export const apiCreateFile = (projectId: string, path: string, content = "") =>
 export const apiReadFile = (fileId: string) =>
   request<CodeFile>(`/projects/files/${fileId}`);
 
+export interface ImportResult {
+  project: CodeProject;
+  imported: number;
+  skipped: { path: string; reason: string }[];
+  skipped_total: number;
+}
+
+/** Import a set of files in one call. Omit `projectId` to create a new project. */
+export const apiImportFiles = (
+  files: { path: string; content: string }[],
+  opts: { projectId?: string; name?: string } = {},
+) =>
+  request<ImportResult>("/projects/import", {
+    method: "POST",
+    body: JSON.stringify({ files, project_id: opts.projectId ?? null, name: opts.name ?? "" }),
+  });
+
 export const apiSaveFile = (fileId: string, content: string, note = "") =>
   request<CodeFile>(`/projects/files/${fileId}`, {
     method: "PUT", body: JSON.stringify({ content, note }),
