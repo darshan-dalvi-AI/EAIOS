@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ping } from "./lib/api";
 import { initPwa } from "./lib/pwa";
+import { initUpdates } from "./lib/updates";
 import { useOS } from "./store";
 import "./styles/system.css";
 
@@ -98,6 +99,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 
 // Debug handle (console): window.__eaios.getState() — helps diagnose issues in the field.
 (window as unknown as { __eaios: typeof useOS }).__eaios = useOS;
+// Which build is this tab actually running? The question comes up every time
+// someone reports a bug that was already fixed, and "hard-refresh and try
+// again" is a guess until you can read the answer off the running copy.
+(window as unknown as { __build: string }).__build = __BUILD_ID__;
+console.info(`K-OS build ${__BUILD_ID__}`);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -107,21 +113,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   </React.StrictMode>
 );
 
-// PWA: offline app shell (production builds over http(s) only — the
-// single-file demo runs from file:// where service workers don't apply).
-if (import.meta.env.PROD && "serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {/* non-fatal */});
-  });
-  // After a deploy, the new service worker takes control (skipWaiting +
-  // clients.claim) — reload ONCE so this tab runs the fresh bundle instead of
-  // a stale one (mixed old/new chunks caused "… is not a function" crashes).
-  // Guard: no controller at load = first-ever install → don't reload.
-  const hadController = !!navigator.serviceWorker.controller;
-  let reloaded = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!hadController || reloaded) return;
-    reloaded = true;
-    location.reload();
-  });
-}
+// PWA: offline app shell, plus deploy detection. Registration, update polling
+// and the reload handshake all live in lib/updates.ts — see the note there on
+// why a new version now waits to be invited instead of reloading the page by
+// itself. Production over http(s) only: the single-file demo runs from file://
+// where service workers do not apply.
+window.addEventListener("load", initUpdates);

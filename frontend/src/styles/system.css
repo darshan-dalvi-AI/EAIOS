@@ -589,6 +589,32 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 .toast-body b { font-size: 11.5px; }
 .toast-body span { font-size: 11.5px; color: var(--text-dim); line-height: 1.45; overflow-wrap: anywhere; }
 
+/* update prompt — a deploy landed while the app was open.
+   Bottom-centre and above the toast stack's z-index: agent toasts stream past
+   constantly, and this must not be mistaken for one of them or buried under a
+   run of them. */
+.kos-update { position: fixed; left: 50%; transform: translateX(-50%); bottom: 88px; z-index: 950;
+  display: flex; align-items: center; gap: 12px; max-width: min(560px, calc(100vw - 32px));
+  padding: 11px 12px 11px 14px; border-radius: 14px;
+  background: var(--surface-solid); border: 1px solid var(--hairline-strong);
+  box-shadow: 0 22px 60px rgba(0,0,0,.45);
+  animation: kos-update-in .32s cubic-bezier(.2,.9,.25,1.1); }
+@keyframes kos-update-in { from { opacity: 0; transform: translate(-50%, 12px); }
+                           to   { opacity: 1; transform: translate(-50%, 0); } }
+.kos-update-ico { display: grid; place-items: center; flex: none; width: 30px; height: 30px;
+  border-radius: 9px; background: hsl(190 85% 55% / .14); border: 1px solid hsl(190 85% 55% / .28); }
+.kos-update-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kos-update-copy b { font-size: 12.5px; }
+.kos-update-copy span { font-size: 11.5px; color: var(--text-dim); line-height: 1.45; }
+.kos-update .btn { flex: none; }
+.kos-update-x { background: none; border: 0; color: var(--text-faint); cursor: pointer;
+  padding: 4px; border-radius: 7px; line-height: 0; flex: none; }
+.kos-update-x:hover { color: var(--text); background: var(--panel-2); }
+@media (max-width: 620px) {
+  .kos-update { bottom: 76px; flex-wrap: wrap; }
+  .kos-update-copy { flex-basis: 100%; order: -1; }
+}
+
 /* meeting assistant */
 .meeting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: stretch; }
 .meeting-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }

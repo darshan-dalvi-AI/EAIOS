@@ -46,6 +46,11 @@ interface OSStore {
   theme: Theme;
   setTheme: (t: Theme) => void;
 
+  /** A newer build has been downloaded and is waiting to take over — see
+   *  lib/updates.ts. Drives the update prompt; never reloads on its own. */
+  updateReady: boolean;
+  setUpdateReady: (v: boolean) => void;
+
   user: SessionUser | null;
   token: string | null;
   orgName: string | null;
@@ -129,14 +134,24 @@ export function isInstalledApp(): boolean {
 
 /** Where the app opens.
  *
- *  A browser visitor gets the marketing landing page — that is what it is for.
- *  Someone who has *installed* the app has already been convinced; showing
- *  them the pitch again every launch is the wrong thing. They go straight to
- *  sign-in, and from there straight to the desktop once a stored session is
- *  verified (see main.tsx). */
-const initialPhase: OSStore["phase"] = readSession()
-  ? "restoring"                                   // verify the stored token first
-  : isInstalledApp() ? "login" : "landing";
+ *  The two entry points are answering different questions, so they open in
+ *  different places:
+ *
+ *  - The URL in a browser is the front door for people who have never seen
+ *    this. It ALWAYS opens the landing page, stored session or not. Restoring
+ *    a session here used to hijack the link — sending anyone who had signed in
+ *    on that browser straight past the pitch into a desktop, which is exactly
+ *    wrong when the link is being handed to someone to look at.
+ *  - The installed app is for someone already convinced. It skips the pitch:
+ *    straight to sign-in, or straight to the desktop once a stored session is
+ *    verified (see App.tsx).
+ *
+ *  A signed-in browser visitor is not made to log in again — the session is
+ *  still in storage, and the landing page's CTA becomes "Open your workspace",
+ *  which moves to "restoring". One click, not one password. */
+const initialPhase: OSStore["phase"] = isInstalledApp()
+  ? (readSession() ? "restoring" : "login")       // verify the stored token first
+  : "landing";
 
 export const useOS = create<OSStore>((set, get) => ({
   phase: initialPhase,
@@ -151,6 +166,9 @@ export const useOS = create<OSStore>((set, get) => ({
     }
     set({ theme });
   },
+
+  updateReady: false,
+  setUpdateReady: (updateReady) => set({ updateReady }),
 
   user: null,
   token: null,

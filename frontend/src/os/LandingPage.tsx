@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiStartDemo } from "../lib/api";
+import { readSession } from "../lib/session";
 import { useOS } from "../store";
 import InstallButton from "./InstallButton";
 import Mark from "./Mark";
@@ -68,7 +69,15 @@ export default function LandingPage() {
   const login = useOS((s) => s.login);
   const theme = useOS((s) => s.theme);
   const setTheme = useOS((s) => s.setTheme);
-  const launch = () => setPhase("boot");
+
+  /* A stored session means this browser has signed in before. The landing page
+     still opens first — see the note on initialPhase in store.ts — but it does
+     not make them retype a password to get past it: "restoring" verifies the
+     token and drops them on the desktop. Read once at mount, because signing
+     out mid-visit should not silently change what the button does under the
+     cursor. */
+  const [hasSession] = useState(() => !!readSession());
+  const launch = () => setPhase(hasSession ? "restoring" : "boot");
 
   /* Straight into a private throwaway workspace — no password, no signup. A
      visitor who has to invent credentials before seeing anything mostly does
@@ -146,7 +155,9 @@ export default function LandingPage() {
         >
           {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
         </button>
-        <button className="btn primary sm" onClick={launch}>Launch <ArrowRight size={13} /></button>
+        <button className="btn primary sm" onClick={launch}>
+          {hasSession ? "Open workspace" : "Launch"} <ArrowRight size={13} />
+        </button>
       </nav>
 
       {/* ── hero ── */}
@@ -166,7 +177,7 @@ export default function LandingPage() {
             {demoBusy ? <><Loader2 size={15} className="spin" /> Opening your workspace…</>
                       : <><PlayCircle size={15} /> Try the live demo</>}
           </button>
-          <button className="btn" onClick={launch}>Sign in</button>
+          <button className="btn" onClick={launch}>{hasSession ? "Open your workspace" : "Sign in"}</button>
           <InstallButton className="btn" label="Download app" />
           <a className="btn" href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a>
           <a className="btn" href={DOCS_ANCHOR}><BookOpen size={14} /> Documentation</a>

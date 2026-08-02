@@ -4,6 +4,7 @@ import BootScreen from "./os/BootScreen";
 import Desktop from "./os/Desktop";
 import LandingPage from "./os/LandingPage";
 import LoginScreen from "./os/LoginScreen";
+import UpdatePrompt from "./os/UpdatePrompt";
 import VerifyEmail from "./os/VerifyEmail";
 import { isInstalledApp, useOS } from "./store";
 
@@ -62,6 +63,9 @@ export default function App() {
       {(phase === "boot" || phase === "restoring") && <BootScreen />}
       {phase === "login" && <LoginScreen />}
       {phase === "desktop" && (emailVerified ? <Desktop /> : <VerifyEmail />)}
+      {/* Outside the phase switch on purpose: a deploy can land at any point,
+          including while someone is sitting on the landing page. */}
+      <UpdatePrompt />
     </>
   );
 }
