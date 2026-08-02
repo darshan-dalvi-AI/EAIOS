@@ -3,8 +3,11 @@
    load (cache only serves offline). Cache-first stays for hashed immutable
    assets. v2's cache-first-everything served stale bundles after deploys,
    which could mix old and new code ("n is not a function" crashes). */
-const CACHE = "eaios-shell-v3";
-const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/eaios-icon.svg"];
+// Bumped for the K-OS mark. The old cache holds the previous manifest and
+// icon, and the activate handler deletes every cache whose name is not this
+// one — so renaming is what actually gets the new icon onto installed copies.
+const CACHE = "k-os-shell-v4";
+const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/k-os-icon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
