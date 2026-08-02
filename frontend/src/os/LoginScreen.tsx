@@ -1,8 +1,8 @@
 import { ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, PlayCircle } from "lucide-react";
 import Mark from "./Mark";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, apiAuthConfig, apiGoogleAuth, apiLogin, apiSignup, apiStartDemo, ping } from "../lib/api";
-import { loadGis } from "../lib/gis";
+import { mountGoogleButton } from "../lib/gis";
 import { MOCK_USERS } from "../lib/mock";
 import { useOS } from "../store";
 import InstallButton from "./InstallButton";
@@ -34,18 +34,6 @@ function validate(mode: "signin" | "signup", v: Record<Field, string>): Partial<
 const SERVER_FIELD: Record<string, Field> = {
   company_name: "company", full_name: "fullName", email: "email", password: "password",
 };
-
-/** Google's mark, inline so the button works with no network and no CSP hole. */
-function GoogleMark() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-4H24v7.5h12c-.2 2-1.5 5-4.4 7l6.7 5.2C42.2 36 45 30.6 45 24z"/>
-      <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.7-5.2c-1.9 1.3-4.4 2.2-7.8 2.2-6 0-11-4-12.8-9.4l-7 5.4C7.9 41 15.4 46 24 46z"/>
-      <path fill="#FBBC05" d="M11.2 28.3c-.5-1.4-.7-2.8-.7-4.3s.3-2.9.7-4.3l-7-5.4C2.9 17.2 2 20.5 2 24s.9 6.8 2.2 9.7l7-5.4z"/>
-      <path fill="#EA4335" d="M24 10.6c3.4 0 6.4 1.2 8.8 3.4l6-6C35 4.6 30 2 24 2 15.4 2 7.9 7 4.2 14.3l7 5.4C13 14.3 18 10.6 24 10.6z"/>
-    </svg>
-  );
-}
 
 export default function LoginScreen() {
   const { login, live, setLive } = useOS();
@@ -89,27 +77,44 @@ export default function LoginScreen() {
       .catch(() => {});
   }, [setLive]);
 
+  /* Google's button lives in an iframe Google owns, and its callback fires
+     from inside that iframe — long after this component rendered. Anything
+     the callback needs must be read from a ref, or it reads whatever the
+     state happened to be when the button was mounted. */
+  const googleSlot = useRef<HTMLDivElement | null>(null);
+  const latest = useRef({ isSignup: false, company: "" });
+  latest.current = { isSignup: mode === "signup", company };
+
   /** Google confirms the address, so there is no code to send or expire. */
-  async function continueWithGoogle() {
+  async function onGoogleCredential(credential: string) {
     setFormError(""); setErrors({});
-    if (isSignup && company.trim().length < 2) {
+    const { isSignup: signingUp, company: co } = latest.current;
+    // Checked here rather than before the click: the rendered button is
+    // Google's, so there is no press of ours to intercept and validate first.
+    if (signingUp && co.trim().length < 2) {
       setErrors({ company: "Enter your company name first — it names your workspace." });
       return;
     }
     setGoogleBusy(true);
     try {
-      const gis = await loadGis(googleId);
-      const credential = await gis.requestIdToken();
-      const s = await apiGoogleAuth(credential, isSignup ? company.trim() : undefined);
+      const s = await apiGoogleAuth(credential, signingUp ? co.trim() : undefined);
       setLive(s.live);
       login(s.user, s.token, s.orgName, s.isOwner, s.industry, s.emailVerified, s.demo, s.demoExpiresIn);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Google sign-in didn't complete.";
-      setFormError(msg.includes("popup") ? "The Google window was closed before finishing." : msg);
+      setFormError(err instanceof Error ? err.message : "Google sign-in didn't complete.");
     } finally {
       setGoogleBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!googleId || !googleSlot.current) return;
+    mountGoogleButton(googleId, googleSlot.current, onGoogleCredential, setFormError)
+      .catch((err) => setFormError(err instanceof Error ? err.message : "Couldn't load Google sign-in."));
+    // Mounted once per client id. Re-running on every keystroke in the company
+    // field would tear Google's iframe down mid-sign-in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleId]);
 
   const isSignup = mode === "signup";
   const values: Record<Field, string> = { company, fullName, email, password };
@@ -184,11 +189,16 @@ export default function LoginScreen() {
               </label>
             )}
             {isSignup && hint("company")}
-            <button type="button" className="btn google-btn" data-testid="google-btn"
-                    onClick={continueWithGoogle} disabled={googleBusy}>
-              <GoogleMark />
-              {googleBusy ? "Waiting for Google…" : "Continue with Google"}
-            </button>
+            {/* Google renders its own button in here. It must be Google's own
+                markup — a custom button driving One Tap is what broke sign-in
+                on phones entirely (see lib/gis.ts). */}
+            <div ref={googleSlot} className="google-slot" data-testid="google-btn"
+                 aria-busy={googleBusy || undefined} />
+            {googleBusy && (
+              <span className="faint" style={{ fontSize: 11.5, textAlign: "center" }}>
+                <Loader2 size={11} className="spin" /> Signing you in…
+              </span>
+            )}
             <div className="or-rule"><span>or use a password</span></div>
           </>
         )}

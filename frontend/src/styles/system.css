@@ -789,10 +789,13 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Sign in with Google + the verification gate ─────────────────────── */
-.google-btn { justify-content: center; gap: 9px; padding: 10px; font-weight: 600;
-  background: #fff; color: #1f2328; border-color: #dadce0; }
-.google-btn:hover:not(:disabled) { background: #f6f8fa; border-color: #c7cbd1; }
-.google-btn:disabled { opacity: .6; cursor: progress; }
+/* Google renders its own button into .google-slot. We only position it: the
+   markup inside is an iframe Google controls and must not be restyled — the
+   custom button that used to sit here drove One Tap, which does not work on
+   phones at all. Minimum height reserves the space so the card does not jump
+   when Google's script finishes loading. */
+.google-slot { display: flex; justify-content: center; min-height: 44px; }
+.google-slot > div { max-width: 100%; }
 .or-rule { display: flex; align-items: center; gap: 10px; margin: 2px 0;
   color: var(--text-faint); font-size: 10.5px; }
 .or-rule::before, .or-rule::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
