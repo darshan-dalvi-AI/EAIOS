@@ -45,7 +45,24 @@ BASE_HEADERS = {
     "X-Frame-Options": "DENY",                     # clickjacking (legacy browsers)
     "X-Content-Type-Options": "nosniff",           # no MIME sniffing
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Cross-Origin-Opener-Policy": "same-origin",   # isolates the browsing context
+    # same-origin-allow-popups, NOT same-origin.
+    #
+    # `same-origin` severs window.opener for any cross-origin popup. Google's
+    # sign-in popup finishes by postMessage-ing the credential back to the
+    # window that opened it — and under `same-origin` that window is null to
+    # it. The popup therefore sat on accounts.google.com/gsi/transform, blank,
+    # forever: the person had signed in successfully and the answer had
+    # nowhere to go. It failed identically on desktop and on mobile, which is
+    # what ruled out the PWA and the phone as causes.
+    #
+    # `same-origin-allow-popups` keeps the protection that matters here — no
+    # other origin can reach into this window — while letting popups WE open
+    # keep their opener reference. It is the documented value for sites doing
+    # OAuth in a popup. The only thing given up is crossOriginIsolated, which
+    # requires COEP: require-corp as well and is not set here, so nothing in
+    # the app depends on it. (The code sandbox is a separate document with its
+    # own headers and is unaffected.)
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     "Permissions-Policy": (                        # deny hardware we do not use
         "geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=(), "
         "camera=(self), microphone=(self)"         # video calls need these on self
