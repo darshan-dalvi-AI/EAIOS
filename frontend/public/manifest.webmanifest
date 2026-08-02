@@ -2,7 +2,7 @@
   "name": "K-OS — A Knowledge Operating System for the Enterprise",
   "short_name": "K-OS",
   "description": "Hybrid multimodal RAG + multi-agent AI platform, presented as an operating system.",
-  "start_url": "/",
+  "start_url": "/?app=1",
   "scope": "/",
   "display": "standalone",
   "background_color": "#05070f",

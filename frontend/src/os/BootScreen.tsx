@@ -20,7 +20,12 @@ export default function BootScreen() {
     const stepper = setInterval(() => setShown((n) => Math.min(n + 1, LINES.length)), 320);
     const done = setTimeout(() => {
       setLeaving(true);
-      setTimeout(() => setPhase("login"), 480);
+      setTimeout(() => {
+        // Only advance if the boot sequence is still what is on screen. A
+        // restored session finishing mid-animation moves straight to the
+        // desktop, and this timer must not drag it back to sign-in.
+        if (useOS.getState().phase === "boot") setPhase("login");
+      }, 480);
     }, 320 * LINES.length + 700);
     return () => {
       clearInterval(stepper);

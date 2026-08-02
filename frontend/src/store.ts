@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { clearSession, readSession, saveSession } from "./lib/session";
 import type { AppId, FeedEvent, PresenceUser, Rect, SessionUser, Win } from "./types";
 
 const SIZES: Record<AppId, { w: number; h: number }> = {
@@ -40,7 +41,7 @@ function spawnRect(id: AppId, index: number): Rect {
 export type Theme = "dark" | "light";
 
 interface OSStore {
-  phase: "landing" | "boot" | "login" | "desktop";
+  phase: "landing" | "boot" | "restoring" | "login" | "desktop";
   setPhase: (p: OSStore["phase"]) => void;
   theme: Theme;
   setTheme: (t: Theme) => void;
@@ -106,8 +107,39 @@ const savedTheme = ((): Theme => {
 })();
 document.documentElement.dataset.theme = savedTheme;
 
+/** True when this is the installed app rather than a browser visit.
+ *
+ *  Checked two ways because neither alone is sufficient. `start_url` carries
+ *  ?app=1, which is reliable at launch but lost the moment the user navigates
+ *  within the app; the display-mode media query survives navigation but is
+ *  false for browsers that launch a PWA in a normal tab. Together they cover
+ *  every installed case.
+ *
+ *  iOS Safari reports neither and instead sets navigator.standalone. */
+export function isInstalledApp(): boolean {
+  try {
+    if (new URLSearchParams(location.search).get("app") === "1") return true;
+    if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+    if (window.matchMedia?.("(display-mode: window-controls-overlay)").matches) return true;
+    return (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Where the app opens.
+ *
+ *  A browser visitor gets the marketing landing page — that is what it is for.
+ *  Someone who has *installed* the app has already been convinced; showing
+ *  them the pitch again every launch is the wrong thing. They go straight to
+ *  sign-in, and from there straight to the desktop once a stored session is
+ *  verified (see main.tsx). */
+const initialPhase: OSStore["phase"] = readSession()
+  ? "restoring"                                   // verify the stored token first
+  : isInstalledApp() ? "login" : "landing";
+
 export const useOS = create<OSStore>((set, get) => ({
-  phase: "landing",
+  phase: initialPhase,
   setPhase: (phase) => set({ phase }),
   theme: savedTheme,
   setTheme: (theme) => {
@@ -125,16 +157,33 @@ export const useOS = create<OSStore>((set, get) => ({
   orgName: null,
   isOwner: false,
   industry: "",
-  setIndustry: (industry) => set({ industry }),
+  setIndustry: (industry) => {
+    // The dock and starter content follow the industry, so a stored session
+    // that lags behind would reopen on the wrong set of apps.
+    const stored = readSession();
+    if (stored) saveSession({ ...stored, industry });
+    set({ industry });
+  },
   emailVerified: true,
   demo: false,
   demoExpiresIn: null,
   live: false,
   setLive: (live) => set({ live }),
   login: (user, token, orgName = null, isOwner = false, industry = "", emailVerified = true,
-         demo = false, demoExpiresIn = null) =>
-    set({ user, token, orgName, isOwner, industry, emailVerified, demo, demoExpiresIn, phase: "desktop" }),
-  logout: () => set({ user: null, token: null, orgName: null, isOwner: false, industry: "", emailVerified: true, demo: false, demoExpiresIn: null, windows: [], phase: "login" }),
+         demo = false, demoExpiresIn = null) => {
+    // Remember real sessions so the next launch opens straight on the desktop.
+    // Demo sessions are deliberately excluded: they expire on a timer, so
+    // restoring one would resurrect a dead workspace instead of offering a
+    // fresh demo.
+    // A null token means demo-mode-without-a-backend; there is nothing to
+    // restore with, so there is nothing worth storing.
+    if (!demo && token) saveSession({ token, user, orgName, isOwner, industry });
+    set({ user, token, orgName, isOwner, industry, emailVerified, demo, demoExpiresIn, phase: "desktop" });
+  },
+  logout: () => {
+    clearSession();
+    set({ user: null, token: null, orgName: null, isOwner: false, industry: "", emailVerified: true, demo: false, demoExpiresIn: null, windows: [], phase: "login" });
+  },
 
   windows: [],
   topZ: 100,
