@@ -6,10 +6,39 @@ and queues connections until timeout. We run a wider pool, and for SQLite
 additionally enable WAL + a busy timeout so concurrent readers never block
 behind the single writer.
 """
+import logging
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
+
+_log = logging.getLogger("eaios.db")
+
+
+@contextmanager
+def best_effort(db: Session, what: str):
+    """Run optional cleanup that must never break the operation around it.
+
+    A plain ``try/except: pass`` around database work is a trap on PostgreSQL
+    and works fine on SQLite, which is why it survives testing. Postgres aborts
+    the *entire transaction* on any failed statement: the exception is caught,
+    but every later statement in that transaction then fails with "current
+    transaction is aborted", including the one the caller actually cared about.
+
+    Observed in production: deleting a document swallowed a failure while
+    dropping its extracted tables, and the delete itself — several statements
+    later — came back as "A database error occurred".
+
+    A SAVEPOINT scopes the damage. If the block fails, only the block is rolled
+    back and the surrounding transaction stays usable.
+    """
+    try:
+        with db.begin_nested():
+            yield
+    except Exception as exc:  # noqa: BLE001 — the point is that this is optional
+        _log.warning("%s failed (continuing): %s", what, exc)
 
 _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 

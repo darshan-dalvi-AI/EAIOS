@@ -8,6 +8,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import best_effort
 from app.models import (
     AgentRun, AuditLog, Chunk, Connector, Conversation, CustomAgent, DataTable,
     Document, Entity, EntityEdge, EntityMention, GraphCheckpoint, MemoryEntry,
@@ -128,11 +129,13 @@ def delete_org(db: Session, org: Organization) -> dict:
     with unscoped(db):
         # 1. Physical dt_* tables (created outside the ORM) + stored files,
         #    while we can still see which rows belong to this workspace.
+        # Each DROP gets its own SAVEPOINT: on PostgreSQL a bare try/except
+        # around a failed statement leaves the whole transaction aborted, so
+        # one stale table would take the entire workspace deletion down with
+        # it — the same defect that broke deleting a single document.
         for (table_name,) in db.query(DataTable.table_name).filter(DataTable.org_id == org_id):
-            try:
+            with best_effort(db, f"dropping {table_name}"):
                 db.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
-            except Exception as exc:  # noqa: BLE001 — a stale table must not block deletion
-                log.warning("dropping %s failed: %s", table_name, exc)
 
         try:
             from app.core import storage

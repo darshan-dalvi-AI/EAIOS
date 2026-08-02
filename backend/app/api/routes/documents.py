@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.core import storage, uploads
 from app.core.config import settings
+from app.core.database import best_effort
 from app.models import Chunk, Document, Organization, User
 from app.rag import pipeline
 from app.schemas import ChunkOut, DocumentOut
@@ -109,20 +110,28 @@ def delete_document(doc_id: str, db: Session = Depends(get_db), user: User = Dep
     if user.role != "admin" and doc.owner_id != user.id:
         raise HTTPException(403, "Only the owner or an admin can delete this document")
     pipeline.delete_document_vectors(doc_id)
-    try:  # drop structured tables materialized from this document
+
+    # Each cleanup gets its own SAVEPOINT. These are best-effort — a stale
+    # extracted table or an orphaned entity must not stop someone deleting
+    # their own document — but "best effort" used to mean `except: pass`, and
+    # on PostgreSQL that poisons the transaction: the swallowed error made
+    # every later statement fail, so `db.delete(doc)` below returned
+    # "A database error occurred" and the document could never be removed.
+    # SQLite does not behave that way, which is why the tests were green.
+    with best_effort(db, "dropping extracted tables"):
         from app.rag import tables as dtables
 
         dtables.drop_for_document(db, doc_id)
-    except Exception:  # noqa: BLE001
-        pass
-    try:  # and its entities, so the graph never outlives its evidence
+
+    with best_effort(db, "forgetting graph entities"):
         from app.services import kgraph
 
         kgraph.forget_document(db, doc_id)
-    except Exception:  # noqa: BLE001
-        pass
-    ext = os.path.splitext(doc.filename)[1].lower()
-    storage.remove(f"{doc.id}{ext}")  # deletes local + Supabase copy
+
+    with best_effort(db, "removing the stored file"):
+        ext = os.path.splitext(doc.filename)[1].lower()
+        storage.remove(f"{doc.id}{ext}")  # deletes local + Supabase copy
+
     db.delete(doc)
     db.commit()
     audit.log(db, "document.delete", user.id, doc.filename)
