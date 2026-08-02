@@ -38,6 +38,31 @@ export function applyUpdate(): void {
   setTimeout(() => location.reload(), 2500);
 }
 
+/** Is the waiting worker actually a different build from the one running here?
+ *
+ *  A waiting worker is not by itself proof that this page is stale. The app
+ *  shell is fetched network-first, so the first load after a deploy already
+ *  runs the new bundle — while the new *worker* is still queued behind the old
+ *  one. That combination would otherwise announce "a new version is ready" to
+ *  someone looking at the new version, which teaches people to ignore the
+ *  prompt, and an ignored prompt is worse than none.
+ *
+ *  Both files are stamped by the same build, so comparing them answers it.
+ *  On any doubt this returns true: a spurious prompt costs one reload, a
+ *  suppressed one leaves the app stale indefinitely.
+ */
+async function isGenuinelyNewer(): Promise<boolean> {
+  try {
+    const res = await fetch("/sw.js", { cache: "no-store" });
+    if (!res.ok) return true;
+    const stamped = /const BUILD = "([^"]+)"/.exec(await res.text());
+    if (!stamped) return true;
+    return stamped[1] !== __BUILD_ID__;
+  } catch {
+    return true;
+  }
+}
+
 export function initUpdates(): void {
   if (!import.meta.env.PROD) return;
   if (!("serviceWorker" in navigator)) return;
@@ -54,20 +79,21 @@ export function initUpdates(): void {
   });
 
   void navigator.serviceWorker.register("/sw.js").then((reg) => {
-    const announce = (sw: ServiceWorker | null) => {
+    const announce = async (sw: ServiceWorker | null) => {
       if (!sw || sw.state !== "installed") return;
       // A freshly installed worker with no controller is the FIRST install,
       // not an update. Announcing that would show "update available" to
       // someone who just opened the app for the first time.
       if (!navigator.serviceWorker.controller) return;
+      if (!(await isGenuinelyNewer())) return;
       waiting = sw;
       useOS.getState().setUpdateReady(true);
     };
 
-    announce(reg.waiting);                 // finished installing before this page loaded
+    void announce(reg.waiting);            // finished installing before this page loaded
     reg.addEventListener("updatefound", () => {
       const sw = reg.installing;
-      sw?.addEventListener("statechange", () => announce(sw));
+      sw?.addEventListener("statechange", () => void announce(sw));
     });
 
     // Browsers check for a new worker on navigation. An installed app may not
