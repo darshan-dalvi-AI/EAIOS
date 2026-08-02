@@ -10,9 +10,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import best_effort
 from app.models import (
-    AgentRun, AuditLog, Chunk, Connector, Conversation, CustomAgent, DataTable,
-    Document, Entity, EntityEdge, EntityMention, GraphCheckpoint, MemoryEntry,
-    Message, Organization, SavedChart, Task, UsageEvent, User, Workflow, WorkflowRun,
+    AgentRun, AuditLog, Blob, Chunk, Commit, CommitFile, Connector, Conversation,
+    CustomAgent, DataTable, Document, Entity, EntityEdge, EntityMention, FileVersion,
+    GraphCheckpoint, MemoryEntry, Message, Organization, Project, ProjectFile,
+    SavedChart, Task, UsageEvent, User, Workflow, WorkflowRun,
 )
 
 log = logging.getLogger("eaios.tenancy")
@@ -30,6 +31,17 @@ _DELETE_ORDER = [
     CustomAgent, Connector, SavedChart, Task, UsageEvent,
     DataTable,                              # metadata; physical dt_* dropped separately
     Document,                               # after chunks
+    # Code app + version control. These were absent, and the omission was not
+    # cosmetic: projects.org_id still referenced the workspace when step 3
+    # deleted the Organization row, so the DELETE raised a foreign-key
+    # violation and aborted the transaction. Any workspace that had ever
+    # opened the Code app could not be deleted at all.
+    CommitFile,                             # → commits
+    Commit,                                 # → projects
+    FileVersion,                            # → project_files
+    ProjectFile,                            # → projects
+    Blob,                                   # content store, referenced by the two above
+    Project,                                # → users
     User,                                   # last — everything above references it
 ]
 

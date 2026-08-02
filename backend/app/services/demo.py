@@ -186,11 +186,23 @@ def sweep_expired(db: Session) -> int:
         if when <= now:
             expired.append(org)
 
+    swept = 0
     for org in expired:
         try:
             tenancy.delete_org(db, org)
+            swept += 1
         except Exception:   # noqa: BLE001 — one bad tenant must not stop the sweep
+            # The rollback is the point. On PostgreSQL a failed statement
+            # aborts the whole transaction, so without this the *next* tenant's
+            # very first SELECT fails with "current transaction is aborted" and
+            # so does every one after it. Observed in production: a single
+            # workspace that could not be deleted turned into all twelve
+            # failing, on every scheduler tick, indefinitely.
+            db.rollback()
             log.warning("could not sweep demo workspace %s", org.slug, exc_info=True)
     if expired:
-        log.info("swept %d expired demo workspace(s)", len(expired))
-    return len(expired)
+        # Count what actually went, not what was attempted. The old line
+        # reported len(expired) and cheerfully logged "swept 12" while sweeping
+        # none of them — which is exactly why this ran broken unnoticed.
+        log.info("swept %d of %d expired demo workspace(s)", swept, len(expired))
+    return swept
