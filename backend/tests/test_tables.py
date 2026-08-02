@@ -135,3 +135,28 @@ def test_schema_description_includes_data_tables():
         assert "Budget 2026" in desc
         db.execute(sqltext("DELETE FROM data_tables WHERE table_name = 'dt_test_schema_1'"))
         db.commit()
+
+
+def test_markdown_tables_are_materialised():
+    """`.md` is an accepted upload type and pipe tables are how anyone writes a
+    table in one — but "md" was missing from the extractor map, so those tables
+    were silently never turned into SQL. Found while building the sample
+    company pack: three contract documents produced zero queryable tables."""
+    import pathlib
+    import tempfile
+
+    from app.rag.tables import extract_tables
+
+    md = ("| Tier | Availability | Credit |\n"
+          "|---|---|---|\n"
+          "| Platinum | Below 99.9% | 5% |\n"
+          "| Gold | Below 99.5% | 5% |\n"
+          "| Silver | Below 99.0% | 5% |\n")
+    with tempfile.TemporaryDirectory() as d:
+        p = pathlib.Path(d) / "msa.md"
+        p.write_text(md, encoding="utf-8")
+        tables = extract_tables(str(p), "md")
+
+    assert len(tables) == 1, "a markdown pipe table must become a queryable SQL table"
+    assert tables[0].columns == ["Tier", "Availability", "Credit"]
+    assert len(tables[0].rows) == 3

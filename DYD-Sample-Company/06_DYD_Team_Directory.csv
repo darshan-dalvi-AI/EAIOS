@@ -1,0 +1,13 @@
+employee_name,role,department,email,phone,location,manager,joined
+Darshan Dalvi,Delivery Manager,Delivery,darshan.dalvi@dydtech.in,+91 98200 41122,Mumbai,Rohit Kulkarni,2023-06-12
+Rohit Kulkarni,Head of Platform Engineering,Engineering,rohit.kulkarni@dydtech.in,+91 98200 41123,Pune,Meera Joshi,2021-02-01
+Priya Sharma,Senior Software Engineer,Engineering,priya.sharma@dydtech.in,+91 98200 41124,Mumbai,Rohit Kulkarni,2022-08-22
+Aditya Nair,Software Engineer,Engineering,aditya.nair@dydtech.in,+91 98200 41125,Bengaluru,Rohit Kulkarni,2024-01-15
+Sneha Raut,Company Secretary,Legal,sneha.raut@dydtech.in,+91 98200 41126,Mumbai,Meera Joshi,2020-11-03
+Meera Joshi,Chief Executive Officer,Executive,meera.joshi@dydtech.in,+91 98200 41127,Mumbai,,2019-04-01
+Karan Deshpande,DevOps Engineer,Engineering,karan.deshpande@dydtech.in,+91 98200 41128,Pune,Rohit Kulkarni,2023-09-18
+Ananya Iyer,Business Analyst,Delivery,ananya.iyer@dydtech.in,+91 98200 41129,Mumbai,Darshan Dalvi,2024-05-06
+Vikram Patil,QA Lead,Quality,vikram.patil@dydtech.in,+91 98200 41130,Pune,Rohit Kulkarni,2022-03-14
+Nisha Gupta,HR Manager,People,nisha.gupta@dydtech.in,+91 98200 41131,Mumbai,Meera Joshi,2021-07-26
+Arjun Menon,Data Engineer,Engineering,arjun.menon@dydtech.in,+91 98200 41132,Bengaluru,Rohit Kulkarni,2024-09-02
+Ritu Bansal,Finance Controller,Finance,ritu.bansal@dydtech.in,+91 98200 41133,Mumbai,Meera Joshi,2022-01-10

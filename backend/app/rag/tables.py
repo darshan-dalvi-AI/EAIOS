@@ -190,6 +190,11 @@ def extract_tables(path: str, doc_type: str) -> list[RawTable]:
         extractor = {
             "pdf": _from_pdf, "docx": _from_docx, "pptx": _from_pptx,
             "xlsx": _from_xlsx, "csv": _from_csv, "txt": _from_txt,
+            # Markdown is an accepted upload type and pipe tables are the most
+            # common way anyone writes a table in one, but "md" was missing
+            # here — so those tables were silently never materialised. The txt
+            # extractor already understands pipe-delimited grids.
+            "md": _from_txt,
         }.get(doc_type)
         if extractor is None:
             return []

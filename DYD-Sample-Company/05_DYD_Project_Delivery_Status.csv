@@ -1,0 +1,16 @@
+project_code,client_name,milestone,owner,due_date,status,percent_complete,risk_level,notes
+DYD-P-101,Northwind Logistics,Oracle to PostgreSQL migration,Rohit Kulkarni,2026-08-15,In Progress,72,Medium,Staging environment delivered 10 days late by client
+DYD-P-101,Northwind Logistics,Carrier API integration,Aditya Nair,2026-09-01,In Progress,45,High,Delhivery sandbox credentials still pending
+DYD-P-101,Northwind Logistics,Consignment module rewrite,Priya Sharma,2026-09-30,Not Started,0,Low,Blocked until migration completes
+DYD-P-102,Contoso Manufacturing,ERP reporting layer,Priya Sharma,2026-08-08,Complete,100,Low,Signed off by client on 6 August
+DYD-P-102,Contoso Manufacturing,Shop-floor dashboard,Aditya Nair,2026-08-29,In Progress,88,Low,On track for early delivery
+DYD-P-103,Litware Financial,Payment gateway hardening,Rohit Kulkarni,2026-08-20,In Progress,60,High,PCI audit findings require rework of token vault
+DYD-P-103,Litware Financial,Fraud rules engine,Darshan Dalvi,2026-10-15,In Progress,25,Medium,Awaiting historical fraud dataset from client
+DYD-P-104,Blue Yonder Airlines,Booking engine load testing,Rohit Kulkarni,2026-08-12,Complete,100,Low,Sustained 4000 concurrent users with no errors
+DYD-P-104,Blue Yonder Airlines,Seat map redesign,Sneha Raut,2026-09-05,In Progress,55,Low,Design approved, implementation underway
+DYD-P-105,Woodgrove Bank,Core banking API gateway,Darshan Dalvi,2026-08-25,In Progress,78,Medium,Two P2 defects open from last regression run
+DYD-P-105,Woodgrove Bank,Audit trail compliance module,Sneha Raut,2026-11-30,Not Started,0,Medium,Requirements workshop scheduled 18 August
+DYD-P-106,Proseware Health,Patient records migration,Priya Sharma,2026-08-18,At Risk,40,High,Data quality issues found in 12 percent of source records
+DYD-P-107,Fabrikam Retail,Inventory sync service,Aditya Nair,2026-09-12,In Progress,33,Low,No blockers reported
+DYD-P-108,Wide World Importers,Warehouse robotics interface,Rohit Kulkarni,2026-10-01,In Progress,18,High,Hardware vendor delivery slipped by three weeks
+DYD-P-109,Trey Research,Data lake ingestion pipeline,Darshan Dalvi,2026-09-20,In Progress,50,Medium,Scope expanded after discovery phase
