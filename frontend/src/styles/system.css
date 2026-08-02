@@ -116,11 +116,40 @@ input, textarea, select { font: inherit; color: inherit; }
 .fade-out { animation: fadeout .5s var(--ease) forwards; }
 @keyframes fadeout { to { opacity: 0; visibility: hidden; } }
 
-/* ── Login ─────────────────────────────────────────────────── */
+/* ── Login ─────────────────────────────────────────────────────────────
+   Also used by the email-verification screen.
+
+   This is `position: fixed; inset: 0`, so it is exactly the size of the
+   viewport and never taller. Without `overflow-y` there is therefore no
+   scrolling anywhere on the page: content past the bottom edge is not merely
+   below the fold, it is unreachable. On a phone the sign-in stack — mark,
+   wordmark, Google button, divider, four role cards, email, password, submit,
+   signup link, backend chip, demo button, install button — comfortably
+   exceeds a 412x880 screen, and the app appeared frozen. It was not frozen;
+   there was simply nothing to scroll.
+
+   Adding overflow alone would not have been enough. `justify-content: center`
+   overflows a flex container in BOTH directions, so the top of the card would
+   have been clipped above the scroll origin and stayed unreachable. `safe
+   center` keeps the centring while there is room and falls back to start
+   alignment the moment there is not; the plain `center` above it is the
+   fallback for browsers that do not know `safe`.
+
+   The padding uses the safe-area insets because in an installed PWA with
+   viewport-fit=cover, Android and iOS draw this screen under the status bar
+   and the gesture bar. */
 .login { position: fixed; inset: 0; z-index: var(--z-boot); display: flex; align-items: center;
-  justify-content: center; flex-direction: column; gap: 22px; animation: rise .6s var(--ease); }
+  justify-content: center;
+  justify-content: safe center;
+  flex-direction: column; gap: 22px; animation: rise .6s var(--ease);
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px
+           calc(20px + env(safe-area-inset-bottom, 0px)); }
 @keyframes rise { from { opacity: 0; transform: scale(1.02); } }
-.login-card { width: 360px; max-width: 90vw; padding: 30px 28px; border-radius: 20px;
+/* 100% (not 90vw) so the card measures against its now-padded parent rather
+   than the raw viewport — 90vw plus the container's side padding overflowed a
+   360px phone by a few pixels, which is enough to trigger a sideways scroll. */
+.login-card { width: 360px; max-width: 100%; padding: 30px 28px; border-radius: 20px;
   background: var(--surface); border: 1px solid var(--hairline);
   backdrop-filter: blur(28px) saturate(1.3); box-shadow: 0 30px 80px rgba(0,0,0,.5);
   display: flex; flex-direction: column; gap: 16px; }
@@ -972,9 +1001,16 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   .land-nav a, .land-nav button { min-height: 40px; display: inline-flex; align-items: center; }
   .land-flink { min-height: 40px; }
 
-  /* Login: stack the demo-user cards two-up so they stay tappable. */
-  .login-users { grid-template-columns: repeat(2, 1fr); }
-  .login-card { padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+  /* Login: stack the demo-user cards two-up so they stay tappable.
+     `.login-users` is a FLEX row by default, and this rule only set
+     grid-template-columns — which a flex container ignores entirely. The four
+     role cards stayed in one row and squeezed themselves narrow instead of
+     wrapping, so the intended two-up layout never happened on any phone.
+     Declaring the grid is what makes the rule do anything. */
+  .login-users { display: grid; grid-template-columns: repeat(2, 1fr); }
+  /* Bottom inset now belongs to the scrolling .login container, so the card
+     must not add it a second time. */
+  .login-card { padding: 18px 16px; }
 
   /* Setup guide sits above the dock, never under it. */
   .setup-guide { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
