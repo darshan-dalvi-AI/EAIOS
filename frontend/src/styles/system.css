@@ -1086,6 +1086,39 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   .tabs::-webkit-scrollbar { display: none; }
   .tab { white-space: nowrap; }
 
+  /* ── Code app: stack the panes instead of stranding the editor ──────
+     The explorer is 232px and the history panel 250px, both set inline in
+     CodeApp.tsx. Beside a Monaco editor that will not go below ~486px, that
+     is a 708px row — which inside a 396px phone window left 313px hanging
+     past the right edge with no scrollable ancestor to reach it. The editor,
+     the Run button and the output console were simply not on the screen.
+
+     Inline width beats any normal stylesheet rule, so these need !important;
+     that is the whole reason the panes carry class names at all. Stacking
+     keeps every pane reachable: file list on top, editor filling the rest. */
+     Stacking alone was not enough. A flex item defaults to `min-width: auto`,
+     which refuses to shrink below its own content, so the explorer still
+     measured 486px — the min-content width of its header row — and dragged
+     the whole column out with it. `min-width: 0` is what actually lets these
+     panes fit, and the toolbar scrolls sideways so its buttons stay reachable
+     rather than being cut off. */
+  /* .code-root is itself a flex item of .win-body, so it needs min-width: 0
+     for the same reason its children do — without it the whole app measured
+     486px inside a 396px window no matter what the panes did. */
+  .code-root { flex-direction: column !important;
+    min-width: 0 !important; width: 100% !important; max-width: 100% !important; }
+  .code-root > div { min-width: 0 !important; max-width: 100%; }
+  .code-explorer { width: 100% !important; max-height: 34vh; min-height: 92px;
+    min-width: 0 !important; border-right: 0 !important;
+    border-bottom: 1px solid var(--line); overflow: auto; }
+  .code-explorer > div { min-width: 0; }
+  .code-main { min-width: 0 !important; width: 100%; }
+  .code-toolbar { overflow-x: auto; scrollbar-width: none; }
+  .code-toolbar::-webkit-scrollbar { display: none; }
+  .code-toolbar > * { flex: none; }
+  .code-history { width: 100% !important; max-height: 40vh; min-width: 0 !important;
+    border-left: 0 !important; border-top: 1px solid var(--line); }
+
   /* Forms stop being two-column grids that run off the edge. */
   .rgrid { grid-template-columns: 1fr !important; }
   .app-content > .card { padding: 12px; }

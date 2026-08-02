@@ -478,8 +478,15 @@ export default function CodeApp() {
   }
 
   /* ── render ───────────────────────────────────────────────────────── */
+  /* The three panes carry class names purely so the phone stylesheet can reach
+     them. Their widths are inline (232px explorer, 250px history), and an
+     inline style beats any stylesheet rule that is not !important — which is
+     why this layout survived every responsive pass and still put a 708px row
+     inside a 396px window on a phone, stranding the editor off-screen with
+     nothing to scroll. See the .code-explorer block in system.css. */
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 0, position: "relative" }}
+    <div className="code-root"
+         style={{ display: "flex", height: "100%", minHeight: 0, position: "relative" }}
          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
          onDragLeave={(e) => { if (e.currentTarget === e.target) setDragging(false); }}
          onDrop={(e) => { void onDrop(e); }}>
@@ -497,7 +504,8 @@ export default function CodeApp() {
         </div>
       )}
       {/* explorer */}
-      <div style={{ width: 232, borderRight: "1px solid var(--line)", display: "flex",
+      <div className="code-explorer"
+           style={{ width: 232, borderRight: "1px solid var(--line)", display: "flex",
                     flexDirection: "column", minHeight: 0 }}>
         <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 6 }}>
           <Code2 size={14} aria-hidden />
@@ -582,8 +590,10 @@ export default function CodeApp() {
       </div>
 
       {/* editor */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+      <div className="code-main"
+           style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+        <div className="code-toolbar"
+             style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
                       borderBottom: "1px solid var(--line)" }}>
           <span style={{ fontSize: 12, fontWeight: 600 }}>{activeFile?.path ?? "No file open"}</span>
           {status && (
@@ -953,7 +963,8 @@ export default function CodeApp() {
 
       {/* version history */}
       {showVersions && (
-        <div style={{ width: 250, borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
+        <div className="code-history"
+             style={{ width: 250, borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 6 }}>
             <History size={13} aria-hidden />
             <b style={{ fontSize: 12, flex: 1 }}>History</b>
