@@ -114,23 +114,57 @@ document.documentElement.dataset.theme = savedTheme;
 
 /** True when this is the installed app rather than a browser visit.
  *
- *  Checked two ways because neither alone is sufficient. `start_url` carries
- *  ?app=1, which is reliable at launch but lost the moment the user navigates
- *  within the app; the display-mode media query survives navigation but is
- *  false for browsers that launch a PWA in a normal tab. Together they cover
- *  every installed case.
+ *  The display mode is ground truth and is checked FIRST, because the ?app=1
+ *  hint turned out to be actively dangerous on its own.
  *
- *  iOS Safari reports neither and instead sets navigator.standalone. */
+ *  ?app=1 comes from the manifest's start_url, so it is present when the
+ *  installed app launches — but it is just a query string, and query strings
+ *  end up in history, bookmarks, shared links and, fatally, in the address
+ *  bar's autocomplete. On Android, typing "k-os" into Chrome offers back the
+ *  ?app=1 URL visited earlier; tapping it opened an ordinary tab that believed
+ *  it was the installed app and went straight to sign-in. The landing page
+ *  became unreachable from that phone — the front door hidden behind a stale
+ *  autocomplete entry.
+ *
+ *  `(display-mode: browser)` matches only in a real browser tab and in no
+ *  installed window, which makes it the exact discriminator: whatever the URL
+ *  claims, a tab is a tab. ?app=1 then survives only as the fallback it was
+ *  meant to be, for the odd browser that launches a PWA without reporting a
+ *  standalone display mode.
+ *
+ *  iOS Safari home-screen apps historically report neither and set
+ *  navigator.standalone instead. */
 export function isInstalledApp(): boolean {
   try {
-    if (new URLSearchParams(location.search).get("app") === "1") return true;
+    if (window.matchMedia?.("(display-mode: browser)").matches) return false;
     if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+    if (window.matchMedia?.("(display-mode: minimal-ui)").matches) return true;
+    if (window.matchMedia?.("(display-mode: fullscreen)").matches) return true;
     if (window.matchMedia?.("(display-mode: window-controls-overlay)").matches) return true;
-    return (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    if ((navigator as Navigator & { standalone?: boolean }).standalone === true) return true;
+    return new URLSearchParams(location.search).get("app") === "1";
   } catch {
     return false;
   }
 }
+
+/** Take ?app=1 back out of the address bar when it is demonstrably a lie.
+ *
+ *  Without this the bad autocomplete entry is self-perpetuating: every visit
+ *  to the ?app=1 URL in a tab re-records it, so it keeps being offered. Only
+ *  runs in a browser tab — the installed app keeps its start_url untouched. */
+function scrubStaleAppParam(): void {
+  try {
+    if (!window.matchMedia?.("(display-mode: browser)").matches) return;
+    const url = new URL(location.href);
+    if (url.searchParams.get("app") !== "1") return;
+    url.searchParams.delete("app");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch {
+    /* replaceState can throw in exotic embedding contexts; cosmetic either way */
+  }
+}
+scrubStaleAppParam();
 
 /** Where the app opens.
  *
