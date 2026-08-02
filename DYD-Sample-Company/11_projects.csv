@@ -1,0 +1,13 @@
+project_id,project_name,client_id,service_line,start_date,end_date,health,budget_inr,spent_to_date_inr,delivery_manager,margin_pct
+P01,Northwind OMS Modernisation,C01,Application Development,2025-04-15,2026-10-31,Amber,18500000,14900000,Rohan Deshpande,22
+P02,Northwind 24x7 NOC,C01,Managed Services,2025-04-01,2027-03-31,Green,22200000,15400000,Sneha Kulkarni,31
+P03,Meridian Core Banking Migration,C02,Cloud Migration,2025-07-15,2026-12-31,Red,42000000,38600000,Rohan Deshpande,9
+P04,Meridian Payments API,C02,Application Development,2026-01-10,2026-09-30,Green,9800000,4100000,Aditi Rane,34
+P05,Meridian AMC,C02,Managed Services,2025-09-01,2027-06-30,Green,14400000,9200000,Sneha Kulkarni,29
+P06,Halcyon HIPAA Cloud Landing Zone,C03,Cloud Migration,2026-01-15,2026-08-31,Green,12600000,7300000,Kabir Menon,27
+P07,Halcyon Patient Portal,C03,Application Development,2026-03-01,2026-11-30,Amber,8400000,3900000,Aditi Rane,19
+P08,Vertex Fleet Tracking Squad,C04,Staff Augmentation,2025-10-01,2026-09-30,Amber,11760000,8900000,Neha Bhosale,14
+P09,Vertex Warehouse Integrations,C04,Application Development,2026-02-01,2026-07-31,Red,5200000,5600000,Neha Bhosale,-8
+P10,Aurora SCADA Data Platform,C05,Data & AI,2026-02-15,2027-01-31,Green,28800000,11200000,Kabir Menon,33
+P11,Aurora Predictive Maintenance,C05,Data & AI,2026-04-01,2026-12-31,Green,9600000,2800000,Ishaan Verma,36
+P12,Internal - K-OS Platform R&D,INT,Internal,2026-01-01,2026-12-31,Green,4000000,2600000,Ishaan Verma,0

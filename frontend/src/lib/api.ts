@@ -166,7 +166,36 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     throw new ApiError(msg || `HTTP ${res.status}`, res.status, fields, planBlock);
   }
-  return res.json() as Promise<T>;
+
+  /* A successful response does not always carry a body.
+   *
+   * Eight endpoints answer `204 No Content` — deleting a document, a task, a
+   * chart, a conversation, a custom agent, a workflow, a code project, a code
+   * file. `res.json()` on an empty body throws
+   *
+   *     Failed to execute 'json' on 'Response': Unexpected end of JSON input
+   *
+   * which is a uniquely bad failure to have here, because the delete had
+   * already SUCCEEDED. The server did the work, returned 204 to say so, and the
+   * client then reported an error for it. Callers that wrapped the call in a
+   * try/catch swallowed it and looked fine; Knowledge did not, so it showed a
+   * red banner over a document that was already gone — and invited the person
+   * to click delete again.
+   *
+   * 205 is included for the same reason. Anything else is read as text first,
+   * so a body-less 200 from a proxy cannot reintroduce the same crash.
+   */
+  if (res.status === 204 || res.status === 205) return undefined as T;
+
+  const body = await res.text();
+  if (!body) return undefined as T;
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    // Valid status, unparseable body: a real server fault. Say that, rather
+    // than leaking a DOM exception about JSON into the interface.
+    throw new ApiError(`The server sent a malformed response (HTTP ${res.status}).`, res.status);
+  }
 }
 
 export async function ping(): Promise<boolean> {

@@ -1,0 +1,117 @@
+DYD Technologies — Client Escalation Call
+Client: Vertex Logistics (C04)
+Date: 24 July 2026, 15:00–15:52 IST
+Attendees:
+  DYD  — Neha Bhosale (Delivery Manager), Sneha Kulkarni (Head of Managed Services),
+         Rohan Deshpande (Delivery Head)
+  Vertex — Mr. S. Iyengar (VP Technology), Ms. R. Kaur (Head of Ops)
+Recording consented by all parties. Transcribed and lightly cleaned for readability.
+
+---
+
+IYENGAR: Let me be direct, because we've had this conversation before and nothing
+has changed. We are on a Silver tier, I understand that. But ten of our fourteen
+incidents this period missed the resolution target. That's seventy-one percent. At
+what point does that stop being an SLA and start being a description of what you
+can't do?
+
+BHOSALE: That number is right and I'm not going to argue with it. Ten of fourteen.
+
+IYENGAR: So what is the number supposed to be?
+
+KULKARNI: Under Silver, the resolution targets are one hour for SEV-1, four hours
+for SEV-2, eight for SEV-3. We are meeting those on our other accounts. We're not
+meeting them on yours, and I want to explain why rather than apologise again.
+
+IYENGAR: Please.
+
+KULKARNI: Two things. First, five of your breaches trace to a single defect — a
+memory leak in the order enrichment service. It's an unbounded cache with no
+eviction. It has been in the backlog as NWR-1184 for three sprints. Every time it
+comes up for planning it loses to feature work, because until the pod dies it
+isn't visible to anyone.
+
+KAUR: It's visible to us. It's visible at two in the morning.
+
+KULKARNI: Yes. That's the point I'm conceding.
+
+IYENGAR: And the second thing?
+
+KULKARNI: Silver is an 08:00 to 22:00 support window, Monday to Saturday. Four of
+your fourteen incidents opened outside it. We responded when the window opened,
+which is contractually correct and operationally useless if your warehouses run
+overnight.
+
+IYENGAR: Our warehouses do run overnight. You know that.
+
+BHOSALE: We do. The tier was set at contract signature in October, when the
+overnight shift wasn't in scope. It became in scope in February and nobody went
+back to the tier.
+
+IYENGAR: So what do you owe us?
+
+DESHPANDE: Under the master agreement, Silver carries a two percent service credit
+per breached target, capped at ten percent of the monthly fee. Ten breaches is
+twenty percent on the raw calculation. The cap brings it to ten percent. On a
+nine lakh eighty thousand monthly fee, that's ninety-eight thousand rupees.
+
+IYENGAR: Ninety-eight thousand. For seventy-one percent failure.
+
+DESHPANDE: Yes. And I'd rather you heard the uncomfortable part from me: the cap
+means breaches eleven through fourteen cost us nothing. The commercial mechanism
+stopped applying pressure four incidents ago. That is a bad design and it's ours.
+
+KAUR: I appreciate you saying it.
+
+IYENGAR: What I actually want is not the credit. What is the plan?
+
+DESHPANDE: Three things, with names and dates.
+
+One — NWR-1184 gets fixed. Not prioritised, fixed. Kabir Menon takes it, it goes
+into the sprint starting the twenty-eighth, and it is the first item, not the
+last. Target in production by the fourteenth of August.
+
+Two — we move you from Silver to Gold at DYD's cost for six months. That's 24×7
+coverage and a thirty-minute first response instead of sixty. If at the end of six
+months the numbers justify it, we talk commercially. If they don't, you drop back
+and you've lost nothing.
+
+IYENGAR: At your cost.
+
+DESHPANDE: At our cost. The tier was wrong for your operation and we should have
+caught it in February.
+
+Three — a weekly SLA report to Ms. Kaur every Monday, showing every incident,
+target, actual, and whether it breached. Not a summary. The raw list.
+
+KAUR: I'd want the root causes too.
+
+DESHPANDE: You'll have them.
+
+IYENGAR: And the warehouse integration project? P09. That was meant to finish in
+July.
+
+BHOSALE: It's over budget and it's late. Fifty-six lakh spent against a fifty-two
+lakh budget, so we're carrying a negative margin on it. That's our problem, not
+yours — you're fixed price. But the date is your problem and I don't have a
+credible new one for you today.
+
+IYENGAR: When will you?
+
+BHOSALE: Friday. I'd rather give you a date I've tested than one that sounds good
+on this call.
+
+IYENGAR: Fine. Friday. And I want to be clear about where we are — we're not
+threatening to leave. But the master agreement has a chronic-failure clause, three
+months at the cap, and we're one month in. I'd rather never find out whether we'd
+use it.
+
+DESHPANDE: Understood. So would I.
+
+---
+ACTIONS
+A1  Fix NWR-1184 (order service memory leak) — Kabir Menon — production by 14 Aug
+A2  Upgrade Vertex to Gold tier at DYD cost, 6 months — Sneha Kulkarni — effective 1 Aug
+A3  Weekly SLA report with root causes to Ms. Kaur — Neha Bhosale — every Monday from 28 Jul
+A4  Revised P09 delivery date, tested — Neha Bhosale — by Friday 31 Jul
+A5  Review tier appropriateness across all Silver accounts — Sneha Kulkarni — by 15 Aug

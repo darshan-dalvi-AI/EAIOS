@@ -1,0 +1,27 @@
+employee_id,employee_name,role,band,primary_skill,location,cost_rate_inr_per_hr,bill_rate_inr_per_hr,utilisation,bench_days_ytd,current_project
+E001,Rohan Deshpande,Delivery Manager,M3,React/TypeScript,Remote,3800,7353,0.94,0,P03
+E002,Sneha Kulkarni,Solution Architect,M2,Go,Pune,3200,6267,0.85,0,P12
+E003,Aditi Rane,Tech Lead,L4,Node.js,Bengaluru,2400,3844,0.86,0,P10
+E004,Kabir Menon,Senior Engineer,L3,Snowflake,Remote,1800,3751,0.45,44,P06
+E005,Neha Bhosale,Engineer,L2,Java/Spring,Pune,1200,2476,0.5,39,P11
+E006,Ishaan Verma,Associate Engineer,L1,Terraform,Bengaluru,850,1946,0.57,44,P10
+E007,Priya Iyer,SRE,L3,Terraform,Bengaluru,1900,4115,0.44,8,P10
+E008,Arjun Nair,Data Engineer,L3,Databricks,Bengaluru,2000,4291,0.93,0,P01
+E009,Meera Joshi,QA Engineer,L2,Node.js,Pune,1100,2388,0.52,56,P01
+E010,Vikram Patil,Security Analyst,L3,Terraform,Remote,2100,3896,0.56,21,P01
+E011,Ananya Sharma,Delivery Manager,M3,Splunk,Bengaluru,3800,6400,0.74,62,P05
+E012,Siddharth Gupta,Solution Architect,M2,Databricks,Pune,3200,6705,0.86,0,P05
+E013,Divya Reddy,Tech Lead,L4,Databricks,Pune,2400,3735,0.42,19,BENCH
+E014,Karan Chauhan,Senior Engineer,L3,Kubernetes,Remote,1800,3123,0.58,23,P07
+E015,Tanvi Mehta,Engineer,L2,Kafka,Bengaluru,1200,1933,0.69,54,P06
+E016,Rahul Sinha,Associate Engineer,L1,Kafka,Bengaluru,850,1357,0.43,50,P09
+E017,Pooja Pawar,SRE,L3,AWS,Bengaluru,1900,3859,0.49,50,BENCH
+E018,Nikhil Bansal,Data Engineer,L3,AWS,Remote,2000,3883,0.54,17,P03
+E019,Riya Shetty,QA Engineer,L2,Kafka,Remote,1100,1923,0.7,10,P01
+E020,Aman Khanna,Security Analyst,L3,Go,Remote,2100,3997,0.92,0,P07
+E021,Shruti Desai,Delivery Manager,M3,Splunk,Bengaluru,3800,7157,0.88,0,P05
+E022,Varun Rao,Solution Architect,M2,Databricks,Remote,3200,5809,0.67,57,P05
+E023,Kavya Pillai,Tech Lead,L4,Splunk,Bengaluru,2400,5484,0.91,0,P04
+E024,Manish Malhotra,Senior Engineer,L3,Python/FastAPI,Remote,1800,3103,0.84,0,P07
+E025,Isha Ghosh,Engineer,L2,Kubernetes,Bengaluru,1200,2710,0.59,47,P12
+E026,Yash Jain,Associate Engineer,L1,Oracle DB,Remote,850,1567,0.49,59,P11

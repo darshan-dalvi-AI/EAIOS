@@ -1,0 +1,118 @@
+DYD Technologies — Weekly Delivery Review
+Date: 27 July 2026, 09:30–10:25 IST
+Chair: Rohan Deshpande (Delivery Head)
+Attendees: Sneha Kulkarni, Aditi Rane, Kabir Menon, Neha Bhosale, Ishaan Verma,
+           Priya Iyer (Commercial), Divya Reddy (People)
+
+---
+
+DESHPANDE: Portfolio first, then exceptions. Twelve active projects. Two red, three
+amber, seven green. Reds are P03 Meridian and P09 Vertex. Kabir, P03.
+
+MENON: P03 is red on margin, not on quality. We're at three crore eighty-six lakh
+spent against a four crore twenty budget. Ninety-two percent consumed, and M5 and
+M6 are still open — that's thirty-five percent of the milestone value.
+
+DESHPANDE: Forecast margin?
+
+MENON: Nine percent. We bid twenty-eight.
+
+IYER: The recovery is the two change requests. Thirty-one lakh combined, both for
+IAM rework that's client-caused. Neither is signed.
+
+DESHPANDE: How long have they been sitting?
+
+IYER: The first one, five weeks. The second, three.
+
+DESHPANDE: That's the problem, not the margin. The margin is a symptom. Priya, who
+owns getting those signed?
+
+IYER: Technically me, practically it needs the CTO and she's been unavailable.
+
+DESHPANDE: Then it escalates. I'll take it to Ms. Raghavan directly this week. And
+for everyone — a change request that sits unsigned for five weeks while we keep
+doing the work is us funding the client's indecision. Stop the work or get the
+signature. Assumption A7 in that bid said their IAM would land in December. It
+didn't. That's exactly what change control is for.
+
+MENON: There's a second risk on P03. The Oracle-to-Kafka CDC knowledge sits with
+one engineer. If he's unavailable during a migration wave we stall.
+
+DESHPANDE: Date for the runbook?
+
+MENON: Thirty-first of August, and pairing starts this sprint.
+
+DESHPANDE: Good. Neha, P09.
+
+BHOSALE: Over budget. Fifty-six lakh spent, fifty-two budget, minus eight percent
+margin. It went from green to amber in April and sat amber for four cycles.
+
+DESHPANDE: Four cycles. The playbook says three, then it goes green or red.
+
+BHOSALE: I know. I kept it amber because I believed the recovery each time.
+
+DESHPANDE: I'd rather you tell me that than not. But that's how a project reaches
+negative margin without anyone escalating — not through one bad decision, through
+four reasonable-looking ones. Ishaan, can you make that visible?
+
+VERMA: I can put a rule in the analytics — flag anything amber more than three
+cycles automatically. It shouldn't depend on someone remembering.
+
+DESHPANDE: Do it. Sneha, service.
+
+KULKARNI: Forty-six incidents this period. Vertex is seventy-one percent breached,
+which we covered on Thursday's call. Halcyon twenty-five percent, Northwind eight,
+Aurora and Meridian clean.
+
+DESHPANDE: What's the dominant cause?
+
+KULKARNI: The order service memory leak. Five breaches, more than any other single
+cause. NWR-1184. It's now first in the sprint starting tomorrow.
+
+DESHPANDE: And the health check issue?
+
+KULKARNI: PLAT-2291. The endpoint returns two hundred when the database is
+read-only, so a failed failover looks healthy. It's masked that failure twice.
+Open since February.
+
+DESHPANDE: February. Sneha, that one is worse than the memory leak — it's the thing
+that stops us knowing we're down. Who owns it?
+
+KULKARNI: Unassigned.
+
+DESHPANDE: Assign it today. Divya, people.
+
+REDDY: Eleven people past thirty bench days. Five hundred and sixty-two bench days
+total, about seventy-six lakh of idle cost. That's the biggest controllable line on
+our margin this year.
+
+DESHPANDE: Skills?
+
+REDDY: Mostly Java and Oracle. Demand is Terraform, Databricks and Kubernetes.
+
+DESHPANDE: Then it's a reskilling problem, not a sales problem. Build a plan —
+named people, named target skill, dates. Bring it next week.
+
+IYER: Receivables. One crore seventy lakh unpaid. Halcyon is seventy-three lakh of
+that. Worst invoice is a hundred and sixty-three days overdue.
+
+DESHPANDE: Are they disputing?
+
+IYER: No. Internal approval backlog.
+
+DESHPANDE: Then it's a relationship problem. We have a suspension right at sixty
+days and I don't want to use it on a client we've had for seven months. Get their
+CIO on a call with me.
+
+DESHPANDE: Actions before we close.
+
+---
+ACTIONS
+B1  Escalate the two unsigned P03 change requests to Meridian CTO — Rohan Deshpande — this week
+B2  CDC runbook for Oracle-to-Kafka, pairing starts this sprint — Kabir Menon — 31 Aug
+B3  Revised P09 plan and delivery date — Neha Bhosale — 31 Jul
+B4  Auto-flag any project amber more than 3 cycles — Ishaan Verma — 7 Aug
+B5  NWR-1184 memory leak first in sprint — Kabir Menon — production 14 Aug
+B6  Assign an owner to PLAT-2291 health-check defect — Sneha Kulkarni — today
+B7  Reskilling plan for 11 bench staff, named, dated — Divya Reddy — next review
+B8  Arrange call with Halcyon CIO on receivables — Priya Iyer — this week

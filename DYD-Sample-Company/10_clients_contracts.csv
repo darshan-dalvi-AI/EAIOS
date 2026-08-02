@@ -1,0 +1,6 @@
+client_id,client_name,industry,engagement_type,mrr_inr,contract_start,contract_end,sla_tier,uptime_target_pct,service_credit_pct_per_breach,credit_cap_pct_of_monthly,csat_score
+C01,Northwind Retail,Retail,Managed Services,1850000,2025-04-01,2027-03-31,Platinum,99.9,5.0,15,4.1
+C02,Meridian Bank,BFSI,Project + AMC,3200000,2025-07-01,2027-06-30,Platinum,99.95,7.5,20,4.6
+C03,Halcyon Health,Healthcare,Managed Services,1450000,2026-01-01,2027-12-31,Gold,99.5,3.0,10,4.4
+C04,Vertex Logistics,Logistics,Staff Augmentation,980000,2025-10-01,2026-09-30,Silver,99.0,2.0,10,3.4
+C05,Aurora Energy,Energy,Fixed-price Project,2400000,2026-02-01,2027-01-31,Gold,99.5,3.0,10,4.2

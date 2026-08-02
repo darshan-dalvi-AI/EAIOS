@@ -1,0 +1,47 @@
+incident_id,client_id,severity,opened_at,resolution_hours,sla_target_hours,sla_met,root_cause,project_id
+INC-1000,C03,SEV-3,2026-06-17T09:00,4.41,8.0,Yes,Unindexed query after schema change,P03
+INC-1001,C01,SEV-2,2026-03-20T13:00,3.32,4.0,Yes,Upstream payment gateway timeout,P08
+INC-1002,C04,SEV-4,2026-02-17T08:00,20.25,24.0,Yes,Failed batch job retry storm,P05
+INC-1003,C01,SEV-3,2026-04-12T09:00,4.36,8.0,Yes,Kafka consumer lag,P05
+INC-1004,C03,SEV-3,2026-06-07T21:00,12.5,8.0,No,Misconfigured autoscaling policy,P03
+INC-1005,C04,SEV-3,2026-03-15T23:00,12.9,8.0,No,Disk full on log volume,P06
+INC-1006,C04,SEV-3,2026-07-03T17:00,7.22,8.0,Yes,Unindexed query after schema change,P06
+INC-1007,C04,SEV-3,2026-03-13T11:00,3.95,8.0,Yes,DNS propagation delay,P09
+INC-1008,C04,SEV-3,2026-04-24T10:00,22.89,8.0,No,Disk full on log volume,P02
+INC-1009,C05,SEV-4,2026-03-21T00:00,11.24,24.0,Yes,Kafka consumer lag,P08
+INC-1010,C04,SEV-2,2026-05-07T17:00,9.6,4.0,No,Memory leak in order service,P02
+INC-1011,C04,SEV-3,2026-06-12T07:00,15.43,8.0,No,Database failover did not promote replica,P02
+INC-1012,C04,SEV-3,2026-07-17T05:00,19.19,8.0,No,Upstream payment gateway timeout,P05
+INC-1013,C03,SEV-1,2026-04-06T05:00,0.88,1.0,Yes,Failed batch job retry storm,P02
+INC-1014,C04,SEV-3,2026-04-13T18:00,11.4,8.0,No,Memory leak in order service,P05
+INC-1015,C04,SEV-4,2026-06-11T16:00,56.81,24.0,No,Memory leak in order service,P08
+INC-1016,C03,SEV-4,2026-05-10T18:00,7.91,24.0,Yes,Kafka consumer lag,P03
+INC-1017,C01,SEV-3,2026-05-21T19:00,3.8,8.0,Yes,DNS propagation delay,P05
+INC-1018,C03,SEV-3,2026-02-18T18:00,2.16,8.0,Yes,Database failover did not promote replica,P03
+INC-1019,C01,SEV-1,2026-07-18T16:00,0.73,1.0,Yes,Failed batch job retry storm,P09
+INC-1020,C02,SEV-3,2026-06-20T08:00,5.97,8.0,Yes,Kafka consumer lag,P02
+INC-1021,C04,SEV-3,2026-03-07T10:00,17.23,8.0,No,Misconfigured autoscaling policy,P03
+INC-1022,C01,SEV-2,2026-07-03T16:00,3.06,4.0,Yes,Memory leak in order service,P02
+INC-1023,C05,SEV-3,2026-02-04T07:00,4.1,8.0,Yes,Failed batch job retry storm,P03
+INC-1024,C02,SEV-3,2026-04-29T16:00,2.28,8.0,Yes,Kafka consumer lag,P08
+INC-1025,C05,SEV-3,2026-02-10T06:00,3.34,8.0,Yes,Kafka consumer lag,P09
+INC-1026,C01,SEV-2,2026-06-29T23:00,2.26,4.0,Yes,Upstream payment gateway timeout,P06
+INC-1027,C01,SEV-1,2026-04-23T22:00,0.74,1.0,Yes,Failed batch job retry storm,P02
+INC-1028,C03,SEV-3,2026-03-07T01:00,15.95,8.0,No,Memory leak in order service,P06
+INC-1029,C04,SEV-2,2026-05-31T01:00,7.64,4.0,No,Upstream payment gateway timeout,P02
+INC-1030,C01,SEV-4,2026-06-10T03:00,8.05,24.0,Yes,Expired TLS certificate,P02
+INC-1031,C05,SEV-2,2026-04-16T16:00,1.18,4.0,Yes,DNS propagation delay,P03
+INC-1032,C01,SEV-3,2026-05-09T19:00,5.78,8.0,Yes,Misconfigured autoscaling policy,P08
+INC-1033,C01,SEV-3,2026-05-28T12:00,21.57,8.0,No,Memory leak in order service,P09
+INC-1034,C03,SEV-3,2026-04-19T01:00,6.93,8.0,Yes,Expired TLS certificate,P06
+INC-1035,C01,SEV-4,2026-05-22T02:00,12.87,24.0,Yes,Failed batch job retry storm,P08
+INC-1036,C03,SEV-2,2026-05-25T00:00,1.94,4.0,Yes,DNS propagation delay,P08
+INC-1037,C05,SEV-2,2026-05-23T14:00,3.21,4.0,Yes,Database failover did not promote replica,P02
+INC-1038,C04,SEV-2,2026-03-15T05:00,1.09,4.0,Yes,Kafka consumer lag,P02
+INC-1039,C02,SEV-2,2026-02-01T04:00,2.93,4.0,Yes,Failed batch job retry storm,P03
+INC-1040,C05,SEV-3,2026-06-08T17:00,1.79,8.0,Yes,Expired TLS certificate,P06
+INC-1041,C05,SEV-4,2026-05-26T16:00,7.13,24.0,Yes,Misconfigured autoscaling policy,P02
+INC-1042,C04,SEV-2,2026-07-04T00:00,5.13,4.0,No,DNS propagation delay,P06
+INC-1043,C01,SEV-4,2026-03-30T16:00,16.29,24.0,Yes,DNS propagation delay,P03
+INC-1044,C02,SEV-2,2026-02-06T12:00,1.02,4.0,Yes,Expired TLS certificate,P08
+INC-1045,C02,SEV-1,2026-04-24T17:00,0.58,1.0,Yes,DNS propagation delay,P05
