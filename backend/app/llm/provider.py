@@ -16,6 +16,11 @@ from app.core.config import settings
 log = logging.getLogger("eaios.llm")
 TOKEN = re.compile(r"[a-z0-9]+")
 
+# Opening words of the mock engine's "no model configured" reply. Exported so a
+# caller can recognise a non-answer and score its confidence accordingly,
+# rather than each agent hard-coding a guess at how confident it feels.
+NO_MODEL_PREFIX = "This instance is running the built-in mock engine"
+
 
 class MockLLM:
     name = "mock"
@@ -28,11 +33,18 @@ class MockLLM:
             return self._report(question, context)
         if context:
             return self._grounded_answer(question, context)
+        # Deliberately does NOT quote the prompt back. It used to open with
+        # 'Here is my take on "<first 120 chars>"', which meant that whenever
+        # the prompt failed to parse, the *retrieved document text* was echoed
+        # verbatim into the answer — mid-sentence, and confusingly attributed
+        # to the assistant. Retrieved context is the user's private material;
+        # a fallback message is not the place to reproduce it.
         return (
-            f"Here is my take on \"{question[:120]}\": this instance is running the built-in mock engine, "
-            "so responses outside the knowledge base are limited. Connect Ollama or a cloud API key in "
-            "Settings to enable full generative answers. Document-grounded questions, SQL, analytics and "
-            "report generation are fully functional in mock mode."
+            f"{NO_MODEL_PREFIX}, so it cannot compose a free-form "
+            "answer to that. Connect Ollama or add a cloud API key in Settings to enable full "
+            "generative answers.\n\n"
+            "Working now without any model: questions answered from uploaded documents, "
+            "natural-language SQL, analytics, and report generation."
         )
 
     def _grounded_answer(self, question: str, context: str) -> str:
@@ -311,10 +323,40 @@ def complete_with(model: str, system: str, prompt: str) -> str:
     return candidate.complete(system, prompt)
 
 
+# Every label an agent uses to introduce the actual ask. Longest first, so
+# "USER REQUEST:" is matched before the "REQUEST:" inside it.
+_ASK_LABELS = ("USER REQUEST:", "QUESTION:", "REQUEST:", "TASK:", "INSTRUCTION:", "MINUTES:")
+
+
 def _split_prompt(prompt: str) -> tuple[str, str]:
-    """Extract CONTEXT/QUESTION segments from a RAG prompt (mock engine helper)."""
-    context, question = "", prompt
-    if "CONTEXT:" in prompt and "QUESTION:" in prompt:
-        context = prompt.split("CONTEXT:", 1)[1].split("QUESTION:", 1)[0].strip()
-        question = prompt.split("QUESTION:", 1)[1].strip()
-    return context, question
+    """Split a RAG prompt into its retrieved context and the actual ask.
+
+    This used to recognise ``QUESTION:`` alone. Two agents do not use that word
+    — the coding agent writes ``REQUEST:`` and custom agents write
+    ``USER REQUEST:`` — so for those the split silently failed, the whole
+    prompt (CONTEXT block included) was treated as the question, and the mock
+    engine answered as though nothing had been retrieved. Observed in
+    production: a contract question came back as the words "Here is my take on"
+    followed by a verbatim service-credit clause from the retrieved document.
+
+    Any new agent that introduces its own label should add it to _ASK_LABELS —
+    but a label that is missed no longer leaks the prompt, because the caller
+    never echoes it.
+    """
+    if "CONTEXT:" not in prompt:
+        return "", prompt
+
+    after_context = prompt.split("CONTEXT:", 1)[1]
+    # Find whichever ask-label appears first in the remainder.
+    cut, label = None, None
+    for candidate in _ASK_LABELS:
+        pos = after_context.find(candidate)
+        if pos != -1 and (cut is None or pos < cut):
+            cut, label = pos, candidate
+
+    if cut is None:
+        # A context block with no recognisable ask. Treat it all as context
+        # rather than as a question — answering from it is the safe reading.
+        return after_context.strip(), ""
+
+    return after_context[:cut].strip(), after_context[cut + len(label):].strip()
