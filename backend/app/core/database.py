@@ -1,12 +1,12 @@
 """SQLAlchemy engine/session. Postgres in production, SQLite fallback in dev.
 
-Pool sizing is load-test informed (Phase 6): the SQLAlchemy default
-(pool_size=5, max_overflow=10) exhausts under ~60 concurrent chat requests
-and queues connections until timeout. We run a wider pool, and for SQLite
+Pool sizing is capped by the *server's* client limit, not by what the app would
+like to hold open — see the comment above ``create_engine``. For SQLite we
 additionally enable WAL + a busy timeout so concurrent readers never block
 behind the single writer.
 """
 import logging
+import os
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine, event
@@ -42,13 +42,37 @@ def best_effort(db: Session, what: str):
 
 _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
+# Pool sizing is bounded by what the *server* will accept, not by what the app
+# would like. Supabase's pooler allows 15 session-mode clients on the free tier;
+# asking for more does not queue, it fails the connection outright:
+#
+#   FATAL: (EMAXCONNSESSION) max clients reached in session mode
+#          — max clients are limited to pool_size: 15
+#
+# This previously asked for pool_size=25 + max_overflow=60 — up to 85 — because
+# those numbers came from a load test run against SQLite, where connection
+# limits do not exist. Against Supabase the app could exhaust the pooler on its
+# own, and a second service sharing the database made startup failure certain:
+# the app crashed on boot with "Application startup failed. Exiting."
+#
+# The defaults below stay under 15 with headroom for migrations and any psql
+# session. Raise them with DB_POOL_SIZE / DB_MAX_OVERFLOW on a plan that allows
+# more connections.
+_pool_size = int(os.environ.get("DB_POOL_SIZE", "5"))
+_max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", "5"))
+
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args={"check_same_thread": False, "timeout": 15} if _is_sqlite else {},
     pool_pre_ping=True,
-    pool_size=5 if _is_sqlite else 25,   # SQLite: writes serialize anyway; keep it modest
-    max_overflow=60,                      # absorb bursts instead of timing out
-    pool_timeout=30,
+    pool_size=5 if _is_sqlite else _pool_size,
+    max_overflow=10 if _is_sqlite else _max_overflow,
+    # Fail fast rather than hanging a request for half a minute: if the pooler
+    # is full, waiting 30s only deepens the queue behind it.
+    pool_timeout=10,
+    # Supabase drops idle connections; recycling below that keeps the pool from
+    # handing out sockets the server has already closed.
+    pool_recycle=280,
 )
 
 if _is_sqlite:
