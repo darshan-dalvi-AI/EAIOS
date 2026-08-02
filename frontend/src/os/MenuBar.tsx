@@ -1,4 +1,5 @@
 import { Bell, LogOut, Moon, Search, Sun, Wifi, WifiOff } from "lucide-react";
+import Mark from "./Mark";
 import { useEffect, useRef, useState } from "react";
 import { useOS } from "../store";
 
@@ -30,7 +31,7 @@ export default function MenuBar() {
   return (
     <nav className="menubar">
       <button className="mb-logo" onClick={() => open("settings")} aria-label="K-OS system menu">
-        <span className={`orb ${agentBusy ? "busy" : ""}`} />
+        <Mark size={15} busy={agentBusy} />
         K-OS
       </button>
       {orgName && <span className="mb-org" title="Your workspace">{orgName}</span>}

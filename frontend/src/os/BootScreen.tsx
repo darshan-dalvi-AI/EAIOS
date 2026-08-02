@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Mark from "./Mark";
 import { useOS } from "../store";
 
 const LINES = [
@@ -6,7 +7,7 @@ const LINES = [
   ["auth", "JWT service armed · RBAC matrix loaded"],
   ["vectors", "vector store attached (hybrid retrieval ready)"],
   ["rag", "multimodal ingestion pipeline online"],
-  ["agents", "8 agents registered → planner warm"],
+  ["agents", "9 agents registered → planner warm"],
   ["llm", "model layer connected"],
   ["ui", "compositing desktop…"],
 ] as const;
@@ -36,6 +37,9 @@ export default function BootScreen() {
   return (
     <div className={`boot ${leaving ? "fade-out" : ""}`}>
       <div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <Mark size={72} />
+        </div>
         <div className="boot-logo">K-OS</div>
         <div className="boot-sub" style={{ textAlign: "center", marginTop: 6 }}>Knowledge Operating System</div>
       </div>

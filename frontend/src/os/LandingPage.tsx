@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { apiStartDemo } from "../lib/api";
 import { useOS } from "../store";
 import InstallButton from "./InstallButton";
+import Mark from "./Mark";
 
 const GITHUB_URL = "https://github.com/darshan-dalvi-AI/EAIOS";
 const DOCS_ANCHOR = "#architecture";
@@ -127,7 +128,7 @@ export default function LandingPage() {
     <div className="landing">
       {/* ── nav ── */}
       <nav className="land-nav">
-        <span className="land-logo"><span className="orb" style={{ width: 16, height: 16 }} /> K-OS</span>
+        <span className="land-logo"><Mark size={18} /> K-OS</span>
         <div className="land-links">
           <a href="#features">Features</a>
           <a href="#who-its-for">Who it's for</a>
@@ -464,7 +465,7 @@ export default function LandingPage() {
 
       {/* ── footer ── */}
       <footer className="land-footer">
-        <span className="land-logo" style={{ fontSize: 14 }}><span className="orb" style={{ width: 12, height: 12 }} /> K-OS</span>
+        <span className="land-logo" style={{ fontSize: 14 }}><Mark size={14} /> K-OS</span>
         <div className="land-links">
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={12} /> GitHub</a>
           <a href={DOCS_ANCHOR}>Documentation</a>

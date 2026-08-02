@@ -1159,3 +1159,17 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
   .demo-copy{white-space:normal;font-size:11px}
   .demo-banner{align-items:flex-start;padding:8px 11px}
 }
+
+/* ── brand mark ──────────────────────────────────────────────────────────
+   Replaces the spinning .orb as the K-OS logo. The orb also signalled agent
+   activity, so that job moves here: a pulsing glow while an agent is working,
+   and nothing at all when it is not. */
+.kos-mark { user-select: none; }
+.kos-mark.busy { animation: kos-mark-pulse 1.4s ease-in-out infinite; }
+@keyframes kos-mark-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
+  50%      { filter: drop-shadow(0 0 6px rgba(34, 211, 238, .85)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kos-mark.busy { animation: none; filter: drop-shadow(0 0 5px rgba(34, 211, 238, .7)); }
+}

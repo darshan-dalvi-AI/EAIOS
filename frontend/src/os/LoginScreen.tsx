@@ -1,4 +1,5 @@
 import { ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, PlayCircle } from "lucide-react";
+import Mark from "./Mark";
 import { useEffect, useState } from "react";
 import { ApiError, apiAuthConfig, apiGoogleAuth, apiLogin, apiSignup, apiStartDemo, ping } from "../lib/api";
 import { loadGis } from "../lib/gis";
@@ -165,6 +166,9 @@ export default function LoginScreen() {
 
   return (
     <div className="login">
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+        <Mark size={56} />
+      </div>
       <div className="boot-logo" style={{ fontSize: 30 }}>K-OS</div>
       <form className="login-card" onSubmit={submit} noValidate>
         <h1 className="login-title">{isSignup ? "Create your company workspace" : "Sign in to your workspace"}</h1>
