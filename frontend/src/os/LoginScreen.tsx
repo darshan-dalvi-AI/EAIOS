@@ -35,6 +35,18 @@ const SERVER_FIELD: Record<string, Field> = {
   company_name: "company", full_name: "fullName", email: "email", password: "password",
 };
 
+/** Google's mark, inline so the button works with no network and no CSP hole. */
+function GoogleMark() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-4H24v7.5h12c-.2 2-1.5 5-4.4 7l6.7 5.2C42.2 36 45 30.6 45 24z"/>
+      <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.7-5.2c-1.9 1.3-4.4 2.2-7.8 2.2-6 0-11-4-12.8-9.4l-7 5.4C7.9 41 15.4 46 24 46z"/>
+      <path fill="#FBBC05" d="M11.2 28.3c-.5-1.4-.7-2.8-.7-4.3s.3-2.9.7-4.3l-7-5.4C2.9 17.2 2 20.5 2 24s.9 6.8 2.2 9.7l7-5.4z"/>
+      <path fill="#EA4335" d="M24 10.6c3.4 0 6.4 1.2 8.8 3.4l6-6C35 4.6 30 2 24 2 15.4 2 7.9 7 4.2 14.3l7 5.4C13 14.3 18 10.6 24 10.6z"/>
+    </svg>
+  );
+}
+
 export default function LoginScreen() {
   const { login, live, setLive } = useOS();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -189,11 +201,21 @@ export default function LoginScreen() {
               </label>
             )}
             {isSignup && hint("company")}
-            {/* Google renders its own button in here. It must be Google's own
-                markup — a custom button driving One Tap is what broke sign-in
-                on phones entirely (see lib/gis.ts). */}
-            <div ref={googleSlot} className="google-slot" data-testid="google-btn"
-                 aria-busy={googleBusy || undefined} />
+            {/* Google's real button, made invisible and laid over ours.
+                It has to be Google's own markup that receives the click —
+                a custom button driving One Tap is what broke sign-in on
+                phones entirely (see lib/gis.ts). But Google's button cannot
+                be styled, so the visible pill below is ours and the working
+                one sits on top of it at zero opacity. Ours is inert: it is
+                aria-hidden and takes no pointer events, so both the click
+                and the accessibility tree go to the real control. */}
+            <div className="google-slot" data-testid="google-btn"
+                 aria-busy={googleBusy || undefined}>
+              <span className="google-facade" aria-hidden>
+                <GoogleMark />
+                {googleBusy ? "Waiting for Google…" : "Continue with Google"}
+              </span>
+              <div ref={googleSlot} className="google-real" /></div>
             {googleBusy && (
               <span className="faint" style={{ fontSize: 11.5, textAlign: "center" }}>
                 <Loader2 size={11} className="spin" /> Signing you in…

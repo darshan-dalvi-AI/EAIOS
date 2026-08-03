@@ -789,13 +789,31 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Sign in with Google + the verification gate ─────────────────────── */
-/* Google renders its own button into .google-slot. We only position it: the
-   markup inside is an iframe Google controls and must not be restyled — the
-   custom button that used to sit here drove One Tap, which does not work on
-   phones at all. Minimum height reserves the space so the card does not jump
-   when Google's script finishes loading. */
-.google-slot { display: flex; justify-content: center; min-height: 44px; }
-.google-slot > div { max-width: 100%; }
+/* Two buttons stacked: the one you see and the one that works.
+
+   Google's rendered button is an iframe it controls and will not let us style,
+   and the flow it drives is the only one that works on a phone. Its own
+   styling does not belong on this card. So the visible pill is .google-facade
+   — ours, matching the rest of the form — and Google's real button sits on top
+   of it at zero opacity, taking every click.
+
+   The facade is decoration: pointer-events:none and aria-hidden, so the click
+   target and the accessibility tree are both Google's real control and there
+   is no second button for a screen reader to announce. */
+.google-slot { position: relative; min-height: 44px; display: flex; justify-content: center; }
+.google-facade { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  border-radius: 999px; font-weight: 600; font-size: 13px;
+  background: #fff; color: #1f2328; border: 1px solid #dadce0; }
+/* On top, invisible, covering the pill. Only the WIDTH is forced: Google sizes
+   its button from this element (mountGoogleButton measures it), so the two
+   already agree, and forcing the height as well would squash the iframe's own
+   internal layout and shrink the real hit area rather than enlarge it. */
+.google-real { position: absolute; inset: 0; z-index: 2; opacity: 0;
+  display: flex; align-items: center; justify-content: center; }
+.google-real > div { width: 100% !important; }
+.google-slot:hover .google-facade { background: #f6f8fa; border-color: #c7cbd1; }
+.google-slot:active .google-facade { background: #eef1f4; }
 .or-rule { display: flex; align-items: center; gap: 10px; margin: 2px 0;
   color: var(--text-faint); font-size: 10.5px; }
 .or-rule::before, .or-rule::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
