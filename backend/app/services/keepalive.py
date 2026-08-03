@@ -43,9 +43,45 @@ def _host_of(url: str) -> str:
     return (urlparse(url).hostname or "").lower()
 
 
+def _own_public_url() -> str:
+    """This service's own public address, as the platform reports it.
+
+    Render sets RENDER_EXTERNAL_URL on every web service. Reading it means the
+    keep-alive knows where to find itself without being told, which matters
+    because being told is what went wrong: the configured URL named a service
+    that had since been renamed and then suspended, and the pings kept landing
+    there for hours while this one dozed off every fifteen minutes.
+    """
+    import os
+
+    return (os.environ.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+
+
+def target_url() -> str:
+    """Where the ping should actually go.
+
+    An explicit KEEPALIVE_URL wins, but only while it plausibly refers to this
+    service. If the platform tells us our own hostname and the configured URL
+    disagrees with it, the configured one is stale and pinging it does nothing
+    for our idle timer — so we ping ourselves and complain in the log.
+    """
+    configured = settings.KEEPALIVE_URL.strip()
+    own = _own_public_url()
+    if configured and own and _host_of(configured) != _host_of(own):
+        log.warning(
+            "KEEPALIVE_URL points at %r but this service is %r — pinging that host "
+            "does nothing for THIS one's idle timer, so using our own address "
+            "instead. Update KEEPALIVE_URL to stop this warning.",
+            _host_of(configured), _host_of(own))
+        return f"{own}/api/health"
+    if configured:
+        return configured
+    return f"{own}/api/health" if own else ""
+
+
 def configuration_problem() -> str:
     """Why the keep-alive will not run, in words. Empty when it is fine."""
-    url = settings.KEEPALIVE_URL.strip()
+    url = target_url()
     if not url:
         return ""                      # not configured is not a problem
     if not url.startswith(("http://", "https://")):
@@ -61,7 +97,7 @@ def configuration_problem() -> str:
 
 def enabled() -> bool:
     """Should the loop run at all?"""
-    return bool(settings.KEEPALIVE_URL.strip()) and not configuration_problem()
+    return bool(target_url()) and not configuration_problem()
 
 
 def ping_once() -> bool:
@@ -71,7 +107,7 @@ def ping_once() -> bool:
     or hanging network call cannot block the event loop that is serving real
     requests.
     """
-    url = settings.KEEPALIVE_URL.strip()
+    url = target_url()
     if not url:
         return False
     try:

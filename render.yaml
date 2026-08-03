@@ -53,8 +53,15 @@ services:
       # reaches Render's router and the app refuses one.
       # NOTE: this only keeps a running service running. Pair it with an
       # external uptime pinger, which can also wake one that has stopped.
+      # Leave this unset and the app reads RENDER_EXTERNAL_URL, which the
+      # platform sets to whatever this service's public address actually is.
+      # Naming it here is how it went wrong: the value said eaios.onrender.com
+      # long after the service became k-os and the old one was suspended, so
+      # every ping for hours went to a dead host while this one idled out on
+      # schedule. Set it only to override, and it is checked against the real
+      # hostname at runtime.
       - key: KEEPALIVE_URL
-        value: https://eaios.onrender.com/api/health
+        value: ""
       - key: KEEPALIVE_INTERVAL_MINUTES
         value: "10"
       # Public demo sandbox. Anyone can reach this deployment, so a visitor
