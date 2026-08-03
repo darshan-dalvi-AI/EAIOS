@@ -1098,16 +1098,18 @@ select.plain { background: rgba(0,0,0,.3); border: 1px solid var(--hairline); bo
 
      Inline width beats any normal stylesheet rule, so these need !important;
      that is the whole reason the panes carry class names at all. Stacking
-     keeps every pane reachable: file list on top, editor filling the rest. */
+     keeps every pane reachable: file list on top, editor filling the rest.
+
      Stacking alone was not enough. A flex item defaults to `min-width: auto`,
      which refuses to shrink below its own content, so the explorer still
      measured 486px — the min-content width of its header row — and dragged
      the whole column out with it. `min-width: 0` is what actually lets these
      panes fit, and the toolbar scrolls sideways so its buttons stay reachable
-     rather than being cut off. */
-  /* .code-root is itself a flex item of .win-body, so it needs min-width: 0
-     for the same reason its children do — without it the whole app measured
-     486px inside a 396px window no matter what the panes did. */
+     rather than being cut off.
+
+     .code-root is itself a flex item of .win-body and needs min-width: 0 for
+     the same reason its children do — without it the whole app measured 486px
+     inside a 396px window no matter what the panes did. */
   .code-root { flex-direction: column !important;
     min-width: 0 !important; width: 100% !important; max-width: 100% !important; }
   .code-root > div { min-width: 0 !important; max-width: 100%; }
